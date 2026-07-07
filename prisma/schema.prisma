@@ -46,6 +46,7 @@ model School {
   questions            Question[]
   exams                Exam[]
   assessmentWeightings AssessmentWeighting[]
+  assessmentTypes      AssessmentType[]
   reportCardTemplates  ReportCardTemplate[]
   timetablePeriods TimetablePeriod[]
   timetableEntries TimetableEntry[]
@@ -674,11 +675,25 @@ model StudentAnswer {
 // PRD 08: Results, Grading & Report Cards
 // ---------------------------------------------------------------------------
 
+model AssessmentType {
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String   // e.g. "CA1", "CA2", "CA3", "Exam"
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+  @@map("assessment_types")
+}
+
 model AssessmentWeighting {
   id               String @id @default(cuid())
   schoolId         String
-  subjectId        String? // null = school-wide default
-  assessmentTypeId String // label like "CA1", "CA2", "Exam"
+  subjectId        String?
+  assessmentTypeId String // references AssessmentType.name (string, not FK for compatibility)
   weightPercentage Float
 
   school School @relation(fields: [schoolId], references: [id])

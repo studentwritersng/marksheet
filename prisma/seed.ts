@@ -41,6 +41,16 @@ async function main() {
     },
   });
 
+  // --- Default assessment types -------------------------------------------
+  const defaultTypes = ["CA1", "CA2", "CA3", "Exam"];
+  for (let i = 0; i < defaultTypes.length; i++) {
+    await prisma.assessmentType.upsert({
+      where: { schoolId_name: { schoolId: school.id, name: defaultTypes[i] } },
+      update: { sortOrder: i + 1 },
+      create: { schoolId: school.id, name: defaultTypes[i], sortOrder: i + 1 },
+    });
+  }
+
   // --- School Admin user + staff ---------------------------------------
   const adminStaff = await prisma.staff.upsert({
     where: { schoolId_email: { schoolId: school.id, email: "admin@ums.edu.ng" } },

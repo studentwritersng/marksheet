@@ -10,16 +10,76 @@ export interface ActionState {
   success?: string;
 }
 
+// ─── Assessment Type CRUD ──────────────────────────────────────
+
+export async function createAssessmentTypeAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  const name = (formData.get("name") as string)?.trim().toUpperCase();
+  if (!name) return { error: "Assessment type name is required." };
+
+  const existing = await prisma.assessmentType.findUnique({
+    where: { schoolId_name: { schoolId: ctx.schoolId, name } },
+  });
+  if (existing) return { error: `Type "${name}" already exists.` };
+
+  const maxOrder = await prisma.assessmentType.findFirst({
+    where: { schoolId: ctx.schoolId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+
+  await prisma.assessmentType.create({
+    data: { schoolId: ctx.schoolId, name, sortOrder: (maxOrder?.sortOrder ?? 0) + 1 },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "create", entityType: "assessment_type",
+    afterValue: { name } as never,
+  });
+
+  revalidatePath("/assessment-weightings");
+  return { success: `Assessment type "${name}" created.` };
+}
+
+export async function deleteAssessmentTypeAction(
+  id: string,
+): Promise<ActionState> {
+  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  await prisma.assessmentType.delete({ where: { id } });
+  revalidatePath("/assessment-weightings");
+  return { success: "Assessment type deleted." };
+}
+
+export async function renameAssessmentTypeAction(
+  id: string,
+  name: string,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  const newName = name.trim().toUpperCase();
+  if (!newName) return { error: "Name is required." };
+
+  await prisma.assessmentType.update({ where: { id, schoolId: ctx.schoolId }, data: { name: newName } });
+  revalidatePath("/assessment-weightings");
+  return { success: `Renamed to "${newName}".` };
+}
+
+// ─── Weightings ────────────────────────────────────────────────
+
 export async function upsertWeightingAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   let ctx;
-  try {
-    ctx = await requireSchoolAdmin();
-  } catch {
-    return { error: "Not authorised." };
-  }
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
 
   const subjectId = String(formData.get("subjectId") ?? "").trim() || null;
   const assessmentTypeId = String(formData.get("assessmentTypeId") ?? "").trim();
@@ -29,7 +89,6 @@ export async function upsertWeightingAction(
     return { error: "A valid assessment type and weight (1-100) are required." };
   }
 
-  // Upsert the new/updated weighting
   await prisma.assessmentWeighting.upsert({
     where: {
       schoolId_subjectId_assessmentTypeId: {
@@ -39,25 +98,15 @@ export async function upsertWeightingAction(
       },
     },
     update: { weightPercentage },
-    create: {
-      schoolId: ctx.schoolId,
-      subjectId,
-      assessmentTypeId,
-      weightPercentage,
-    },
+    create: { schoolId: ctx.schoolId, subjectId, assessmentTypeId, weightPercentage },
   });
 
-  // Enforce: sum of active weights for this scope must be exactly 100
   const allForScope = await prisma.assessmentWeighting.findMany({
-    where: {
-      schoolId: ctx.schoolId,
-      subjectId: subjectId ?? "",
-    },
+    where: { schoolId: ctx.schoolId, subjectId: subjectId ?? "" },
   });
 
   const total = allForScope.reduce((s, w) => s + w.weightPercentage, 0);
   if (total !== 100) {
-    // Rollback by deleting the just-upserted row
     await prisma.assessmentWeighting.delete({
       where: {
         schoolId_subjectId_assessmentTypeId: {
@@ -73,10 +122,8 @@ export async function upsertWeightingAction(
   }
 
   await recordAudit({
-    schoolId: ctx.schoolId,
-    actorId: ctx.user.userId,
-    action: "upsert",
-    entityType: "assessment_weighting",
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "upsert", entityType: "assessment_weighting",
     afterValue: { subjectId, assessmentTypeId, weightPercentage } as never,
   });
 
