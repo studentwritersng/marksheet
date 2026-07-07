@@ -1,0 +1,831 @@
+// Marksheet — Nigerian Secondary School Syllabus & Examination Platform
+// Schema covers foundational modules: PRD 01 (School/Session/Term/Class),
+// PRD 02 (Staff/Roles/Assignments), PRD 03 (Students/Guardians),
+// plus cross-cutting scaffolding: multi-tenancy (school_id), audit log (PRD 11),
+// and AI provider config (PRD 14). Later PRDs extend this incrementally.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 01: School, Session & Term Management
+// ---------------------------------------------------------------------------
+
+model School {
+  id                 String   @id @default(cuid())
+  name               String
+  address            String?
+  logo               String?
+  phone              String?
+  email              String?
+  motto              String?
+  letterheadSettings Json?
+  // Configurable grading scale (e.g. A1-F9 bands). Stored as ordered JSON bands.
+  gradingScale       Json?
+  // Admission number format template, e.g. "SCH/{year}/{seq:4}"
+  admissionFormat    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  sessions             Session[]
+  subjects             Subject[]
+  staff                Staff[]
+  students             Student[]
+  users                User[]
+  auditLogs            AuditLog[]
+  syllabi              Syllabus[]
+  lessonNotes          LessonNote[]
+  questions            Question[]
+  exams                Exam[]
+  assessmentWeightings AssessmentWeighting[]
+  reportCardTemplates  ReportCardTemplate[]
+  timetablePeriods TimetablePeriod[]
+  timetableEntries TimetableEntry[]
+  classSubjects    ClassSubject[]
+
+  @@map("schools")
+}
+
+enum SessionStatus {
+  upcoming
+  active
+  closed
+}
+
+model Session {
+  id        String        @id @default(cuid())
+  schoolId  String
+  label     String // e.g. "2025/2026"
+  isCurrent Boolean       @default(false)
+  status    SessionStatus @default(upcoming)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  terms   Term[]
+  classes Class[]
+
+  @@unique([schoolId, label])
+  @@index([schoolId])
+  @@map("sessions")
+}
+
+enum TermName {
+  First
+  Second
+  Third
+}
+
+model Term {
+  id        String   @id @default(cuid())
+  sessionId String
+  name      TermName
+  startDate DateTime?
+  endDate   DateTime?
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session     Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  assignments Assignment[]
+  lessonNotes LessonNote[]
+  exams       Exam[]
+  subjectResults SubjectResult[]
+  termResults    TermResult[]
+
+  @@unique([sessionId, name])
+  @@index([sessionId])
+  @@map("terms")
+}
+
+model Class {
+  id        String   @id @default(cuid())
+  schoolId  String
+  sessionId String
+  name      String // e.g. "JSS1A"
+  level     String // e.g. "JSS1" — used for grouping/reporting
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session          Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  assignments      Assignment[]
+  students         Student[]
+  promotionsFrom   PromotionRecord[] @relation("PromotionFromClass")
+  promotionsTo     PromotionRecord[] @relation("PromotionToClass")
+  lessonNotes      LessonNote[]
+  exams            Exam[]
+  timetableEntries TimetableEntry[]
+  classSubjects     ClassSubject[]
+
+  @@unique([sessionId, name])
+  @@index([schoolId])
+  @@index([sessionId])
+  @@map("classes")
+}
+
+model PromotionRecord {
+  id           String   @id @default(cuid())
+  schoolId     String
+  fromClassId  String
+  toClassId    String?  // null when outcome is withdrawal
+  sessionFromId String
+  sessionToId   String?
+  studentIds   String[] // admission-time snapshot of promoted students
+  performedBy  String // Staff id
+  performedAt  DateTime @default(now())
+  notes        String?
+
+  fromClass Class  @relation("PromotionFromClass", fields: [fromClassId], references: [id])
+  toClass   Class? @relation("PromotionToClass", fields: [toClassId], references: [id])
+
+  @@index([schoolId])
+  @@index([fromClassId])
+  @@map("promotion_records")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 02: Staff, Roles & Permissions
+// ---------------------------------------------------------------------------
+
+model Staff {
+  id            String   @id @default(cuid())
+  schoolId      String
+  fullName      String
+  email         String
+  phone         String?
+  bioData       Json?
+  accountStatus String   @default("active") // active / suspended
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  school            School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  assignments       Assignment[]
+  user              User?
+  timetableEntries  TimetableEntry[]
+
+  @@unique([schoolId, email])
+  @@index([schoolId])
+  @@map("staff")
+}
+
+// ---------------------------------------------------------------------------
+// ClassSubject — links subjects to classes for department handling
+// ---------------------------------------------------------------------------
+
+model ClassSubject {
+  id         String @id @default(cuid())
+  schoolId   String
+  classId    String
+  subjectId  String
+  department String @default("general") // general / science / art / commercial
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([classId, subjectId])
+  @@index([schoolId])
+  @@map("class_subjects")
+}
+
+// ---------------------------------------------------------------------------
+
+model Subject {
+  id       String  @id @default(cuid())
+  schoolId String
+  name     String
+  code     String? // WAEC/NECO alignment, optional
+
+  school      School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  assignments Assignment[]
+  questions   Question[]
+  stimuli     Stimulus[]
+  questionGroups QuestionGroup[]
+  syllabi     Syllabus[]
+  lessonNotes LessonNote[]
+  exams       Exam[]
+  subjectResults SubjectResult[]
+  timetableEntries TimetableEntry[]
+  classSubjects     ClassSubject[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+  @@map("subjects")
+}
+
+enum AssignmentType {
+  subject_teacher
+  class_teacher
+  hod
+  exam_officer
+  school_admin
+  fee_status_manager
+}
+
+// Assignment = scoped, versioned, many-to-many staff role.
+// Effective permissions = union of all active assignments for current session/term.
+model Assignment {
+  id             String         @id @default(cuid())
+  schoolId       String
+  staffId        String
+  assignmentType AssignmentType
+  subjectId      String? // required for subject_teacher, hod
+  classId        String? // required for subject_teacher, class_teacher
+  sessionId      String?
+  termId         String? // null = whole session
+  isTemporary    Boolean        @default(false)
+  startDate      DateTime?
+  endDate        DateTime?
+  createdBy      String?
+  createdAt      DateTime       @default(now())
+
+  staff   Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  subject Subject? @relation(fields: [subjectId], references: [id])
+  class   Class?   @relation(fields: [classId], references: [id])
+  term    Term?    @relation(fields: [termId], references: [id])
+
+  @@index([schoolId])
+  @@index([staffId])
+  @@index([sessionId])
+  @@map("assignments")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 03: Student Management
+// ---------------------------------------------------------------------------
+
+enum StudentStatus {
+  active
+  withdrawn
+  graduated
+}
+
+model Student {
+  id              String        @id @default(cuid())
+  schoolId        String
+  admissionNumber String // unique per school, human-readable key
+  firstName       String
+  middleName      String?
+  lastName        String
+  dateOfBirth     DateTime?
+  gender          String?
+  passportPhoto   String?
+  currentClassId  String?
+  admissionDate   DateTime?
+  status          StudentStatus @default(active)
+  userId          String?       @unique // links to User for student login
+  // Extended bio-data (blood_group, genotype, previous_school, etc.) — school-configurable
+  bioData         Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  school       School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  currentClass Class?     @relation(fields: [currentClassId], references: [id])
+  user         User?      @relation(fields: [userId], references: [id])
+  guardians    Guardian[]
+  subjectResults SubjectResult[]
+  termResults    TermResult[]
+  examAttempts   ExamAttempt[]
+
+  @@unique([schoolId, admissionNumber])
+  @@index([schoolId])
+  @@index([currentClassId])
+  @@map("students")
+}
+
+model Guardian {
+  id               String  @id @default(cuid())
+  studentId        String
+  relationship     String // father / mother / guardian / other
+  fullName         String
+  phone            String?
+  email            String?
+  address          String?
+  isPrimaryContact Boolean @default(false)
+  parentUserId     String? // links to User with role=parent
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("guardians")
+}
+
+// ---------------------------------------------------------------------------
+// Authentication (platform-wide; supports Super Admin, staff, students, parents)
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  super_admin
+  staff
+  student
+  parent
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  schoolId           String? // null for super_admin (platform-level)
+  email              String   @unique
+  passwordHash       String
+  role               UserRole
+  staffId            String?  @unique // link when role = staff
+  isActive           Boolean  @default(true)
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  school School? @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  staff  Staff?  @relation(fields: [staffId], references: [id])
+  student Student?
+
+  @@index([schoolId])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 11: Audit Logging (cross-cutting scaffold)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id                     String   @id @default(cuid())
+  schoolId               String?
+  actorId                String? // staff/admin/user id
+  actorAssignmentContext String? // which role/assignment they acted under
+  action                 String // create / update / delete / approve / promote / etc.
+  entityType             String // e.g. subject_result, question, student
+  entityId               String?
+  beforeValue            Json?
+  afterValue             Json?
+  timestamp              DateTime @default(now())
+
+  school School? @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 14: AI Provider Configuration (Super Admin only)
+// ---------------------------------------------------------------------------
+
+model AiProviderConfig {
+  id               String   @id @default(cuid())
+  label            String
+  baseUrl          String
+  apiKeyEncrypted  String // encrypted at rest, never returned plaintext
+  defaultModelName String
+  isActive         Boolean  @default(false)
+  createdBy        String?
+  createdAt        DateTime @default(now())
+
+  @@map("ai_provider_configs")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 04: Syllabus & Lesson Notes
+// ---------------------------------------------------------------------------
+
+model Syllabus {
+  id          String   @id @default(cuid())
+  schoolId    String
+  subjectId   String
+  classLevel  String // e.g. "JSS1", "SS2" — level-wide, not per-arm
+  sessionId   String
+  file        String? // uploaded document path/URL
+  parsedTopics Json? // extracted/structured topic list
+  createdAt   DateTime @default(now())
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([schoolId, subjectId, classLevel, sessionId])
+  @@index([schoolId])
+  @@map("syllabi")
+}
+
+model LessonNote {
+  id         String   @id @default(cuid())
+  schoolId   String
+  subjectId  String
+  classId    String
+  termId     String
+  syllabusId String?
+  topic      String
+  content    String   // rich text (HTML/markdown)
+  source     String   // manual / ai_generated
+  status     String   @default("draft") // draft / published
+  createdBy  String   // staff id
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  school  School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject Subject  @relation(fields: [subjectId], references: [id])
+  class   Class    @relation(fields: [classId], references: [id])
+  term    Term     @relation(fields: [termId], references: [id])
+
+  @@index([schoolId])
+  @@index([subjectId, classId, termId])
+  @@map("lesson_notes")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 05: Question Bank & Exam Setup
+// ---------------------------------------------------------------------------
+
+model Stimulus {
+  id        String  @id @default(cuid())
+  type      String // passage / image / table / audio
+  content   String
+  subjectId String
+  reusable  Boolean @default(false)
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  groups  QuestionGroup[]
+
+  @@index([subjectId])
+  @@map("stimuli")
+}
+
+model QuestionGroup {
+  id                    String  @id @default(cuid())
+  stimulusId            String?
+  subjectId             String
+  internallyShufflable  Boolean @default(false)
+
+  stimulus   Stimulus?  @relation(fields: [stimulusId], references: [id])
+  subject    Subject    @relation(fields: [subjectId], references: [id])
+  questions  Question[]
+
+  @@index([subjectId])
+  @@map("question_groups")
+}
+
+enum QuestionType {
+  mcq
+  essay
+}
+
+enum QuestionStatus {
+  draft
+  pending_review
+  approved
+  archived
+}
+
+model Question {
+  id              String         @id @default(cuid())
+  schoolId        String
+  subjectId       String
+  classLevel      String?
+  type            QuestionType
+  questionGroupId String?
+  text            String
+  marks           Float          @default(1)
+  difficulty      String? // optional tag
+  source          String         // manual / csv_import / ai_generated
+  status          QuestionStatus @default(draft)
+  createdBy       String
+  lessonNoteId    String? // provenance if AI-generated
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  school        School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject       Subject         @relation(fields: [subjectId], references: [id])
+  group         QuestionGroup?  @relation(fields: [questionGroupId], references: [id])
+  mcqOptions    McqOption[]
+  essaySpec     EssayGradingSpec?
+  examQuestions ExamQuestion[]
+  studentAnswers StudentAnswer[]
+
+  @@index([schoolId])
+  @@index([subjectId, status])
+  @@map("questions")
+}
+
+model McqOption {
+  id         String  @id @default(cuid())
+  questionId String
+  optionText String
+  isCorrect  Boolean @default(false)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@map("mcq_options")
+}
+
+model EssayGradingSpec {
+  id           String     @id @default(cuid())
+  questionId   String     @unique
+  modelAnswer  String
+  rubricPoints Json // array of { description, mark }
+  // AI grading prompt overrides, if any
+  gradingPrompt String?
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  @@map("essay_grading_specs")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 06: Exam Delivery
+// ---------------------------------------------------------------------------
+
+enum ExamAttemptType {
+  original
+  resit
+}
+
+model Exam {
+  id                String  @id @default(cuid())
+  schoolId          String
+  subjectId         String
+  classId           String
+  termId            String
+  assessmentTypeId  String
+  durationMinutes   Int
+  shuffleEnabled    Boolean @default(true)
+  attemptType       ExamAttemptType @default(original)
+  originalExamId    String? // set only for resits
+  createdAt         DateTime @default(now())
+
+  school  School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+  term    Term    @relation(fields: [termId], references: [id])
+  examQuestions ExamQuestion[]
+  attempts      ExamAttempt[]
+
+  @@index([schoolId])
+  @@index([subjectId, classId, termId])
+  @@map("exams")
+}
+
+model ExamQuestion {
+  id         String @id @default(cuid())
+  examId     String
+  questionId String
+
+  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@index([examId])
+  @@map("exam_questions")
+}
+
+enum AttemptStatus {
+  in_progress
+  submitted
+  absent
+  pending_resit
+}
+
+enum SyncStatus {
+  local_only
+  queued
+  synced
+}
+
+model ExamAttempt {
+  id         String        @id @default(cuid())
+  examId     String
+  studentId  String
+  startedAt  DateTime      @default(now())
+  submittedAt DateTime?
+  status     AttemptStatus @default(in_progress)
+  syncStatus SyncStatus    @default(synced) // local_only for offline hub
+  createdAt  DateTime      @default(now())
+
+  exam     Exam            @relation(fields: [examId], references: [id])
+  student  Student         @relation(fields: [studentId], references: [id])
+  answers  StudentAnswer[]
+
+  @@index([examId])
+  @@index([studentId])
+  @@map("exam_attempts")
+}
+
+model StudentAnswer {
+  id                    String   @id @default(cuid())
+  attemptId             String
+  questionId            String
+  mcqSelectedOptionId   String?
+  essayResponseText     String?
+  localChecksum         String?
+  gradedScore           Float?   // null until graded
+  // AI essay grading fields (PRD 07)
+  aiSuggestedScore      Float?
+  aiReasoning           String?
+  rubricPointMatches    Json?
+  finalScore            Float?   // null until teacher reviews
+  gradedBy              String?  // teacher id once reviewed
+  gradingStatus         String   @default("ai_pending") // ai_pending / ai_complete / teacher_reviewed
+  createdAt             DateTime @default(now())
+
+  attempt ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@index([attemptId])
+  @@map("student_answers")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 08: Results, Grading & Report Cards
+// ---------------------------------------------------------------------------
+
+model AssessmentWeighting {
+  id               String @id @default(cuid())
+  schoolId         String
+  subjectId        String? // null = school-wide default
+  assessmentTypeId String // label like "CA1", "CA2", "Exam"
+  weightPercentage Float
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, subjectId, assessmentTypeId])
+  @@map("assessment_weightings")
+}
+
+model SubjectResult {
+  id              String   @id @default(cuid())
+  studentId       String
+  subjectId       String
+  termId          String
+
+  subject Subject @relation(fields: [subjectId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+  term    Term    @relation(fields: [termId], references: [id])
+  assessmentScores Json?  // per assessment type: { raw, weight, weighted }
+  totalScore      Float?
+  grade           String?
+  subjectPosition Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([studentId, subjectId, termId])
+  @@index([termId])
+  @@map("subject_results")
+}
+
+model TermResult {
+  id                String   @id @default(cuid())
+  studentId         String
+  termId            String
+
+  student Student @relation(fields: [studentId], references: [id])
+  term    Term    @relation(fields: [termId], references: [id])
+  verificationCodes VerificationCode[]
+
+  overallAverage    Float?
+  overallPosition   Int?
+  attendanceSummary Json?
+  affectiveRatings  Json?   // school-configurable list
+  teacherComment    String?
+  principalComment  String?
+  cumulativeAverage Float?
+  status            String   @default("computed") // computed / finalised / withheld
+  finalizedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([studentId, termId])
+  @@index([termId])
+  @@map("term_results")
+}
+
+model ReportCardTemplate {
+  id          String   @id @default(cuid())
+  schoolId    String
+  appliesTo   String? // e.g. "junior", "senior", or class level
+  layoutConfig Json?  // which fields appear, ordering, branding
+  sessionId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
+  @@map("report_card_templates")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 09: Result Verification Portal
+// ---------------------------------------------------------------------------
+
+model VerificationCode {
+  id                    String   @id @default(cuid())
+  termResultId          String
+  code                  String   @unique
+  status                String   @default("active") // active / revoked
+  generatedAt           DateTime @default(now())
+  regeneratedReason     String?
+
+  termResult TermResult @relation(fields: [termResultId], references: [id])
+
+  @@index([code])
+  @@index([termResultId])
+  @@map("verification_codes")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 10: Timetable
+// ---------------------------------------------------------------------------
+
+model TimetablePeriod {
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String   // e.g. "Period 1"
+  startTime String   // e.g. "08:00"
+  endTime   String   // e.g. "08:40"
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  entries TimetableEntry[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+  @@map("timetable_periods")
+}
+
+model TimetableEntry {
+  id         String @id @default(cuid())
+  schoolId   String
+  classId    String
+  periodId   String
+  subjectId  String
+  staffId    String
+  dayOfWeek  Int    // 0=Monday .. 4=Friday
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id])
+  period  TimetablePeriod @relation(fields: [periodId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+  staff   Staff   @relation(fields: [staffId], references: [id])
+
+  @@unique([classId, periodId, dayOfWeek])
+  @@index([classId, dayOfWeek])
+  @@index([schoolId])
+  @@map("timetable_entries")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 12: Fee Status Check
+// ---------------------------------------------------------------------------
+
+model FeeStatus {
+  id        String   @id @default(cuid())
+  studentId String
+  termId    String
+  status    String   @default("not_cleared") // cleared / not_cleared / partial
+  setBy     String?  // admin/bursar staff id
+  notes     String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, termId])
+  @@index([termId])
+  @@map("fee_statuses")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 13: Parent Portal & Notifications
+// ---------------------------------------------------------------------------
+
+model ParentAccount {
+  id                     String   @id @default(cuid())
+  guardianId             String   // links to Guardian entity (PRD 03)
+  email                  String
+  passwordHash           String
+  phone                  String?
+  notificationPreferences Json?   // which channels/events
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([email])
+  @@index([guardianId])
+  @@map("parent_accounts")
+}
+
+model Notification {
+  id              String   @id @default(cuid())
+  schoolId        String?
+  recipientType   String   // parent / staff
+  recipientId     String
+  channel         String   // sms / push / in_app / email
+  eventType       String   // result_published / fee_status_changed / general_notice / exam_graded
+  title           String?
+  content         String
+  isRead          Boolean  @default(false)
+  readAt          DateTime?
+  sentAt          DateTime @default(now())
+  deliveryStatus  String   @default("pending") // pending / sent / failed / read
+
+  @@index([recipientType, recipientId])
+  @@map("notifications")
+}

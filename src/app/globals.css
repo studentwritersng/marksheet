@@ -1,0 +1,194 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "IBM Plex Sans", sans-serif;
+
+  /* Primary */
+  --color-primary: #002046;
+  --color-primary-container: #1b365d;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #87a0cd;
+  --color-primary-fixed: #d6e3ff;
+  --color-primary-fixed-dim: #aec7f7;
+  --color-on-primary-fixed: #001b3d;
+  --color-on-primary-fixed-variant: #2e476f;
+  --color-inverse-primary: #aec7f7;
+
+  /* Secondary */
+  --color-secondary: #3f683e;
+  --color-secondary-container: #bdecb7;
+  --color-secondary-fixed: #c0efba;
+  --color-secondary-fixed-dim: #a4d29f;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #436c42;
+  --color-on-secondary-fixed: #002105;
+  --color-on-secondary-fixed-variant: #274f28;
+
+  /* Tertiary */
+  --color-tertiary: #321c00;
+  --color-tertiary-container: #4f2f00;
+  --color-tertiary-fixed: #ffddb9;
+  --color-tertiary-fixed-dim: #f1bd81;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #c6965e;
+  --color-on-tertiary-fixed: #2b1700;
+  --color-on-tertiary-fixed-variant: #623f0f;
+
+  /* Surface / Background */
+  --color-surface: #faf8ff;
+  --color-background: #faf8ff;
+  --color-surface-bright: #faf8ff;
+  --color-surface-dim: #d5d9eb;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f3ff;
+  --color-surface-container: #e9edff;
+  --color-surface-container-high: #e3e7fa;
+  --color-surface-container-highest: #dee2f4;
+  --color-surface-variant: #dee2f4;
+  --color-on-surface: #161b28;
+  --color-on-surface-variant: #44474e;
+  --color-inverse-surface: #2b303e;
+  --color-inverse-on-surface: #eef0ff;
+  --color-surface-tint: #465f88;
+
+  /* Outline */
+  --color-outline: #74777f;
+  --color-outline-variant: #c4c6cf;
+
+  /* Error */
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  /* Spacing */
+  --spacing-unit: 4px;
+  --spacing-stack-sm: 8px;
+  --spacing-stack-md: 16px;
+  --spacing-stack-lg: 32px;
+  --spacing-gutter: 24px;
+  --spacing-margin-mobile: 16px;
+  --spacing-margin-desktop: 40px;
+  --spacing-container-max: 1280px;
+
+  /* Border Radius */
+  --radius-default: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+
+  /* Font sizes */
+  --font-size-display: 48px;
+  --font-size-display--line-height: 1.2;
+  --font-size-display--letter-spacing: -0.02em;
+  --font-size-display--font-weight: 600;
+
+  --font-size-headline-lg: 32px;
+  --font-size-headline-lg--line-height: 40px;
+  --font-size-headline-lg--letter-spacing: -0.01em;
+  --font-size-headline-lg--font-weight: 600;
+
+  --font-size-headline-md: 24px;
+  --font-size-headline-md--line-height: 32px;
+  --font-size-headline-md--font-weight: 500;
+
+  --font-size-headline-sm: 20px;
+  --font-size-headline-sm--line-height: 28px;
+  --font-size-headline-sm--font-weight: 500;
+
+  --font-size-body-lg: 18px;
+  --font-size-body-lg--line-height: 28px;
+  --font-size-body-lg--font-weight: 400;
+
+  --font-size-body-md: 16px;
+  --font-size-body-md--line-height: 24px;
+  --font-size-body-md--font-weight: 400;
+
+  --font-size-body-sm: 14px;
+  --font-size-body-sm--line-height: 20px;
+  --font-size-body-sm--font-weight: 400;
+
+  --font-size-label-md: 14px;
+  --font-size-label-md--line-height: 20px;
+  --font-size-label-md--letter-spacing: 0.01em;
+  --font-size-label-md--font-weight: 500;
+
+  --font-size-label-sm: 12px;
+  --font-size-label-sm--line-height: 16px;
+  --font-size-label-sm--font-weight: 600;
+
+  /* Mobile variant */
+  --font-size-headline-lg-mobile: 24px;
+  --font-size-headline-lg-mobile--line-height: 32px;
+  --font-size-headline-lg-mobile--font-weight: 600;
+}
+
+body {
+  font-family: "IBM Plex Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #faf8ff;
+  color: #161b28;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c4c6cf;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #74777f;
+}
+
+::selection {
+  background: #d6e3ff;
+  color: #001b3d;
+}
+
+/* Light card — a soft pastel card for dashboards and stats */
+.card-light {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.card-light-blue {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+.card-light-green {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.card-light-amber {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.card-light-rose {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+.card-light-purple {
+  background: #faf5ff;
+  border-color: #e9d5ff;
+}
+
+@media print {
+  body {
+    background-color: white;
+    margin: 0;
+    padding: 0;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

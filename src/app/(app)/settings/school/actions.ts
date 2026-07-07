@@ -1,0 +1,48 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { recordAudit } from "@/lib/audit";
+
+export interface SchoolSettingsState {
+  error?: string;
+  success?: string;
+}
+
+export async function updateSchoolSettingsAction(
+  _prev: SchoolSettingsState,
+  formData: FormData,
+): Promise<SchoolSettingsState> {
+  let ctx;
+  try {
+    ctx = await requireSchoolAdmin();
+  } catch {
+    return { error: "Not authorised." };
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return { error: "School name is required." };
+
+  const address = String(formData.get("address") ?? "").trim() || null;
+  const logo = String(formData.get("logo") ?? "").trim() || null;
+  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const email = String(formData.get("email") ?? "").trim() || null;
+  const motto = String(formData.get("motto") ?? "").trim() || null;
+
+  await prisma.school.update({
+    where: { id: ctx.schoolId },
+    data: { name, address, logo, phone, email, motto },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "update",
+    entityType: "school_settings",
+    afterValue: { name, address, phone, email } as never,
+  });
+
+  revalidatePath("/settings/school");
+  return { success: "School settings updated." };
+}

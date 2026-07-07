@@ -1,0 +1,127 @@
+import { redirect, notFound } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { prisma } from "@/lib/prisma";
+import { ExamTakingView } from "../exam-taking-view";
+
+export default async function ExamTakePage(props: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await props.params;
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) redirect("/login");
+
+  const exam = await prisma.exam.findUnique({
+    where: { id },
+    include: {
+      subject: { select: { name: true } },
+      class: { select: { name: true } },
+      term: true,
+      examQuestions: {
+        include: {
+          question: {
+            include: {
+              mcqOptions: { select: { id: true, optionText: true } },
+              essaySpec: { select: { modelAnswer: true } },
+            },
+          },
+        },
+        orderBy: { questionId: "asc" },
+      },
+    },
+  });
+  if (!exam || exam.schoolId !== user.schoolId) notFound();
+
+  // Find student record for this user
+  const student = await prisma.student.findFirst({
+    where: { schoolId: user.schoolId, currentClassId: exam.classId },
+  });
+  if (!student) {
+    return (
+      <div className="flex flex-col gap-stack-lg">
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 text-center">
+          <p className="font-body-md text-body-md text-on-surface-variant">You are not enrolled in this class.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const existingAttempt = await prisma.examAttempt.findFirst({
+    where: { examId: id, studentId: student.id },
+    include: { answers: true },
+  });
+
+  if (existingAttempt?.status === "submitted") {
+    return <SubmittedView exam={exam} attempt={existingAttempt} />;
+  }
+
+  const questions = exam.examQuestions.map((eq) => ({
+    id: eq.question.id,
+    text: eq.question.text,
+    type: eq.question.type,
+    marks: eq.question.marks,
+    mcqOptions: eq.question.mcqOptions,
+    hasModelAnswer: !!eq.question.essaySpec,
+  }));
+
+  return (
+    <ExamTakingView
+      examId={exam.id}
+      studentId={student.id}
+      attemptId={existingAttempt?.id}
+      subjectName={exam.subject.name}
+      className={exam.class.name}
+      assessmentTypeId={exam.assessmentTypeId}
+      durationMinutes={exam.durationMinutes}
+      termName={`${exam.term.name}`}
+      questions={questions}
+    />
+  );
+}
+
+async function SubmittedView({
+  exam,
+  attempt,
+}: {
+  exam: any;
+  attempt: any;
+}) {
+  const mcqCorrect = attempt.answers.filter((a: any) => {
+    const eq = exam.examQuestions.find((e: any) => e.questionId === a.questionId);
+    if (!eq || eq.question.type !== "mcq") return false;
+    const correct = eq.question.mcqOptions.find((o: any) => o.id === a.mcqSelectedOptionId)?.isCorrect;
+    return correct;
+  }).length;
+
+  const totalMcq = attempt.answers.filter((a: any) => {
+    const eq = exam.examQuestions.find((e: any) => e.questionId === a.questionId);
+    return eq?.question.type === "mcq";
+  }).length;
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-8 text-center">
+        <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-secondary-container flex items-center justify-center">
+          <span className="material-symbols-outlined text-[32px] text-on-secondary-container">check_circle</span>
+        </div>
+        <h2 className="font-headline-md text-headline-md text-on-surface">Exam Submitted</h2>
+        <p className="font-body-md text-body-md text-on-surface-variant mt-2">
+          {exam.subject.name} · {exam.assessmentTypeId}
+        </p>
+        {totalMcq > 0 && (
+          <p className="mt-4 font-headline-sm text-headline-sm text-on-surface">
+            MCQ Score: {mcqCorrect}/{totalMcq}
+          </p>
+        )}
+        <p className="mt-2 font-body-sm text-body-sm text-on-surface-variant">
+          Essay answers will be graded shortly.
+        </p>
+        <a
+          href="/exams"
+          className="mt-6 inline-block bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container transition-colors"
+        >
+          Back to Exams
+        </a>
+      </div>
+    </div>
+  );
+}
