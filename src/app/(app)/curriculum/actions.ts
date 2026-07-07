@@ -26,11 +26,9 @@ export async function upsertCurriculumTopicAction(
   }
 
   // Check if a system default exists for this key
-  const existing = await prisma.curriculumTopic.findUnique({
+  const existing = await prisma.curriculumTopic.findFirst({
     where: {
-      classLevel_term_subject_week_schoolId: {
-        classLevel, term, subject, week, schoolId: null,
-      },
+      classLevel, term, subject, week, schoolId: null,
     },
   });
 

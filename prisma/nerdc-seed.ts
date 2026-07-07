@@ -50,7 +50,7 @@ export const nerdcSeedTopics: {
     ["THIRD", 13, "Closing", []],
   ] as const).map(([term, week, topic, subTopics]) => ({
     classLevel: "JSS1", term, subject: "English Studies",
-    week, topic, subTopics: subTopics as string[],
+    week, topic, subTopics: subTopics as unknown as string[],
   })),
 
   // ─── JSS1 Mathematics ──────────────────────────────────────
@@ -90,7 +90,7 @@ export const nerdcSeedTopics: {
     ["THIRD", 11, "Revision & Exams", []],
   ] as const).map(([term, week, topic, subTopics]) => ({
     classLevel: "JSS1", term, subject: "Mathematics",
-    week, topic, subTopics: subTopics as string[],
+    week, topic, subTopics: subTopics as unknown as string[],
   })),
 
   // ─── JSS1 Physical and Health Education ────────────────────
@@ -130,6 +130,6 @@ export const nerdcSeedTopics: {
     ["THIRD", 11, "Revision & Examination", []],
   ] as const).map(([term, week, topic, subTopics]) => ({
     classLevel: "JSS1", term, subject: "Physical and Health Education",
-    week, topic, subTopics: subTopics as string[],
+    week, topic, subTopics: subTopics as unknown as string[],
   })),
 ];
