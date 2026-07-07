@@ -421,15 +421,16 @@ model Syllabus {
 // ---------------------------------------------------------------------------
 
 model CurriculumTopic {
-  id         String  @id @default(cuid())
-  classLevel String  // JSS1 / JSS2 / JSS3 / SS1 / SS2 / SS3
-  term       String  // FIRST / SECOND / THIRD
-  subject    String  // subject name (NERDC standard name)
-  week       Int
-  topic      String
-  subTopics  Json?   // array of sub-topics / details
-  isSystem   Boolean @default(true)  // true = NERDC default, false = school override
-  schoolId   String? // null for NERDC defaults; set when a school overrides
+  id                   String  @id @default(cuid())
+  classLevel           String  // JSS1 / JSS2 / JSS3 / SS1 / SS2 / SS3
+  term                 String  // FIRST / SECOND / THIRD
+  subject              String  // subject name (NERDC standard name)
+  week                 Int
+  topic                String
+  subTopics            Json?   // array of sub-topics / details
+  behaviouralObjectives Json?  // array of behavioural objective strings
+  isSystem             Boolean @default(true)  // true = NERDC default, false = school override
+  schoolId             String? // null for NERDC defaults; set when a school overrides
 
   @@unique([classLevel, term, subject, week, schoolId])
   @@index([classLevel, subject])

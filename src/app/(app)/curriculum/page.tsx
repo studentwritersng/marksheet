@@ -22,16 +22,25 @@ export default async function CurriculumPage(props: {
   const selectedTerm = sp.term || "FIRST";
   const selectedSubject = sp.subject || "";
 
-  // Get all distinct subjects for this class level from the curriculum
+  // Get all subjects the school has (for the add-new dropdown)
+  const schoolSubjects = await prisma.subject.findMany({
+    where: { schoolId: user.schoolId },
+    select: { name: true },
+    orderBy: { name: "asc" },
+  });
+  const allSubjectNames = schoolSubjects.map((s) => s.name);
+
+  // Also get subjects from curriculum for the filter
   const subjectsRaw = await prisma.curriculumTopic.findMany({
     where: { classLevel: selectedClass, schoolId: null },
     select: { subject: true },
     distinct: ["subject"],
     orderBy: { subject: "asc" },
   });
-  const subjects = subjectsRaw.map((s) => s.subject);
+  const curriculumSubjects = subjectsRaw.map((s) => s.subject);
+  const filterSubjects = curriculumSubjects.length > 0 ? curriculumSubjects : allSubjectNames;
 
-  const effectiveSubject = selectedSubject || subjects[0] || "";
+  const effectiveSubject = selectedSubject || filterSubjects[0] || "";
 
   // Get topics: system defaults + school overrides
   const systemTopics = await prisma.curriculumTopic.findMany({
@@ -45,9 +54,7 @@ export default async function CurriculumPage(props: {
   });
   const overrideMap = new Map(overrideTopics.map((t) => [t.week, t]));
 
-  // Merge: overrides take precedence
   const merged = systemTopics.map((sys) => overrideMap.get(sys.week) ?? sys);
-  // Add any extra weeks from overrides not in system
   for (const ov of overrideTopics) {
     if (!systemTopics.some((s) => s.week === ov.week)) {
       merged.push(ov);
@@ -62,14 +69,15 @@ export default async function CurriculumPage(props: {
       </h2>
       <p className="font-body-md text-body-md text-on-surface-variant mt-1">
         Reference syllabus from the Nigerian Educational Research and Development Council.
-        School admins can override any topic for customisation.
+        School admins can add new topics or override existing ones.
       </p>
 
       <div className="mt-6">
         <CurriculumView
           classLevels={classLevels}
           terms={terms}
-          subjects={subjects}
+          subjects={filterSubjects}
+          allSubjects={allSubjectNames}
           selectedClass={selectedClass}
           selectedTerm={selectedTerm}
           selectedSubject={effectiveSubject}
@@ -78,6 +86,7 @@ export default async function CurriculumPage(props: {
             week: t.week,
             topic: t.topic,
             subTopics: (t.subTopics as string[]) ?? [],
+            behaviouralObjectives: (t.behaviouralObjectives as string[]) ?? [],
             isOverride: !t.isSystem && t.schoolId !== null,
             isEditable: t.schoolId === null || t.schoolId === user.schoolId,
           }))}

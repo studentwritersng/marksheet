@@ -20,6 +20,7 @@ export async function upsertCurriculumTopicAction(
   const week = parseInt(formData.get("week") as string);
   const topic = (formData.get("topic") as string).trim();
   const subTopicsStr = (formData.get("subTopics") as string)?.trim() || "";
+  const objectivesStr = (formData.get("behaviouralObjectives") as string)?.trim() || "";
 
   if (!classLevel || !term || !subject || !week || !topic) {
     return { error: "Class level, term, subject, week, and topic are required." };
@@ -33,6 +34,7 @@ export async function upsertCurriculumTopicAction(
   });
 
   const subTopics = subTopicsStr ? subTopicsStr.split("\n").map((s) => s.trim()).filter(Boolean) : [];
+  const behaviouralObjectives = objectivesStr ? objectivesStr.split("\n").map((s) => s.trim()).filter(Boolean) : [];
 
   if (existing) {
     // Create a school override (keep system default untouched)
@@ -42,10 +44,10 @@ export async function upsertCurriculumTopicAction(
           classLevel, term, subject, week, schoolId: ctx.schoolId,
         },
       },
-      update: { topic, subTopics, isSystem: false },
+      update: { topic, subTopics, behaviouralObjectives, isSystem: false },
       create: {
         classLevel, term, subject, week,
-        topic, subTopics, isSystem: false,
+        topic, subTopics, behaviouralObjectives, isSystem: false,
         schoolId: ctx.schoolId,
       },
     });
@@ -57,10 +59,10 @@ export async function upsertCurriculumTopicAction(
           classLevel, term, subject, week, schoolId: ctx.schoolId,
         },
       },
-      update: { topic, subTopics, isSystem: false },
+      update: { topic, subTopics, behaviouralObjectives, isSystem: false },
       create: {
         classLevel, term, subject, week,
-        topic, subTopics, isSystem: false,
+        topic, subTopics, behaviouralObjectives, isSystem: false,
         schoolId: ctx.schoolId,
       },
     });
