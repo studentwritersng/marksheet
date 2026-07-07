@@ -12,6 +12,13 @@ interface NoteVM {
   source: string;
   status: string;
   createdAt: string;
+  previousKnowledge: string | null;
+  introduction: string | null;
+  content: string | null;
+  evaluation: string | null;
+  summary: string | null;
+  assignment: string | null;
+  behaviouralObjectives: string[] | null;
 }
 
 export function LessonNotesList({ notes }: { notes: NoteVM[] }) {
@@ -63,7 +70,7 @@ export function LessonNotesList({ notes }: { notes: NoteVM[] }) {
                   <button
                     onClick={(e) => handlePublish(n.id, e)}
                     disabled={pending}
-                    className="rounded bg-primary px-2 py-1 font-label-sm text-label-sm text-on-primary hover:bg-primary-container disabled:opacity-60"
+                    className="rounded bg-[#002046] px-2 py-1 font-label-sm text-label-sm text-white hover:bg-[#003366] disabled:opacity-60"
                   >
                     Publish
                   </button>
@@ -72,18 +79,38 @@ export function LessonNotesList({ notes }: { notes: NoteVM[] }) {
             </div>
 
             {isExpanded && (
-              <div className="mt-4 border-t border-outline-variant pt-4" onClick={(e) => e.stopPropagation()}>
+              <div className="mt-4 border-t border-outline-variant pt-4 space-y-4" onClick={(e) => e.stopPropagation()}>
                 <p className="font-label-sm text-label-sm text-on-surface-variant">Created: {new Date(n.createdAt).toLocaleDateString()}</p>
-                {/* Simulated content preview */}
-                <div className="prose prose-sm mt-3 max-w-none font-body-sm text-body-sm leading-relaxed text-on-surface">
-                  <p>Objectives: The students should understand the core concepts of {n.topic}.</p>
-                  <p>Content development is fully managed under the lesson notes entity.</p>
-                </div>
+
+                {n.behaviouralObjectives && n.behaviouralObjectives.length > 0 && (
+                  <Section title="Behavioural Objectives">
+                    <ul className="list-disc pl-5 space-y-1">
+                      {n.behaviouralObjectives.map((obj, i) => <li key={i}>{obj}</li>)}
+                    </ul>
+                  </Section>
+                )}
+
+                {n.previousKnowledge && <Section title="Previous Knowledge"><p>{n.previousKnowledge}</p></Section>}
+                {n.introduction && <Section title="Introduction / Set Induction"><p>{n.introduction}</p></Section>}
+                {n.content && <Section title="Content / Students' Note"><p className="whitespace-pre-wrap">{n.content}</p></Section>}
+
+                {n.evaluation && <Section title="Evaluation"><p className="whitespace-pre-wrap">{n.evaluation}</p></Section>}
+                {n.summary && <Section title="Summary / Conclusion"><p>{n.summary}</p></Section>}
+                {n.assignment && <Section title="Assignment / Homework"><p className="whitespace-pre-wrap">{n.assignment}</p></Section>}
               </div>
             )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h4 className="font-label-md text-label-md text-on-surface font-semibold mb-1">{title}</h4>
+      <div className="font-body-sm text-body-sm text-on-surface leading-relaxed">{children}</div>
     </div>
   );
 }

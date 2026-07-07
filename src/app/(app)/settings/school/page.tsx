@@ -30,6 +30,8 @@ export default async function SchoolSettingsPage() {
             name: school.name,
             address: school.address ?? "",
             logo: school.logo ?? "",
+            signature: school.signature ?? "",
+            stamp: school.stamp ?? "",
             phone: school.phone ?? "",
             email: school.email ?? "",
             motto: school.motto ?? "",

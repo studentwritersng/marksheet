@@ -26,13 +26,15 @@ export async function updateSchoolSettingsAction(
 
   const address = String(formData.get("address") ?? "").trim() || null;
   const logo = String(formData.get("logo") ?? "").trim() || null;
+  const signature = String(formData.get("signature") ?? "").trim() || null;
+  const stamp = String(formData.get("stamp") ?? "").trim() || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const email = String(formData.get("email") ?? "").trim() || null;
   const motto = String(formData.get("motto") ?? "").trim() || null;
 
   await prisma.school.update({
     where: { id: ctx.schoolId },
-    data: { name, address, logo, phone, email, motto },
+    data: { name, address, logo, signature, stamp, phone, email, motto },
   });
 
   await recordAudit({

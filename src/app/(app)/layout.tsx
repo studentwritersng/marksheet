@@ -6,6 +6,7 @@ import { buildNav } from "@/lib/nav";
 import { logoutAction } from "@/lib/auth/actions";
 import { NotificationBell } from "./notification-bell";
 import { prisma } from "@/lib/prisma";
+import { MobileSidebar } from "./mobile-sidebar";
 
 export default async function AppLayout({
   children,
@@ -85,11 +86,8 @@ export default async function AppLayout({
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top nav */}
         <header className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-16 bg-surface-container-lowest border-b border-outline-variant shrink-0 z-10 sticky top-0">
-          {/* Mobile brand */}
-          <div className="md:hidden flex items-center gap-2 text-primary font-headline-md text-headline-md font-bold">
-            <span className="material-symbols-outlined text-[24px]">menu</span>
-            {schoolInfo?.name ?? "Marksheet"}
-          </div>
+          {/* Mobile sidebar toggle */}
+          <MobileSidebar nav={nav} schoolInfo={schoolInfo} />
           {/* Desktop title area */}
           <div className="hidden md:block" />
 

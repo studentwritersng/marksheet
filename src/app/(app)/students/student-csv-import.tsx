@@ -6,6 +6,7 @@ import {
   commitStudentCsvAction,
   type CsvActionState,
 } from "./csv-actions";
+import { downloadStudentCsvAction } from "./csv-download";
 
 const blank: CsvActionState = {};
 
@@ -16,6 +17,7 @@ export function StudentCsvImport() {
   );
   const [committing, startCommit] = useTransition();
   const [commitMsg, setCommitMsg] = useState("");
+  const [templateDownloading, setTemplateDownloading] = useState(false);
 
   const rows = preview.preview?.rows ?? [];
 
@@ -26,6 +28,19 @@ export function StudentCsvImport() {
       const res = await commitStudentCsvAction(blank, fd);
       setCommitMsg(res.success ?? res.error ?? "Done.");
     });
+  }
+
+  async function handleDownloadTemplate() {
+    setTemplateDownloading(true);
+    const { csv, filename } = await downloadStudentCsvAction();
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    setTemplateDownloading(false);
   }
 
   return (
@@ -42,13 +57,23 @@ export function StudentCsvImport() {
           required
           className="block w-full font-body-sm text-body-sm text-on-surface-variant file:mr-3 file:rounded file:border-0 file:bg-surface-container file:px-3 file:py-1.5 file:font-body-sm file:text-body-sm file:font-medium file:text-on-surface"
         />
-        <button
-          type="submit"
-          disabled={previewPending}
-          className="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60"
-        >
-          {previewPending ? "Parsing…" : "Preview"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={previewPending}
+            className="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60"
+          >
+            {previewPending ? "Parsing…" : "Preview"}
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            disabled={templateDownloading}
+            className="border border-outline-variant text-on-surface font-label-md text-label-md py-2 px-4 rounded hover:bg-surface-container disabled:opacity-60"
+          >
+            {templateDownloading ? "…" : "Download Template"}
+          </button>
+        </div>
         {preview.error && <p className="text-sm text-red-600">{preview.error}</p>}
       </form>
 
@@ -67,7 +92,9 @@ export function StudentCsvImport() {
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">#</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Adm No.</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Name</th>
+                  <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Email</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Class</th>
+                  <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Guardian</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Status</th>
                 </tr>
               </thead>
@@ -84,7 +111,9 @@ export function StudentCsvImport() {
                     <td className="px-2 py-1">
                       {r.firstName} {r.lastName}
                     </td>
+                    <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.email || "—"}</td>
                     <td className="px-2 py-1">{r.className || "—"}</td>
+                    <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.guardianName || "—"}</td>
                     <td className="px-2 py-1">
                       {r.valid ? (
                         <span className="text-green-600">OK</span>

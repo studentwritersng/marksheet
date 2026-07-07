@@ -132,21 +132,86 @@ export async function aiGenerateQuestionsAction(
 
   const note = await prisma.lessonNote.findFirst({
     where: { id: lessonNoteId, schoolId: ctx.schoolId },
-    include: { subject: true },
+    include: { subject: true, class: true },
   });
   if (!note) return { error: "Lesson note not found." };
+
+  const noteContent = [
+    note.previousKnowledge ? `Previous Knowledge: ${note.previousKnowledge}` : "",
+    note.introduction ? `Introduction: ${note.introduction}` : "",
+    note.content ? `Content: ${note.content}` : "",
+    note.evaluation ? `Evaluation: ${note.evaluation}` : "",
+    note.summary ? `Summary: ${note.summary}` : "",
+    note.assignment ? `Assignment: ${note.assignment}` : "",
+  ].filter(Boolean).join("\n\n") || note.content || "";
 
   const result = await createCompletion({
     taskType: "question_generation",
     messages: [
       {
         role: "system",
-        content:
-          "You are a Nigerian secondary school examiner. Generate 5 questions (mix of MCQ and essay) based on the lesson note content. For MCQs, mark the correct answer with [ANSWER: X]. For essay questions, provide a model answer and marking rubric.",
+        content: `You are an experienced Nigerian secondary school examiner setting essay questions for an exam. You will generate essay question(s) based on the lesson note provided below, following a specific balance between lesson-note-grounded content and topic-relevant extension.
+
+CRITICAL — GROUNDING RATIO
+You will be given a grounding_percentage value. This determines the proportion of each question's rubric points that must be:
+- "grounded": directly traceable to specific content in the provided lesson note(s).
+- "extension": correct, curriculum-appropriate content on the same topic that goes beyond what the lesson note explicitly covers.
+
+Apply this ratio per question. Distribute remainder toward grounded points.
+
+EXTENSION CONTENT BOUNDARIES
+- Must remain within the same topic — never drift into unrelated topics.
+- Must be accurate, standard curriculum knowledge appropriate to the class level.
+- If unsure, prefer a grounded point instead.
+
+LANGUAGE AND CONTEXT RULES (STRICT)
+- British English throughout (colour, organise, favourite, centre).
+- Scenarios, names, and examples must be typical of the Nigerian context.
+
+TASK
+For each question:
+1. Write a clear essay question testing understanding of the topic.
+2. Write a model answer that fully addresses the question.
+3. Write a rubric with discrete rubric points, each with mark allocation, tagged "grounded" or "extension".
+
+Do not generate multiple-choice content.
+
+Output valid JSON only, with this exact shape and no additional text before or after it:
+{
+  "questions": [
+    {
+      "question_text": "...",
+      "marks": <number>,
+      "difficulty": "<difficulty>",
+      "model_answer": "...",
+      "rubric_points": [
+        {
+          "description": "...",
+          "marks": <number>,
+          "source_type": "grounded" | "extension",
+          "lesson_note_reference": "<short reference or empty string>"
+        }
+      ],
+      "grounding_summary": {
+        "target_grounding_percentage": <number>,
+        "actual_grounded_points": <count>,
+        "actual_extension_points": <count>
+      }
+    }
+  ]
+}`,
       },
       {
         role: "user",
-        content: `Lesson note topic: "${note.topic}"\n\nContent: ${note.content.slice(0, 2000)}`,
+        content: `Subject: ${note.subject?.name ?? "the subject"}
+Class: ${note.class?.name ?? "N/A"}
+Topic: ${note.topic}
+Lesson note content: ${noteContent.slice(0, 3000)}
+
+Number of essay questions to generate: 3
+Marks per question: 5
+Grounding percentage: 75
+Target difficulty: application`,
       },
     ],
     temperature: 0.6,
@@ -177,6 +242,146 @@ export async function aiGenerateQuestionsAction(
 
   revalidatePath("/questions");
   return { success: `AI questions generated from "${note.topic}". Review in drafts.` };
+}
+
+/** Fetch published lesson notes for a subject. */
+export async function getLessonNotesBySubjectAction(subjectId: string): Promise<{ id: string; topic: string; class: string }[]> {
+  const notes = await prisma.lessonNote.findMany({
+    where: { subjectId, status: "published" },
+    include: { class: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+  return notes.map((n) => ({ id: n.id, topic: n.topic, class: n.class.name }));
+}
+
+/** AI-generate questions from multiple selected lesson notes. */
+export async function aiGenerateQuestionsMultiAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try {
+    ctx = await requireSchoolAdmin();
+  } catch {
+    return { error: "Not authorised." };
+  }
+
+  const subjectId = String(formData.get("subjectId") ?? "");
+  const noteIdsRaw = formData.getAll("lessonNoteIds") as string[];
+  if (!subjectId || noteIdsRaw.length === 0) return { error: "Select a subject and at least one lesson note." };
+
+  const notes = await prisma.lessonNote.findMany({
+    where: { id: { in: noteIdsRaw }, schoolId: ctx.schoolId, status: "published" },
+    include: { subject: true, class: true },
+  });
+  if (notes.length === 0) return { error: "No published lesson notes found." };
+
+  const combinedContent = notes.map((n) => {
+    const sections = [
+      n.previousKnowledge ? `Previous Knowledge: ${n.previousKnowledge}` : "",
+      n.introduction ? `Introduction: ${n.introduction}` : "",
+      n.content ? `Content: ${n.content}` : "",
+      n.evaluation ? `Evaluation: ${n.evaluation}` : "",
+      n.summary ? `Summary: ${n.summary}` : "",
+      n.assignment ? `Assignment: ${n.assignment}` : "",
+    ];
+    const body = sections.filter(Boolean).join("\n\n") || "";
+    return `--- Lesson Note: ${n.topic} (${n.class.name}) ---\n${body.slice(0, 2000)}`;
+  }).join("\n\n");
+
+  const subjectNames = [...new Set(notes.map((n) => n.subject?.name).filter(Boolean))].join(", ");
+
+  const result = await createCompletion({
+    taskType: "question_generation",
+    messages: [
+      {
+        role: "system",
+        content: `You are an experienced Nigerian secondary school examiner setting essay questions for an exam. You will generate essay question(s) based on the lesson notes provided below, following a specific balance between lesson-note-grounded content and topic-relevant extension.
+
+CRITICAL — GROUNDING RATIO
+You will be given a grounding_percentage value. This determines the proportion of each question's rubric points that must be:
+- "grounded": directly traceable to specific content in the provided lesson note(s).
+- "extension": correct, curriculum-appropriate content on the same topic that goes beyond what the lesson note explicitly covers.
+
+Apply this ratio per question. Distribute remainder toward grounded points.
+
+LANGUAGE AND CONTEXT RULES (STRICT)
+- British English throughout (colour, organise, favourite, centre).
+- Scenarios, names, and examples must be typical of the Nigerian context.
+
+TASK
+For each question:
+1. Write a clear essay question testing understanding of the topic.
+2. Write a model answer that fully addresses the question.
+3. Write a rubric with discrete rubric points, each with mark allocation, tagged "grounded" or "extension".
+
+Do not generate multiple-choice content.
+
+Output valid JSON only, with this exact shape and no additional text before or after it:
+{
+  "questions": [
+    {
+      "question_text": "...",
+      "marks": <number>,
+      "difficulty": "<difficulty>",
+      "model_answer": "...",
+      "rubric_points": [
+        {
+          "description": "...",
+          "marks": <number>,
+          "source_type": "grounded" | "extension",
+          "lesson_note_reference": "<short reference or empty string>"
+        }
+      ],
+      "grounding_summary": {
+        "target_grounding_percentage": <number>,
+        "actual_grounded_points": <count>,
+        "actual_extension_points": <count>
+      }
+    }
+  ]
+}`,
+      },
+      {
+        role: "user",
+        content: `Subject: ${subjectNames || "the subject"}
+Number of lesson notes provided: ${notes.length}
+Lesson note content:\n${combinedContent.slice(0, 8000)}
+
+Number of essay questions to generate: 3
+Marks per question: 5
+Grounding percentage: 75
+Target difficulty: application`,
+      },
+    ],
+    temperature: 0.6,
+  });
+
+  // Create a placeholder question record
+  await prisma.question.create({
+    data: {
+      schoolId: ctx.schoolId,
+      subjectId,
+      type: "essay",
+      text: `[AI Generated from ${notes.length} lesson notes]\n\n${result.content.slice(0, 500)}`,
+      marks: 5,
+      source: "ai_generated",
+      status: "draft",
+      createdBy: ctx.user.userId,
+    },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "create",
+    entityType: "question",
+    afterValue: { subjectId, source: "ai_generated", lessonNoteCount: notes.length } as never,
+  });
+
+  revalidatePath("/questions");
+  return { success: `AI questions generated from ${notes.length} lesson note(s). Review in drafts.` };
 }
 
 /** Approve a question (PRD 05 §3.5 — HOD/Admin). */

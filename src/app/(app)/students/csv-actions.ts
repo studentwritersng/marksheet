@@ -87,10 +87,11 @@ export async function commitStudentCsvAction(
       firstName: r.firstName,
       middleName: r.middleName || null,
       lastName: r.lastName,
+      email: r.email || null,
       gender: r.gender || null,
       currentClassId: classId,
       guardians: r.guardianName
-        ? { create: [{ fullName: r.guardianName, phone: r.guardianPhone || null, relationship: r.guardianRelation || "father" }] }
+        ? { create: [{ fullName: r.guardianName, phone: r.guardianPhone || null, email: r.guardianEmail || null, relationship: r.guardianRelation || "father" }] }
         : undefined,
     });
   }

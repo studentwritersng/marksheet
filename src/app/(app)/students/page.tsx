@@ -19,7 +19,7 @@ export default async function StudentsPage() {
   const [students, classes] = await Promise.all([
     prisma.student.findMany({
       where: { schoolId: user.schoolId },
-      include: { currentClass: { select: { name: true } } },
+      include: { currentClass: { select: { name: true } }, guardians: { select: { fullName: true, email: true } } },
       orderBy: { lastName: "asc" },
     }),
     prisma.class.findMany({
@@ -50,9 +50,12 @@ export default async function StudentsPage() {
             admissionNumber: s.admissionNumber,
             firstName: s.firstName,
             lastName: s.lastName,
+            email: s.email,
             gender: s.gender,
             status: s.status,
             className: s.currentClass?.name ?? null,
+            guardianName: s.guardians[0]?.fullName ?? null,
+            guardianEmail: s.guardians[0]?.email ?? null,
           }))}
         />
       </div>

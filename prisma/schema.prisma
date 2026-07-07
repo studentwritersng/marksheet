@@ -22,6 +22,8 @@ model School {
   name               String
   address            String?
   logo               String?
+  signature          String?  // principal/rector signature image URL
+  stamp              String?  // school stamp image URL
   phone              String?
   email              String?
   motto              String?
@@ -160,6 +162,8 @@ model Staff {
   fullName      String
   email         String
   phone         String?
+  image         String?  // profile photo URL
+  signature     String?  // signature image URL for report cards
   bioData       Json?
   accountStatus String   @default("active") // active / suspended
   createdAt     DateTime @default(now())
@@ -274,6 +278,7 @@ model Student {
   firstName       String
   middleName      String?
   lastName        String
+  email           String?       // student email
   dateOfBirth     DateTime?
   gender          String?
   passportPhoto   String?
@@ -411,17 +416,45 @@ model Syllabus {
   @@map("syllabi")
 }
 
-model LessonNote {
-  id         String   @id @default(cuid())
-  schoolId   String
-  subjectId  String
-  classId    String
-  termId     String
-  syllabusId String?
+// ---------------------------------------------------------------------------
+// CurriculumTopic — NERDC reference curriculum (pre-seeded) + school overrides
+// ---------------------------------------------------------------------------
+
+model CurriculumTopic {
+  id         String  @id @default(cuid())
+  classLevel String  // JSS1 / JSS2 / JSS3 / SS1 / SS2 / SS3
+  term       String  // FIRST / SECOND / THIRD
+  subject    String  // subject name (NERDC standard name)
+  week       Int
   topic      String
-  content    String   // rich text (HTML/markdown)
-  source     String   // manual / ai_generated
-  status     String   @default("draft") // draft / published
+  subTopics  Json?   // array of sub-topics / details
+  isSystem   Boolean @default(true)  // true = NERDC default, false = school override
+  schoolId   String? // null for NERDC defaults; set when a school overrides
+
+  @@unique([classLevel, term, subject, week, schoolId])
+  @@index([classLevel, subject])
+  @@map("curriculum_topics")
+}
+
+model LessonNote {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  subjectId             String
+  classId               String
+  termId                String
+  syllabusId            String?
+  topic                 String
+  // Structured lesson note sections
+  previousKnowledge     String?   // what students should already know
+  introduction          String?   // set induction / opening activity
+  behaviouralObjectives Json?     // array of objective strings
+  content               String?   // students' note / board summary
+  presentationSteps     Json?     // array of {step_number, objective_reference, teacher_activity, student_activity}
+  evaluation            String?   // evaluation questions
+  summary               String?   // summary / conclusion
+  assignment            String?   // homework
+  source                String    // manual / ai_generated
+  status                String    @default("draft") // draft / published
   createdBy  String   // staff id
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

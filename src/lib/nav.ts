@@ -38,10 +38,11 @@ export function buildNav(
       { label: "Assessment Weights", href: "/assessment-weightings", icon: "tune" },
       { label: "Exams", href: "/exams", icon: "quiz" },
       { label: "Timetable", href: "/timetable", icon: "calendar_view_week" },
+      { label: "Curriculum", href: "/curriculum", icon: "menu_book" },
       { label: "Results", href: "/results", icon: "analytics" },
       { label: "Audit Log", href: "/audit-log", icon: "history" },
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
-      { label: "School Settings", href: "/settings/school", icon: "settings" },
+      { label: "Settings", href: "/settings/school", icon: "settings" },
     );
   } else if (user.role === "parent") {
     items.push(
@@ -64,6 +65,9 @@ export function buildNav(
       items.push({ label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" });
     }
   }
+
+  // Profile link for all school users
+  items.push({ label: "My Profile", href: "/settings/profile", icon: "person" });
 
   return items;
 }

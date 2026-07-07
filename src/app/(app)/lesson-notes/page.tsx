@@ -51,6 +51,13 @@ export default async function LessonNotesPage() {
             source: n.source,
             status: n.status,
             createdAt: n.createdAt.toISOString(),
+            previousKnowledge: n.previousKnowledge,
+            introduction: n.introduction,
+            content: n.content,
+            evaluation: n.evaluation,
+            summary: n.summary,
+            assignment: n.assignment,
+            behaviouralObjectives: n.behaviouralObjectives as string[] | null,
           }))}
         />
       </div>

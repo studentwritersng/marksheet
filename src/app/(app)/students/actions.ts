@@ -27,11 +27,14 @@ export async function createStudentAction(
   const admissionNumber = String(formData.get("admissionNumber") ?? "").trim();
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
+  const studentEmail = String(formData.get("email") ?? "").trim().toLowerCase() || null;
   const classId = String(formData.get("classId") ?? "").trim() || null;
   const gender = String(formData.get("gender") ?? "").trim() || null;
   const guardianName = String(formData.get("guardianName") ?? "").trim();
   const guardianPhone = String(formData.get("guardianPhone") ?? "").trim();
+  const guardianEmail = String(formData.get("guardianEmail") ?? "").trim().toLowerCase() || null;
   const guardianRelation = String(formData.get("guardianRelation") ?? "").trim() || "father";
+  const passportPhoto = String(formData.get("passportPhoto") ?? "").trim() || null;
 
   if (!admissionNumber || !firstName || !lastName) {
     return { error: "Admission number, first name, and last name are required." };
@@ -63,11 +66,13 @@ export async function createStudentAction(
       admissionNumber,
       firstName,
       lastName,
+      email: studentEmail,
+      passportPhoto,
       gender,
       currentClassId: classId,
       userId: user.id,
       guardians: guardianName
-        ? { create: [{ fullName: guardianName, phone: guardianPhone || null, relationship: guardianRelation }] }
+        ? { create: [{ fullName: guardianName, phone: guardianPhone || null, email: guardianEmail, relationship: guardianRelation }] }
         : undefined,
     },
   });

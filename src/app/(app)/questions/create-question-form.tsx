@@ -1,16 +1,14 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { createQuestionAction, aiGenerateQuestionsAction, type ActionState } from "./actions";
+import { createQuestionAction, aiGenerateQuestionsMultiAction, getLessonNotesBySubjectAction, type ActionState } from "./actions";
 
 const init: ActionState = {};
 
 export function CreateQuestionForm({
   subjects,
-  lessonNotes,
 }: {
   subjects: { id: string; name: string }[];
-  lessonNotes: { id: string; topic: string }[];
 }) {
   const [tab, setTab] = useState<"mcq" | "essay" | "ai">("mcq");
   const [manualState, manualAction, manualPending] = useActionState(
@@ -20,6 +18,12 @@ export function CreateQuestionForm({
   const [aiPending, startAi] = useTransition();
   const [aiResult, setAiResult] = useState<ActionState>({});
   const [rubricPoints, setRubricPoints] = useState([{ description: "", mark: 0 }]);
+
+  // AI multi-select state
+  const [aiSubjectId, setAiSubjectId] = useState("");
+  const [subjectNotes, setSubjectNotes] = useState<{ id: string; topic: string; class: string }[]>([]);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
+  const [loadingNotes, setLoadingNotes] = useState(false);
 
   function addRubricPoint() {
     setRubricPoints([...rubricPoints, { description: "", mark: 0 }]);
@@ -31,10 +35,34 @@ export function CreateQuestionForm({
     setRubricPoints(updated);
   }
 
+  function toggleNote(id: string) {
+    const next = new Set(selectedNoteIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelectedNoteIds(next);
+  }
+
+  async function loadNotes(subjectId: string) {
+    if (!subjectId) { setSubjectNotes([]); return; }
+    setLoadingNotes(true);
+    try {
+      const notes = await getLessonNotesBySubjectAction(subjectId);
+      setSubjectNotes(notes);
+      setSelectedNoteIds(new Set());
+    } finally {
+      setLoadingNotes(false);
+    }
+  }
+
   async function handleAiGenerate(fd: FormData) {
-    const noteId = String(fd.get("lessonNoteId") ?? "");
+    if (selectedNoteIds.size === 0) {
+      setAiResult({ error: "Select at least one lesson note." });
+      return;
+    }
+    fd.set("subjectId", aiSubjectId);
+    fd.delete("lessonNoteIds");
+    for (const id of selectedNoteIds) fd.append("lessonNoteIds", id);
     setAiResult({});
-    startAi(async () => setAiResult(await aiGenerateQuestionsAction(noteId)));
+    startAi(async () => setAiResult(await aiGenerateQuestionsMultiAction({}, fd)));
   }
 
   const pending = manualPending || aiPending;
@@ -168,31 +196,50 @@ export function CreateQuestionForm({
       {tab === "ai" && (
         <form action={handleAiGenerate} className="space-y-4">
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Select a published lesson note and generate questions from its content.
+            Select a subject, then choose one or more published lesson notes to generate essay questions from.
           </p>
-          {lessonNotes.length === 0 && (
-            <p className="font-body-sm text-body-sm text-on-tertiary-container">
-              No published lesson notes available. Publish lesson notes first.
-            </p>
+          <div>
+            <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
+            <select
+              value={aiSubjectId}
+              onChange={(e) => { setAiSubjectId(e.target.value); loadNotes(e.target.value); }}
+              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
+            >
+              <option value="">Select subject…</option>
+              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          {aiSubjectId && (
+            <div>
+              <label className="mb-1 block font-label-md text-label-md text-on-surface">
+                Lesson Notes {subjectNotes.length > 0 ? `(${selectedNoteIds.size} selected)` : ""}
+              </label>
+              {loadingNotes && <p className="font-body-sm text-body-sm text-on-surface-variant">Loading lesson notes…</p>}
+              {!loadingNotes && subjectNotes.length === 0 && (
+                <p className="font-body-sm text-body-sm text-on-surface-variant">No published lesson notes for this subject.</p>
+              )}
+              {subjectNotes.length > 0 && (
+                <div className="max-h-48 overflow-y-auto border border-outline-variant rounded-lg divide-y divide-outline-variant">
+                  {subjectNotes.map((n) => (
+                    <label key={n.id} className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-surface-container ${
+                      selectedNoteIds.has(n.id) ? "bg-primary-container text-on-primary-container" : ""
+                    }`}>
+                      <input type="checkbox"
+                        checked={selectedNoteIds.has(n.id)}
+                        onChange={() => toggleNote(n.id)}
+                        className="text-primary"
+                      />
+                      <span className="font-body-sm text-body-sm">{n.topic} <span className="text-on-surface-variant">({n.class})</span></span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
-          <select
-            name="lessonNoteId"
-            required
-            className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+          <button type="submit" disabled={pending || selectedNoteIds.size === 0}
+            className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366] disabled:opacity-60"
           >
-            <option value="">Select lesson note…</option>
-            {lessonNotes.map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.topic}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            disabled={pending || lessonNotes.length === 0}
-            className="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60"
-          >
-            {aiPending ? "Generating…" : "AI generate questions"}
+            {aiPending ? "Generating…" : `AI generate questions (${selectedNoteIds.size} notes)`}
           </button>
           <ResultMessages state={aiResult} />
         </form>

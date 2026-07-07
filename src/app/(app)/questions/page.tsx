@@ -13,7 +13,7 @@ export default async function QuestionsPage() {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
-  const [subjects, questions, lessonNotes] = await Promise.all([
+  const [subjects, questions] = await Promise.all([
     prisma.subject.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } }),
     prisma.question.findMany({
       where: { schoolId: user.schoolId },
@@ -23,11 +23,6 @@ export default async function QuestionsPage() {
         essaySpec: true,
       },
       orderBy: { createdAt: "desc" },
-    }),
-    prisma.lessonNote.findMany({
-      where: { schoolId: user.schoolId, status: "published" },
-      orderBy: { createdAt: "desc" },
-      take: 20,
     }),
   ]);
 
@@ -42,7 +37,6 @@ export default async function QuestionsPage() {
       <div className="mt-6">
         <CreateQuestionForm
           subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
-          lessonNotes={lessonNotes.map((n) => ({ id: n.id, topic: n.topic }))}
         />
       </div>
 

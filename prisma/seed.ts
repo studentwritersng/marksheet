@@ -265,13 +265,28 @@ async function main() {
   console.log("  Super Admin: super@marksheet.dev / superadmin123");
   console.log("  School Admin: admin@ums.edu.ng / admin123");
   console.log("  Teacher:     j.bello@ums.edu.ng / teacher123");
+
+  // --- NERDC Curriculum Seed (system defaults) ---------------------------
+  const existingTopics = await prisma.curriculumTopic.count({ where: { schoolId: null, isSystem: true } });
+  if (existingTopics === 0) {
+    const { nerdcSeedTopics } = await require("./nerdc-seed");
+    await prisma.curriculumTopic.createMany({
+      data: nerdcSeedTopics.map((t: typeof nerdcSeedTopics[0]) => ({
+        classLevel: t.classLevel,
+        term: t.term,
+        subject: t.subject,
+        week: t.week,
+        topic: t.topic,
+        subTopics: t.subTopics,
+        isSystem: true,
+        schoolId: null,
+      })),
+      skipDuplicates: true,
+    });
+    console.log(`Seeded ${nerdcSeedTopics.length} NERDC curriculum topics.`);
+  } else {
+    console.log(`Curriculum already seeded (${existingTopics} system topics).`);
+  }
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
