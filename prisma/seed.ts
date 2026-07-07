@@ -42,12 +42,17 @@ async function main() {
   });
 
   // --- Default assessment types -------------------------------------------
-  const defaultTypes = ["CA1", "CA2", "CA3", "Exam"];
-  for (let i = 0; i < defaultTypes.length; i++) {
+  const defaultTypes = [
+    { name: "Continuous Assessment 1", code: "CA1", sortOrder: 1 },
+    { name: "Continuous Assessment 2", code: "CA2", sortOrder: 2 },
+    { name: "Continuous Assessment 3", code: "CA3", sortOrder: 3 },
+    { name: "Exam", code: "EXM", sortOrder: 4 },
+  ];
+  for (const t of defaultTypes) {
     await prisma.assessmentType.upsert({
-      where: { schoolId_name: { schoolId: school.id, name: defaultTypes[i] } },
-      update: { sortOrder: i + 1 },
-      create: { schoolId: school.id, name: defaultTypes[i], sortOrder: i + 1 },
+      where: { schoolId_name: { schoolId: school.id, name: t.name } },
+      update: { code: t.code, sortOrder: t.sortOrder },
+      create: { schoolId: school.id, name: t.name, code: t.code, sortOrder: t.sortOrder },
     });
   }
 

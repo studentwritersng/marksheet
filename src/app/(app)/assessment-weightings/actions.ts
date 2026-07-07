@@ -19,13 +19,20 @@ export async function createAssessmentTypeAction(
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
 
-  const name = (formData.get("name") as string)?.trim().toUpperCase();
+  const name = (formData.get("name") as string)?.trim();
+  const code = (formData.get("code") as string)?.trim().toUpperCase();
   if (!name) return { error: "Assessment type name is required." };
+  if (!code) return { error: "Assessment type code is required." };
 
-  const existing = await prisma.assessmentType.findUnique({
+  const existingName = await prisma.assessmentType.findUnique({
     where: { schoolId_name: { schoolId: ctx.schoolId, name } },
   });
-  if (existing) return { error: `Type "${name}" already exists.` };
+  if (existingName) return { error: `Type "${name}" already exists.` };
+
+  const existingCode = await prisma.assessmentType.findUnique({
+    where: { schoolId_code: { schoolId: ctx.schoolId, code } },
+  });
+  if (existingCode) return { error: `Code "${code}" already in use.` };
 
   const maxOrder = await prisma.assessmentType.findFirst({
     where: { schoolId: ctx.schoolId },
@@ -34,17 +41,49 @@ export async function createAssessmentTypeAction(
   });
 
   await prisma.assessmentType.create({
-    data: { schoolId: ctx.schoolId, name, sortOrder: (maxOrder?.sortOrder ?? 0) + 1 },
+    data: { schoolId: ctx.schoolId, name, code, sortOrder: (maxOrder?.sortOrder ?? 0) + 1 },
   });
 
   await recordAudit({
     schoolId: ctx.schoolId, actorId: ctx.user.userId,
     action: "create", entityType: "assessment_type",
-    afterValue: { name } as never,
+    afterValue: { name, code } as never,
   });
 
   revalidatePath("/assessment-weightings");
-  return { success: `Assessment type "${name}" created.` };
+  return { success: `Assessment type "${name}" (${code}) created.` };
+}
+
+export async function updateAssessmentTypeAction(
+  id: string,
+  name: string,
+  code: string,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  const newName = name.trim();
+  const newCode = code.trim().toUpperCase();
+  if (!newName) return { error: "Name is required." };
+  if (!newCode) return { error: "Code is required." };
+
+  const existingName = await prisma.assessmentType.findFirst({
+    where: { schoolId: ctx.schoolId, name: newName, id: { not: id } },
+  });
+  if (existingName) return { error: `Type "${newName}" already exists.` };
+
+  const existingCode = await prisma.assessmentType.findFirst({
+    where: { schoolId: ctx.schoolId, code: newCode, id: { not: id } },
+  });
+  if (existingCode) return { error: `Code "${newCode}" already in use.` };
+
+  await prisma.assessmentType.update({
+    where: { id, schoolId: ctx.schoolId },
+    data: { name: newName, code: newCode },
+  });
+
+  revalidatePath("/assessment-weightings");
+  return { success: `Updated to "${newName}" (${newCode}).` };
 }
 
 export async function deleteAssessmentTypeAction(
@@ -55,21 +94,6 @@ export async function deleteAssessmentTypeAction(
   await prisma.assessmentType.delete({ where: { id } });
   revalidatePath("/assessment-weightings");
   return { success: "Assessment type deleted." };
-}
-
-export async function renameAssessmentTypeAction(
-  id: string,
-  name: string,
-): Promise<ActionState> {
-  let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
-
-  const newName = name.trim().toUpperCase();
-  if (!newName) return { error: "Name is required." };
-
-  await prisma.assessmentType.update({ where: { id, schoolId: ctx.schoolId }, data: { name: newName } });
-  revalidatePath("/assessment-weightings");
-  return { success: `Renamed to "${newName}".` };
 }
 
 // ─── Weightings ────────────────────────────────────────────────
@@ -89,36 +113,19 @@ export async function upsertWeightingAction(
     return { error: "A valid assessment type and weight (1-100) are required." };
   }
 
-  await prisma.assessmentWeighting.upsert({
-    where: {
-      schoolId_subjectId_assessmentTypeId: {
-        schoolId: ctx.schoolId,
-        subjectId: subjectId ?? "",
-        assessmentTypeId,
-      },
-    },
-    update: { weightPercentage },
-    create: { schoolId: ctx.schoolId, subjectId, assessmentTypeId, weightPercentage },
+  const existing = await prisma.assessmentWeighting.findFirst({
+    where: { schoolId: ctx.schoolId, subjectId, assessmentTypeId },
   });
 
-  const allForScope = await prisma.assessmentWeighting.findMany({
-    where: { schoolId: ctx.schoolId, subjectId: subjectId ?? "" },
-  });
-
-  const total = allForScope.reduce((s, w) => s + w.weightPercentage, 0);
-  if (total !== 100) {
-    await prisma.assessmentWeighting.delete({
-      where: {
-        schoolId_subjectId_assessmentTypeId: {
-          schoolId: ctx.schoolId,
-          subjectId: subjectId ?? "",
-          assessmentTypeId,
-        },
-      },
+  if (existing) {
+    await prisma.assessmentWeighting.update({
+      where: { id: existing.id },
+      data: { weightPercentage },
     });
-    return {
-      error: `Weights must sum to exactly 100%. Current total would be ${total}%. Delete or adjust existing weights first.`,
-    };
+  } else {
+    await prisma.assessmentWeighting.create({
+      data: { schoolId: ctx.schoolId, subjectId, assessmentTypeId, weightPercentage },
+    });
   }
 
   await recordAudit({
@@ -128,7 +135,7 @@ export async function upsertWeightingAction(
   });
 
   revalidatePath("/assessment-weightings");
-  return { success: `Weight set: ${assessmentTypeId} = ${weightPercentage}% (total: 100%)` };
+  return { success: `Weight set: ${assessmentTypeId} = ${weightPercentage}%` };
 }
 
 export async function deleteWeightingAction(
@@ -138,15 +145,12 @@ export async function deleteWeightingAction(
 ): Promise<ActionState> {
   await requireSchoolAdmin();
 
-  await prisma.assessmentWeighting.delete({
-    where: {
-      schoolId_subjectId_assessmentTypeId: {
-        schoolId,
-        subjectId: subjectId ?? "",
-        assessmentTypeId,
-      },
-    },
+  const existing = await prisma.assessmentWeighting.findFirst({
+    where: { schoolId, subjectId, assessmentTypeId },
   });
+  if (!existing) return { error: "Weighting not found." };
+
+  await prisma.assessmentWeighting.delete({ where: { id: existing.id } });
 
   revalidatePath("/assessment-weightings");
   return { success: "Weighting deleted." };

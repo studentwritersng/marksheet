@@ -31,6 +31,7 @@ export default async function AssessmentWeightingsPage() {
           schoolId={user.schoolId}
           subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
           weightings={weightings.map((w) => ({
+            id: w.id,
             subjectId: w.subjectId,
             assessmentTypeId: w.assessmentTypeId,
             weightPercentage: w.weightPercentage,
@@ -38,6 +39,7 @@ export default async function AssessmentWeightingsPage() {
           assessmentTypes={assessmentTypes.map((t) => ({
             id: t.id,
             name: t.name,
+            code: t.code,
             sortOrder: t.sortOrder,
           }))}
         />

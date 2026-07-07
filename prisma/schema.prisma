@@ -678,13 +678,15 @@ model StudentAnswer {
 model AssessmentType {
   id        String   @id @default(cuid())
   schoolId  String
-  name      String   // e.g. "CA1", "CA2", "CA3", "Exam"
+  name      String   // e.g. "Mid Term Test"
+  code      String   @default("") // e.g. "MDT" — short code used elsewhere (results, exams)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@unique([schoolId, name])
+  @@unique([schoolId, code])
   @@index([schoolId])
   @@map("assessment_types")
 }
