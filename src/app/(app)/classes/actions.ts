@@ -64,6 +64,35 @@ export async function createClassAction(
   return { success: `Class "${name}" created.` };
 }
 
+export async function updateClassAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  const classId = String(formData.get("classId") ?? "");
+  const department = String(formData.get("department") ?? "").trim();
+  const section = String(formData.get("section") ?? "").trim().toUpperCase();
+
+  if (!classId) return { error: "Missing class ID." };
+
+  const cls = await prisma.class.findFirst({
+    where: { id: classId, schoolId: ctx.schoolId },
+  });
+  if (!cls) return { error: "Class not found." };
+
+  const name = cls.level + (section || "");
+
+  await prisma.class.update({
+    where: { id: classId },
+    data: { department, section, name },
+  });
+
+  revalidatePath("/classes");
+  return { success: `"${name}" updated.` };
+}
+
 export async function archiveClassAction(
   classId: string,
 ): Promise<ActionState> {
