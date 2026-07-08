@@ -79,10 +79,69 @@ function sleep(ms: number): Promise<void> {
 /**
  * Deterministic mock response so AI-consuming features can be developed and
  * tested without a live provider or incurring cost.
+ * Returns task-type-specific realistic content matching the expected JSON schema.
  */
 function mockCompletion(opts: AiCompletionOptions): AiCompletionResult {
+  const task = opts.taskType;
   const last = opts.messages[opts.messages.length - 1]?.content ?? "";
-  const content = `[[MOCK:${opts.taskType}]] ` + last.slice(0, 400);
+  const subjectMatch = last.match(/Subject:\s*(.+)/i);
+  const classMatch = last.match(/Class:\s*(.+)/i);
+  const topicMatch = last.match(/Topic:\s*(.+)/i);
+  const subject = subjectMatch?.[1]?.trim() ?? "the subject";
+  const cls = classMatch?.[1]?.trim() ?? "the class";
+  const topic = topicMatch?.[1]?.trim() ?? "the topic";
+
+  let content: string;
+
+  switch (task) {
+    case "lesson_note_generation": {
+      content = JSON.stringify({
+        previous_knowledge: `Students are already familiar with basic concepts related to ${topic} from their previous classes.`,
+        introduction: `The teacher begins by asking students a thought-provoking question related to ${topic}, linking it to a real-life Nigerian scenario.`,
+        behavioural_objectives: [
+          `Define and explain ${topic} in their own words.`,
+          `Identify key features of ${topic} with relevant examples from the Nigerian context.`,
+          `Apply knowledge of ${topic} to solve related problems.`,
+          `Demonstrate understanding through class exercises and discussions.`,
+        ],
+        content: `${topic.toUpperCase()}\n\n1. DEFINITION\n${topic} is an important concept in ${subject}.\n\n2. KEY FEATURES\n- Feature one: explained with Nigerian examples\n- Feature two: explained with local context\n- Feature three: relevant to everyday life\n\n3. EXAMPLES\n- Example from Nigerian daily experience\n- Example relevant to WAEC/NECO examinations\n\n4. IMPORTANCE\nUnderstanding ${topic} helps students perform better in their studies and apply knowledge in practical situations.`,
+        presentation_steps: [
+          {
+            step_number: 1,
+            objective_reference: "Objective 1",
+            teacher_activity: `The teacher introduces ${topic} by writing the definition on the board and explaining it with simple terms.`,
+            student_activity: "Students listen attentively and copy the definition into their notebooks.",
+          },
+          {
+            step_number: 2,
+            objective_reference: "Objective 2",
+            teacher_activity: "The teacher explains the key features using a chart/diagram and gives Nigerian-focused examples.",
+            student_activity: "Students identify and list the key features as the teacher explains.",
+          },
+          {
+            step_number: 3,
+            objective_reference: "Objectives 2 and 3",
+            teacher_activity: "The teacher guides students through practice exercises and provides corrections.",
+            student_activity: "Students attempt the exercises individually and participate in class discussion.",
+          },
+          {
+            step_number: 4,
+            objective_reference: "Objective 4",
+            teacher_activity: "The teacher gives a short quiz to assess understanding and reviews answers with the class.",
+            student_activity: "Students answer the quiz questions and ask questions for clarification.",
+          },
+        ],
+        evaluation: `1. What is ${topic}?\n2. List three key features of ${topic}.\n3. Give two examples of ${topic} from everyday life.\n4. Explain why ${topic} is important.\n5. Describe how ${topic} applies to the Nigerian context.`,
+        summary: `In today's lesson, we learnt about ${topic}. The key points covered include the definition, key features, examples, and importance of ${topic}. Students are encouraged to practice more at home.`,
+        assignment: `1. Write a short paragraph explaining ${topic} in your own words.\n2. List five examples of ${topic} you can observe in your community.\n3. Prepare for a class quiz on ${topic} next lesson.`,
+      });
+      break;
+    }
+    default: {
+      content = `[[MOCK:${task}]] ` + last.slice(0, 400);
+    }
+  }
+
   return {
     content,
     model: opts.model ?? loadConfig().defaultModel,

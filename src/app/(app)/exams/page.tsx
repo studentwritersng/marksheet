@@ -79,7 +79,7 @@ export default async function ExamsPage() {
           questionIds: e.examQuestions.map((eq) => eq.question.id),
         }))}
         subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
-        classes={classes.map((c) => ({ id: c.id, name: c.name }))}
+        classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level, department: c.department }))}
         terms={terms.map((t) => ({ id: t.id, name: `${t.name} (${t.session.label})` }))}
         questions={questions.map((q) => ({
           id: q.id,

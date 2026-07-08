@@ -14,7 +14,7 @@ interface ExamVM {
   questionIds: string[];
 }
 interface SubjectVM { id: string; name: string }
-interface ClassVM { id: string; name: string }
+interface ClassVM { id: string; name: string; level: string; department: string }
 interface TermVM { id: string; name: string }
 interface QuestionVM { id: string; text: string; type: string; marks: number; mcqOptions: { id: string; optionText: string; isCorrect: boolean }[] }
 interface AssessmentTypeVM { id: string; name: string; code: string; defaultWeight: number | null; children: { id: string; name: string; code: string }[] }
@@ -204,14 +204,38 @@ function CreateExamForm({
         </div>
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Classes</label>
-          <div className="max-h-32 overflow-y-auto border border-outline-variant rounded p-2 space-y-1">
-            {classes.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="classIds[]" value={c.id}
-                  className="rounded border-outline-variant text-[#002046] focus:ring-[#002046]" />
-                {c.name}
-              </label>
-            ))}
+          <div className="max-h-32 overflow-y-auto border border-outline-variant rounded p-2 space-y-2">
+            {(() => {
+              const grouped = new Map<string, ClassVM[]>();
+              classes.forEach((c) => {
+                const existing = grouped.get(c.level) ?? [];
+                existing.push(c);
+                grouped.set(c.level, existing);
+              });
+              return [...grouped.entries()].map(([level, items]) => (
+                <div key={level}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <input type="checkbox" onChange={(e) => {
+                      items.forEach((item) => {
+                        const cb = document.getElementById(`class-${item.id}`) as HTMLInputElement | null;
+                        if (cb) cb.checked = e.target.checked;
+                      });
+                    }} className="rounded border-outline-variant text-[#002046]" />
+                    <span className="font-label-sm text-label-sm text-on-surface font-semibold">{level}</span>
+                  </div>
+                  <div className="ml-5 flex flex-wrap gap-1">
+                    {items.map((c) => (
+                      <label key={c.id} className="flex items-center gap-1 text-xs cursor-pointer">
+                        <input id={`class-${c.id}`} type="checkbox" name="classIds[]" value={c.id}
+                          className="rounded border-outline-variant text-[#002046]" />
+                        {c.name}
+                        {c.department && <span className="bg-surface-variant text-on-surface-variant px-1.5 py-0.5 rounded text-[10px] uppercase font-semibold">{c.department}</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
         <div>
@@ -333,14 +357,31 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
         </div>
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Classes</label>
-          <div className="max-h-24 overflow-y-auto border border-outline-variant rounded p-1 text-xs space-y-1">
-            {classes.map((c) => (
-              <label key={c.id} className="flex items-center gap-1">
-                <input type="checkbox" name="classIds[]" value={c.id} defaultChecked={exam.classNames.includes(c.name)}
-                  className="rounded border-outline-variant text-[#002046]" />
-                {c.name}
-              </label>
-            ))}
+          <div className="max-h-24 overflow-y-auto border border-outline-variant rounded p-1 text-xs space-y-2">
+            {(() => {
+              const grouped = new Map<string, ClassVM[]>();
+              classes.forEach((c) => {
+                const existing = grouped.get(c.level) ?? [];
+                existing.push(c);
+                grouped.set(c.level, existing);
+              });
+              return [...grouped.entries()].map(([level, items]) => (
+                <div key={level}>
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <span className="font-semibold text-[11px]">{level}</span>
+                  </div>
+                  <div className="ml-4 flex flex-wrap gap-1">
+                    {items.map((c) => (
+                      <label key={c.id} className="flex items-center gap-1">
+                        <input type="checkbox" name="classIds[]" value={c.id} defaultChecked={exam.classNames.includes(c.name)}
+                          className="rounded border-outline-variant text-[#002046]" />
+                        <span className="text-[11px]">{c.department ? c.department.charAt(0).toUpperCase() + c.department.slice(1) : c.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
         <div>
