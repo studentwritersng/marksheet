@@ -196,7 +196,7 @@ export function CreateQuestionForm({
       {tab === "ai" && (
         <form action={handleAiGenerate} className="space-y-4">
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Select a subject, then choose one or more published lesson notes to generate essay questions from.
+            Select a subject, then choose one or more published lesson notes. Set the question type, class level, number, and difficulty before generating.
           </p>
           <div>
             <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
@@ -209,6 +209,49 @@ export function CreateQuestionForm({
               {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
+
+          {/* Generation options */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Question Type</label>
+              <select name="questionType" defaultValue="essay" className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary">
+                <option value="essay">Essay</option>
+                <option value="mcq">MCQ</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Class Level</label>
+              <select name="classLevel" defaultValue="SSS1" className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary">
+                {["JSS1","JSS2","JSS3","SSS1","SSS2","SSS3"].map((lv) => (
+                  <option key={lv} value={lv}>{lv}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Number of Questions</label>
+              <input type="number" name="questionCount" defaultValue={3} min={1} max={50}
+                className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Marks per Question</label>
+              <input type="number" name="marksPerQuestion" defaultValue={5} min={1}
+                className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Difficulty</label>
+              <select name="difficulty" defaultValue="application" className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary">
+                {["recall","application","analysis","synthesis"].map((d) => (
+                  <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Grounding % (lesson-note based)</label>
+              <input type="number" name="groundingPercentage" defaultValue={75} min={0} max={100}
+                className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary" />
+            </div>
+          </div>
+
           {aiSubjectId && (
             <div>
               <label className="mb-1 block font-label-md text-label-md text-on-surface">

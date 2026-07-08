@@ -105,6 +105,10 @@ function mockCompletion(opts: AiCompletionOptions): AiCompletionResult {
       content = JSON.stringify(sampleNote);
       break;
     }
+    case "question_generation": {
+      content = JSON.stringify(generateQuestions(last));
+      break;
+    }
     default: {
       content = `[[MOCK:${task}]] ` + last.slice(0, 400);
     }
@@ -364,6 +368,80 @@ Objective 4 — covered by section 4 (Sample Examination Questions).`,
     summary_conclusion: `In today's lesson, we have learnt about ${topic} in ${subject}. We defined the topic, identified its key components, discussed its importance in the Nigerian context, and practised examination-style questions. Students should continue to relate ${topic} to real situations they observe around them.`,
     assignment_homework: `1. Write a short note on ${topic} in your own words (not more than one page).\n2. Find and write down one past WAEC or NECO question on ${topic} and attempt to answer it.\n3. Look around your home or community and identify one example of ${topic} at work. Write three sentences describing it.\n4. Prepare one question on ${topic} to ask your classmates during the next lesson.`,
   };
+}
+
+/**
+ * Generate mock exam questions (MCQ or essay) from the AI prompt user message.
+ * Parses question type, count, marks, difficulty, and class level from the prompt.
+ */
+function generateQuestions(userPrompt: string): Record<string, unknown> {
+  const isMcq = /MCQ/i.test(userPrompt);
+  const countMatch = userPrompt.match(/Number of (?:MCQ |essay )?questions to generate:\s*(\d+)/i);
+  const marksMatch = userPrompt.match(/Marks per question:\s*(\d+)/i);
+  const difficultyMatch = userPrompt.match(/Target difficulty:\s*(\w+)/i);
+  const classMatch = userPrompt.match(/Class:\s*(\S+)/i);
+
+  const count = countMatch ? Math.max(1, Math.min(50, Number(countMatch[1]))) : 3;
+  const marks = marksMatch ? Number(marksMatch[1]) : 5;
+  const difficulty = difficultyMatch ? difficultyMatch[1] : "application";
+  const cls = classMatch ? classMatch[1] : "SSS1";
+
+  const nigerianTowns = ["Lagos", "Kano", "Ibadan", "Enugu", "Abuja", "Port Harcourt", "Kaduna"];
+  const pickTown = (i: number) => nigerianTowns[i % nigerianTowns.length];
+
+  if (isMcq) {
+    const questions = Array.from({ length: count }, (_, i) => {
+      const correctLetter = String.fromCharCode(65 + (i % 4)); // A,B,C,D cycle
+      const opts = ["A", "B", "C", "D"].map((letter) => {
+        const isCorrect = letter === correctLetter;
+        if (isCorrect) {
+          return { label: letter, text: `The correct definition of the key term as taught in the ${cls} syllabus (${pickTown(i)} example).`, is_correct: true };
+        }
+        // Plausible distractors
+        const distractors = [
+          `A common misconception that reverses the cause and effect of the concept.`,
+          `A near-miss term from a different but related topic in the same subject.`,
+          `An answer that applies to a junior class level, not ${cls} as specified.`,
+        ];
+        return { label: letter, text: distractors[i % distractors.length], is_correct: false };
+      });
+      return {
+        question_text: `In ${cls}, which of the following best describes the concept studied in the selected lesson note, using an example from ${pickTown(i)}?`,
+        marks,
+        difficulty,
+        options: opts,
+        rationale: `Option ${correctLetter} is correct because it matches the exact definition and example given in the source lesson note for ${cls}.`,
+        grounding_summary: {
+          target_grounding_percentage: 75,
+          grounded_count: 1,
+          extension_count: 0,
+        },
+      };
+    });
+    return { questions };
+  }
+
+  // Essay questions
+  const questions = Array.from({ length: count }, (_, i) => {
+    const rubricPoints = [
+      { description: `Explain the first key principle of the topic clearly, using a ${cls}-level example from ${pickTown(i)}.`, marks: Math.round(marks * 0.4), source_type: "grounded", lesson_note_reference: "From the Content section of the lesson note." },
+      { description: `Give a worked example or application that shows understanding beyond the basic definition.`, marks: Math.round(marks * 0.3), source_type: "grounded", lesson_note_reference: "From the Examples section of the lesson note." },
+      { description: `Discuss one extension or deeper implication appropriate to ${cls} and the Nigerian context.`, marks: Math.round(marks * 0.3), source_type: "extension", lesson_note_reference: "" },
+    ];
+    return {
+      question_text: `Explain the major concept covered in the lesson note for ${cls}. Your answer should define the concept, give at least one worked example from ${pickTown(i)}, and discuss its relevance to Nigerian society. (${difficulty} level)`,
+      marks,
+      difficulty,
+      model_answer: `A complete model answer for ${cls}: definition of the concept, a worked example from ${pickTown(i)}, and an explanation of its relevance. The answer demonstrates understanding appropriate to the ${difficulty} difficulty level and follows the Nigerian curriculum standard for this class.`,
+      rubric_points: rubricPoints,
+      grounding_summary: {
+        target_grounding_percentage: 75,
+        actual_grounded_points: 2,
+        actual_extension_points: 1,
+      },
+    };
+  });
+  return { questions };
 }
 
 /**
