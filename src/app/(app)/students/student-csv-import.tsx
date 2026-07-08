@@ -94,6 +94,7 @@ export function StudentCsvImport() {
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Name</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Email</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Class</th>
+                  <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Dept</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Guardian</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Status</th>
                 </tr>
@@ -113,6 +114,7 @@ export function StudentCsvImport() {
                     </td>
                     <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.email || "—"}</td>
                     <td className="px-2 py-1">{r.className || "—"}</td>
+                    <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.department || "—"}</td>
                     <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.guardianName || "—"}</td>
                     <td className="px-2 py-1">
                       {r.valid ? (

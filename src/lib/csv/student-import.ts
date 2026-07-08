@@ -14,6 +14,7 @@ export interface StagedRow {
   lastName: string;
   gender: string;
   className: string;
+  department: string;
   email: string;
   guardianName: string;
   guardianPhone: string;
@@ -30,6 +31,7 @@ const rowSchema = z.object({
   lastName: z.string().min(1, "Required"),
   gender: z.string().optional().default(""),
   className: z.string().optional().default(""),
+  department: z.string().optional().default(""),
   email: z.string().optional().default(""),
   guardianName: z.string().optional().default(""),
   guardianPhone: z.string().optional().default(""),
@@ -70,6 +72,7 @@ export function parseStudentCsv(
       lastName: parsed.data?.lastName ?? raw.lastName ?? "",
       gender: parsed.data?.gender ?? raw.gender ?? "",
       className: parsed.data?.className ?? raw.className ?? "",
+      department: parsed.data?.department ?? raw.department ?? "",
       email: parsed.data?.email ?? raw.email ?? "",
       guardianName: parsed.data?.guardianName ?? raw.guardianName ?? "",
       guardianPhone: parsed.data?.guardianPhone ?? raw.guardianPhone ?? "",

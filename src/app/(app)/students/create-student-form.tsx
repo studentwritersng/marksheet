@@ -6,13 +6,26 @@ import { ImageUploader } from "@/components/image-uploader";
 
 const init: ActionState = {};
 
-export function CreateStudentForm({
-  classes,
-}: {
-  classes: { id: string; name: string }[];
-}) {
+interface ClassOption {
+  id: string;
+  name: string;
+  level: string;
+  section: string;
+  department: string;
+}
+
+const LEVEL_ORDER = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
+
+export function CreateStudentForm({ classes }: { classes: ClassOption[] }) {
   const [state, action, pending] = useActionState(createStudentAction, init);
   const [photoUrl, setPhotoUrl] = useState("");
+
+  // Group classes by level in order
+  const grouped = LEVEL_ORDER.reduce<Record<string, ClassOption[]>>((acc, lvl) => {
+    const items = classes.filter((c) => c.level === lvl);
+    if (items.length > 0) acc[lvl] = items;
+    return acc;
+  }, {});
 
   return (
     <form action={action} className="bg-surface-container-lowest border border-outline-variant rounded-lg p-4">
@@ -31,7 +44,15 @@ export function CreateStudentForm({
         </select>
         <select name="classId" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
           <option value="">— Class —</option>
-          {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {Object.entries(grouped).map(([level, cls]) => (
+            <optgroup key={level} label={level}>
+              {cls.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.department ? `${c.name}` : c.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
         </select>
         <hr className="border-outline-variant" />
         <ImageUploader currentUrl={photoUrl} onUploaded={(url) => setPhotoUrl(url)} label="Passport Photo (optional)" />

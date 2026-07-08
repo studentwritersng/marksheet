@@ -43,28 +43,49 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
   });
   const gradingScale = (school?.gradingScale != null ? (school.gradingScale as unknown as GradeBand[]) : defaultGradingScale);
 
-  // 2. Get all students in this class
+  // 2. Get class details (including department)
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    select: { id: true, department: true },
+  });
+
+  // 3. Get subject-class links for this class (department filtering)
+  const classSubjects = await prisma.classSubject.findMany({
+    where: { classId },
+    select: { subjectId: true, department: true },
+  });
+  const deptFilteredSubjectIds = new Set(
+    classSubjects
+      .filter((cs) => cs.department === "general" || (cls && cls.department && cs.department === cls.department))
+      .map((cs) => cs.subjectId)
+  );
+  const hasDepartmentFilter = classSubjects.some((cs) => cs.department !== "general");
+
+  // 4. Get all students in this class
   const students = await prisma.student.findMany({
     where: { schoolId, currentClassId: classId, status: "active" },
     orderBy: { lastName: "asc" },
   });
 
-  // 3. Get subjects taught in this class (via assignments or broadly subjects available)
-  const subjects = await prisma.subject.findMany({
-    where: { schoolId },
-  });
+  // 5. Get subjects — only those linked to this class with compatible department
+  const subjects = hasDepartmentFilter
+    ? await prisma.subject.findMany({
+        where: { schoolId, id: { in: [...deptFilteredSubjectIds] } },
+      })
+    : await prisma.subject.findMany({
+        where: { schoolId },
+      });
 
-  // 4. Get assessment weightings (school-wide + per-subject)
+  // 6. Get assessment weightings (school-wide + per-subject)
   const weightings = await prisma.assessmentWeighting.findMany({
     where: { schoolId },
   });
   const defaultWeights = weightings.filter((w) => w.subjectId === null);
   const subjectWeights = weightings.filter((w) => w.subjectId !== null);
 
-  // 5. Get student_answers (scores) for this term
-  // We need to find exams for this term, then get attempts, then answers
+  // 7. Get exams for this term — include ExamClass for multi-class support
   const exams = await prisma.exam.findMany({
-    where: { classId, termId },
+    where: { termId, classes: { some: { classId } } },
     select: { id: true, subjectId: true, assessmentTypeId: true },
   });
 

@@ -34,8 +34,12 @@ export async function createClassAction(
     return { error: "Invalid level." };
   }
 
-  // Auto-generate name: level + section (no space), or just level if no section
-  const name = section ? `${level}${section}` : level;
+  // Auto-generate name
+  let name: string;
+  if (section && department) name = `${level}${section} ${department.charAt(0).toUpperCase() + department.slice(1)}`;
+  else if (section) name = `${level}${section}`;
+  else if (department) name = `${level} ${department.charAt(0).toUpperCase() + department.slice(1)}`;
+  else name = level;
 
   // Verify session belongs to this school.
   const session = await prisma.session.findFirst({
@@ -44,7 +48,7 @@ export async function createClassAction(
   if (!session) return { error: "Invalid session." };
 
   const existing = await prisma.class.findFirst({
-    where: { sessionId, level, section },
+    where: { sessionId, level, section, department },
   });
   if (existing) return { error: `"${name}" already exists in this session.` };
 
@@ -82,7 +86,11 @@ export async function updateClassAction(
   });
   if (!cls) return { error: "Class not found." };
 
-  const name = cls.level + (section || "");
+  let name: string;
+  if (section && department) name = `${cls.level}${section} ${department.charAt(0).toUpperCase() + department.slice(1)}`;
+  else if (section) name = `${cls.level}${section}`;
+  else if (department) name = `${cls.level} ${department.charAt(0).toUpperCase() + department.slice(1)}`;
+  else name = cls.level;
 
   await prisma.class.update({
     where: { id: classId },

@@ -24,7 +24,7 @@ export default async function StudentsPage() {
     }),
     prisma.class.findMany({
       where: { schoolId: user.schoolId, archived: false },
-      select: { id: true, name: true, level: true },
+      select: { id: true, name: true, level: true, section: true, department: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -38,7 +38,7 @@ export default async function StudentsPage() {
 
       <div className="mt-6 grid gap-6 sm:grid-cols-2">
         <CreateStudentForm
-          classes={classes.map((c) => ({ id: c.id, name: c.name }))}
+          classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level, section: c.section, department: c.department }))}
         />
         <StudentCsvImport />
       </div>

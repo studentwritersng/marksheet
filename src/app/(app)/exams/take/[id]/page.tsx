@@ -16,6 +16,7 @@ export default async function ExamTakePage(props: {
       subject: { select: { name: true } },
       class: { select: { name: true } },
       term: true,
+      classes: { include: { class: { select: { id: true, name: true, level: true, department: true } } } },
       examQuestions: {
         include: {
           question: {
@@ -31,18 +32,51 @@ export default async function ExamTakePage(props: {
   });
   if (!exam || exam.schoolId !== user.schoolId) notFound();
 
-  // Find student record for this user
+  // Find student record + their class details
   const student = await prisma.student.findFirst({
-    where: { schoolId: user.schoolId, currentClassId: exam.classId },
+    where: { schoolId: user.schoolId },
+    include: { currentClass: { select: { id: true, department: true, level: true } } },
   });
-  if (!student) {
+  if (!student || !student.currentClass) {
     return (
       <div className="flex flex-col gap-stack-lg">
         <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 text-center">
-          <p className="font-body-md text-body-md text-on-surface-variant">You are not enrolled in this class.</p>
+          <p className="font-body-md text-body-md text-on-surface-variant">You are not enrolled in any class.</p>
         </div>
       </div>
     );
+  }
+
+  // Check the student's class is among the exam's assigned classes
+  const examClassIds = new Set(exam.classes.map((ec) => ec.class.id));
+  if (!examClassIds.has(student.currentClass.id)) {
+    return (
+      <div className="flex flex-col gap-stack-lg">
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 text-center">
+          <p className="font-body-md text-body-md text-on-surface-variant">You are not enrolled in this exam's class.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Department check: if the exam's subject is restricted to a department,
+  // the student's class must have that department.
+  const classSubjectLink = await prisma.classSubject.findUnique({
+    where: { classId_subjectId: { classId: student.currentClass.id, subjectId: exam.subjectId } },
+  });
+  if (classSubjectLink && classSubjectLink.department !== "general") {
+    const studentDept = student.currentClass.department || "";
+    if (studentDept !== classSubjectLink.department) {
+      return (
+        <div className="flex flex-col gap-stack-lg">
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 text-center">
+            <p className="font-body-md text-body-md text-on-surface-variant">
+              This subject is only available to {classSubjectLink.department} students in {student.currentClass.level}.
+            </p>
+          </div>
+        </div>
+      );
+    }
   }
 
   const existingAttempt = await prisma.examAttempt.findFirst({

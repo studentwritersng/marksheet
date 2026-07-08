@@ -130,7 +130,7 @@ model Class {
   timetableEntries TimetableEntry[]
   classSubjects     ClassSubject[]
 
-  @@unique([sessionId, level, section])
+  @@unique([sessionId, level, section, department])
   @@index([schoolId])
   @@index([sessionId])
   @@map("classes")

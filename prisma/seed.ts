@@ -132,10 +132,8 @@ async function main() {
   const LEVELS = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
   const classes: Record<string, string> = {};
   for (const level of LEVELS) {
-    const created = await prisma.class.upsert({
-      where: { sessionId_level_section: { sessionId: session.id, level, section: "" } },
-      update: {},
-      create: {
+    const created = await prisma.class.create({
+      data: {
         schoolId: school.id,
         sessionId: session.id,
         name: level,

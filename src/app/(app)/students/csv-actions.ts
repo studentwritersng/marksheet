@@ -52,13 +52,19 @@ export async function commitStudentCsvAction(
 
   if (valid.length === 0) return { error: "No valid rows to commit." };
 
-  // Resolve class names to IDs.
-  const classNames = [...new Set(valid.map((r) => r.className).filter(Boolean))];
-  const classes = await prisma.class.findMany({
-    where: { schoolId: ctx.schoolId, name: { in: classNames } },
-    select: { id: true, name: true },
+  // Resolve class names + department to IDs.
+  const classKeys = [...new Set(valid.filter((r) => r.className).map((r) => `${r.className}||${r.department || ""}`))];
+  const allClasses = await prisma.class.findMany({
+    where: { schoolId: ctx.schoolId },
+    select: { id: true, name: true, level: true, department: true, section: true },
   });
-  const classMap = new Map(classes.map((c) => [c.name, c.id]));
+  const classMap = new Map<string, string>();
+  for (const c of allClasses) {
+    classMap.set(`${c.name}||`, c.id); // match by name only (no dept)
+    if (c.department) classMap.set(`${c.name}||${c.department}`, c.id); // match by name + dept
+    // Also match by level + department (in case CSV uses level like "SSS1")
+    classMap.set(`${c.level}||${c.department}`, c.id);
+  }
 
   // Check for duplicate admission numbers.
   const admissionNumbers = valid.map((r) => r.admissionNumber);
@@ -75,9 +81,10 @@ export async function commitStudentCsvAction(
   for (const r of valid) {
     if (existingSet.has(r.admissionNumber)) continue;
 
-    const classId = r.className ? classMap.get(r.className) : null;
+    const classKey = `${r.className}||${r.department || ""}`;
+    const classId = r.className ? (classMap.get(classKey) ?? classMap.get(`${r.className}||`)) : null;
     if (r.className && !classId) {
-      unresolvableClasses.push(r.className);
+      unresolvableClasses.push(r.department ? `${r.className} (${r.department})` : r.className);
       continue;
     }
 
