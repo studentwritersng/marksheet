@@ -6,6 +6,8 @@ import { archiveClassAction } from "./actions";
 interface ClassVM {
   id: string;
   name: string;
+  section: string;
+  department: string;
   studentCount: number;
   hasTeacher: boolean;
 }
@@ -14,12 +16,7 @@ export function ClassRow({ classItem }: { classItem: ClassVM }) {
   const [pending, start] = useTransition();
 
   function handleArchive() {
-    if (
-      !confirm(
-        `Archive "${classItem.name}"? Cannot undo. Requires no active students.`,
-      )
-    )
-      return;
+    if (!confirm(`Archive "${classItem.name}"? Cannot undo. Requires no active students.`)) return;
     start(async () => {
       const res = await archiveClassAction(classItem.id);
       if (res.error) alert(res.error);
@@ -28,8 +25,15 @@ export function ClassRow({ classItem }: { classItem: ClassVM }) {
 
   return (
     <div className="flex items-center justify-between bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3">
-      <div>
-        <p className="font-label-md text-label-md text-on-surface">{classItem.name}</p>
+      <div className="flex items-center gap-3">
+        <p className="font-label-md text-label-md text-on-surface">
+          {classItem.name}
+          {classItem.department && (
+            <span className="ml-2 font-label-sm text-label-sm text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded capitalize">
+              {classItem.department}
+            </span>
+          )}
+        </p>
         <p className="font-label-sm text-label-sm text-on-surface-variant">
           {classItem.studentCount} student{classItem.studentCount !== 1 ? "s" : ""}
         </p>

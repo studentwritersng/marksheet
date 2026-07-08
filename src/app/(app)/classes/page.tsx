@@ -6,6 +6,8 @@ import { CreateClassForm } from "./create-class-form";
 import { ClassRow } from "./class-row";
 import Link from "next/link";
 
+const LEVEL_ORDER = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
+
 export default async function ClassesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -22,12 +24,13 @@ export default async function ClassesPage() {
   const classes = await prisma.class.findMany({
     where: { schoolId: user.schoolId, archived: false },
     include: { _count: { select: { students: true } }, session: true },
-    orderBy: [{ level: "asc" }, { name: "asc" }],
+    orderBy: [{ level: "asc" }, { section: "asc" }],
   });
 
-  // Group by level for display.
-  const grouped = classes.reduce<Record<string, typeof classes>>((acc, c) => {
-    (acc[c.level] ??= []).push(c);
+  // Group by level keeping standard order
+  const grouped = LEVEL_ORDER.reduce<Record<string, typeof classes>>((acc, lvl) => {
+    const items = classes.filter((c) => c.level === lvl);
+    if (items.length > 0) acc[lvl] = items;
     return acc;
   }, {});
 
@@ -53,31 +56,34 @@ export default async function ClassesPage() {
       </div>
 
       <div className="mt-8 space-y-6">
-        {Object.entries(grouped).length === 0 && (
-          <p className="font-body-sm text-body-sm text-on-surface-variant">No classes yet.</p>
+        {Object.keys(grouped).length === 0 && (
+          <p className="font-body-sm text-body-sm text-on-surface-variant">No classes yet. Create one above.</p>
         )}
-        {Object.entries(grouped)
-          .sort()
-          .map(([level, cls]) => (
-            <div key={level}>
-              <h2 className="mb-2 font-label-md text-label-md text-on-surface">
-                {level}
-              </h2>
-              <div className="space-y-2">
-                {cls.map((c) => (
-                  <ClassRow
-                    key={c.id}
-                    classItem={{
-                      id: c.id,
-                      name: c.name,
-                      studentCount: c._count.students,
-                      hasTeacher: false,
-                    }}
-                  />
-                ))}
-              </div>
+        {Object.entries(grouped).map(([level, cls]) => (
+          <div key={level}>
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="font-label-lg text-label-lg text-on-surface font-semibold">{level}</h2>
+              <span className="font-label-sm text-label-sm text-on-surface-variant">
+                {cls.reduce((sum, c) => sum + c._count.students, 0)} student{cls.reduce((sum, c) => sum + c._count.students, 0) !== 1 ? "s" : ""}
+              </span>
             </div>
-          ))}
+            <div className="space-y-2">
+              {cls.map((c) => (
+                <ClassRow
+                  key={c.id}
+                  classItem={{
+                    id: c.id,
+                    name: c.name,
+                    section: c.section,
+                    department: c.department,
+                    studentCount: c._count.students,
+                    hasTeacher: false,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

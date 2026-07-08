@@ -21,13 +21,21 @@ export async function createClassAction(
     return { error: "Not authorised." };
   }
 
-  const name = String(formData.get("name") ?? "").trim();
   const level = String(formData.get("level") ?? "").trim();
+  const section = String(formData.get("section") ?? "").trim().toUpperCase();
+  const department = String(formData.get("department") ?? "").trim();
   const sessionId = String(formData.get("sessionId") ?? "");
 
-  if (!name || !level || !sessionId) {
-    return { error: "Name, level, and session are required." };
+  if (!level || !sessionId) {
+    return { error: "Level and session are required." };
   }
+
+  if (!["JSS1","JSS2","JSS3","SSS1","SSS2","SSS3"].includes(level)) {
+    return { error: "Invalid level." };
+  }
+
+  // Auto-generate name: level + section (no space), or just level if no section
+  const name = section ? `${level}${section}` : level;
 
   // Verify session belongs to this school.
   const session = await prisma.session.findFirst({
@@ -35,13 +43,13 @@ export async function createClassAction(
   });
   if (!session) return { error: "Invalid session." };
 
-  const existing = await prisma.class.findUnique({
-    where: { sessionId_name: { sessionId, name } },
+  const existing = await prisma.class.findFirst({
+    where: { sessionId, level, section },
   });
-  if (existing) return { error: `Class "${name}" already exists in this session.` };
+  if (existing) return { error: `"${name}" already exists in this session.` };
 
   await prisma.class.create({
-    data: { schoolId: ctx.schoolId, sessionId, name, level },
+    data: { schoolId: ctx.schoolId, sessionId, name, level, section, department },
   });
 
   await recordAudit({
@@ -49,7 +57,7 @@ export async function createClassAction(
     actorId: ctx.user.userId,
     action: "create",
     entityType: "class",
-    afterValue: { name, level, sessionId },
+    afterValue: { name, level, section, department, sessionId },
   });
 
   revalidatePath("/classes");

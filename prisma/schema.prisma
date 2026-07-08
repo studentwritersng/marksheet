@@ -108,14 +108,16 @@ model Term {
 }
 
 model Class {
-  id        String   @id @default(cuid())
-  schoolId  String
-  sessionId String
-  name      String // e.g. "JSS1A"
-  level     String // e.g. "JSS1" — used for grouping/reporting
-  archived  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  schoolId   String
+  sessionId  String
+  name       String // auto-generated: level + section (e.g. "JSS1" or "JSS1A")
+  level      String // JSS1 / JSS2 / JSS3 / SSS1 / SSS2 / SSS3
+  section    String  @default("") // optional arm: "A", "B", "C"... "" means single-section
+  department String  @default("") // SSS only: "science" / "art" / "commercial" / ""
+  archived   Boolean @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   session          Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   assignments      Assignment[]
@@ -128,7 +130,7 @@ model Class {
   timetableEntries TimetableEntry[]
   classSubjects     ClassSubject[]
 
-  @@unique([sessionId, name])
+  @@unique([sessionId, level, section])
   @@index([schoolId])
   @@index([sessionId])
   @@map("classes")

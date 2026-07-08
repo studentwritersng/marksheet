@@ -128,26 +128,22 @@ async function main() {
     });
   }
 
-  // --- Classes ----------------------------------------------------------
-  const classNames = [
-    { name: "JSS1A", level: "JSS1" },
-    { name: "JSS1B", level: "JSS1" },
-    { name: "JSS2A", level: "JSS2" },
-    { name: "SS1 Science", level: "SS1" },
-  ];
+  // --- Classes (6 base levels, no sections) ------------------------------
+  const LEVELS = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
   const classes: Record<string, string> = {};
-  for (const c of classNames) {
+  for (const level of LEVELS) {
     const created = await prisma.class.upsert({
-      where: { sessionId_name: { sessionId: session.id, name: c.name } },
+      where: { sessionId_level_section: { sessionId: session.id, level, section: "" } },
       update: {},
       create: {
         schoolId: school.id,
         sessionId: session.id,
-        name: c.name,
-        level: c.level,
+        name: level,
+        level,
+        section: "",
       },
     });
-    classes[c.name] = created.id;
+    classes[level] = created.id;
   }
 
   // --- Subjects ---------------------------------------------------------
@@ -190,7 +186,7 @@ async function main() {
     where: { sessionId: session.id, name: TermName.First },
   });
 
-  // Math teacher for JSS1A and JSS1B; class teacher for JSS1A.
+  // Math teacher for JSS1; class teacher for JSS1.
   const existingAssignments = await prisma.assignment.count({
     where: { staffId: teacher.id, sessionId: session.id },
   });
@@ -202,16 +198,7 @@ async function main() {
           staffId: teacher.id,
           assignmentType: "subject_teacher",
           subjectId: subjects["Mathematics"],
-          classId: classes["JSS1A"],
-          sessionId: session.id,
-          termId: firstTerm?.id,
-        },
-        {
-          schoolId: school.id,
-          staffId: teacher.id,
-          assignmentType: "subject_teacher",
-          subjectId: subjects["Mathematics"],
-          classId: classes["JSS1B"],
+          classId: classes["JSS1"],
           sessionId: session.id,
           termId: firstTerm?.id,
         },
@@ -219,7 +206,7 @@ async function main() {
           schoolId: school.id,
           staffId: teacher.id,
           assignmentType: "class_teacher",
-          classId: classes["JSS1A"],
+          classId: classes["JSS1"],
           sessionId: session.id,
           termId: firstTerm?.id,
         },
@@ -234,14 +221,14 @@ async function main() {
       firstName: "Chidi",
       lastName: "Nwosu",
       gender: "Male",
-      className: "JSS1A",
+      className: "JSS1",
     },
     {
       admissionNumber: "UMS/2025/0002",
       firstName: "Fatima",
       lastName: "Sani",
       gender: "Female",
-      className: "JSS1A",
+      className: "JSS1",
     },
   ];
   for (const st of students) {
