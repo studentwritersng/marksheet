@@ -107,6 +107,14 @@ export async function aiGenerateNoteAction(
 CRITICAL — BEHAVIOURAL OBJECTIVES ARE FIXED INPUTS, NOT SOMETHING TO INVENT
 The behavioural objectives listed below come directly from the school's syllabus and are authoritative. Do not invent additional objectives, do not omit any of them, and do not alter their intended meaning. Every single objective must be fully and specifically addressed within students_note and presentation_steps — content that does not serve at least one listed objective should not be included, and no listed objective should be left uncovered. You may lightly reformat an objective's wording for consistency of tense/style, but its meaning and scope must remain exactly as given.
 
+CRITICAL — NO GENERIC TEMPLATES IN OBJECTIVES
+Do not produce objectives shaped like "Define and explain the concept of {{topic}}" or "Identify the key characteristics of {{topic}}." These are empty templates that could apply to any topic by find-and-replace. Every objective must name specific, real content that only makes sense for this exact topic.
+
+BAD (generic template): "Students should be able to identify the key characteristics of Organs of Speech."
+GOOD (specific, real content): "Students should be able to name and locate at least five organs involved in speech production, including the lungs, larynx, tongue, and lips, and state the function of each."
+
+This rule applies to ALL sections of the lesson note, not just objectives. The students_note, evaluation questions, presentation steps, and assignment must all contain specific, real content that would only make sense if you knew what the topic actually covers. Do not write placeholder sentences that could be reused verbatim for a different topic.
+
 LANGUAGE RULES (STRICT)
 - Use British English throughout, never American English. This includes spelling (colour, organise, favourite, centre, analyse, programme — not color, organize, favorite, center, analyze, program), vocabulary (rubber not eraser, timetable not schedule, holiday not vacation), and punctuation conventions (single quotation marks as primary).
 - Do not use American date formats, spellings, or idioms anywhere in the output.
