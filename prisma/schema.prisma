@@ -590,6 +590,9 @@ model Exam {
   shuffleEnabled    Boolean @default(true)
   attemptType       ExamAttemptType @default(original)
   originalExamId    String?
+  // Per-exam sub-assessment weight distribution, e.g. [{ subAssessmentTypeId: "xxx", weightPercentage: 20 }]
+  // Must sum to the parent assessment type's school-level weight.
+  subAssessmentWeights Json?
   createdAt         DateTime @default(now())
 
   school  School @relation(fields: [schoolId], references: [id], onDelete: Cascade)

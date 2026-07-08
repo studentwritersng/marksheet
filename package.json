@@ -9,6 +9,9 @@
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:push:local": "prisma db push",
+    "db:push:online": "tsx prisma/db-push-online.ts",
+    "db:push:both": "npm run db:push:local && npm run db:push:online",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts"

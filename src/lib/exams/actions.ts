@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { recordAudit } from "@/lib/audit";
+import type { Prisma } from "@prisma/client";
 
 export interface ActionState {
   error?: string;
@@ -20,6 +21,11 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
   const durationMinutes = parseInt(formData.get("durationMinutes") as string);
   const classIds = formData.getAll("classIds[]") as string[];
   const questionIds = formData.getAll("questionIds[]") as string[];
+  const subAssessmentWeightsRaw = formData.get("subAssessmentWeights") as string;
+  let subAssessmentWeights: Prisma.InputJsonValue | undefined;
+  if (subAssessmentWeightsRaw) {
+    try { subAssessmentWeights = JSON.parse(subAssessmentWeightsRaw) as Prisma.InputJsonValue; } catch { /* ignore */ }
+  }
 
   if (!subjectId || !termId || !assessmentTypeId || !durationMinutes || classIds.length === 0) {
     return { error: "Missing required fields. Select at least one class." };
@@ -35,6 +41,7 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
       assessmentTypeId,
       durationMinutes,
       shuffleEnabled: true,
+      subAssessmentWeights,
       classes: {
         create: classIds.map((cId) => ({ classId: cId })),
       },
@@ -67,6 +74,11 @@ export async function updateExamAction(_prev: ActionState, formData: FormData): 
   const assessmentTypeId = formData.get("assessmentTypeId") as string;
   const durationMinutes = parseInt(formData.get("durationMinutes") as string);
   const classIds = formData.getAll("classIds[]") as string[];
+  const subAssessmentWeightsRaw = formData.get("subAssessmentWeights") as string;
+  let subAssessmentWeights: Prisma.InputJsonValue | undefined;
+  if (subAssessmentWeightsRaw) {
+    try { subAssessmentWeights = JSON.parse(subAssessmentWeightsRaw) as Prisma.InputJsonValue; } catch { /* ignore */ }
+  }
 
   if (!examId || !subjectId || !termId || !assessmentTypeId || !durationMinutes || classIds.length === 0) {
     return { error: "Missing required fields." };
@@ -80,6 +92,7 @@ export async function updateExamAction(_prev: ActionState, formData: FormData): 
       termId,
       assessmentTypeId,
       durationMinutes,
+      subAssessmentWeights,
       classes: {
         deleteMany: {},
         create: classIds.map((cId) => ({ classId: cId })),

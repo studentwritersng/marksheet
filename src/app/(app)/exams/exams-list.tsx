@@ -17,14 +17,15 @@ interface SubjectVM { id: string; name: string }
 interface ClassVM { id: string; name: string }
 interface TermVM { id: string; name: string }
 interface QuestionVM { id: string; text: string; type: string; marks: number; mcqOptions: { id: string; optionText: string; isCorrect: boolean }[] }
-interface AssessmentTypeVM { id: string; name: string; code: string }
+interface AssessmentTypeVM { id: string; name: string; code: string; defaultWeight: number | null; children: { id: string; name: string; code: string }[] }
+interface WeightingVM { assessmentTypeId: string; weightPercentage: number; subjectId: string | null }
 
 export function ExamsList({
-  exams, subjects, classes, terms, questions, classSubjects, assessmentTypes,
+  exams, subjects, classes, terms, questions, classSubjects, assessmentTypes, weightings,
 }: {
   exams: ExamVM[]; subjects: SubjectVM[]; classes: ClassVM[]; terms: TermVM[];
   questions: QuestionVM[]; classSubjects?: { classId: string; subjectId: string; subjectName: string }[];
-  assessmentTypes: AssessmentTypeVM[];
+  assessmentTypes: AssessmentTypeVM[]; weightings?: WeightingVM[];
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [createState, createAction, createPending] = useActionState(createExamAction, {});
@@ -70,7 +71,7 @@ export function ExamsList({
           action={createAction} pending={createPending} state={createState}
           subjects={subjects} classes={classes} terms={terms}
           questions={questions} classSubjects={classSubjects}
-          assessmentTypes={assessmentTypes}
+          assessmentTypes={assessmentTypes} weightings={weightings}
           selectedClass={selectedClass} setSelectedClass={setSelectedClass}
           availableSubjects={availableSubjects}
         />
@@ -98,7 +99,7 @@ export function ExamsList({
                     <EditExamForm
                       exam={exam} action={editAction} pending={editPending} state={editState}
                       subjects={subjects} classes={classes} terms={terms}
-                      assessmentTypes={assessmentTypes}
+                      assessmentTypes={assessmentTypes} weightings={weightings}
                       onCancel={() => setEditingId(null)}
                     />
                   </td>
@@ -159,22 +160,40 @@ export function ExamsList({
 
 function CreateExamForm({
   action, pending, state, subjects, classes, terms, questions, classSubjects,
-  assessmentTypes, selectedClass, setSelectedClass, availableSubjects,
+  assessmentTypes, weightings, selectedClass, setSelectedClass, availableSubjects,
 }: {
   action: (fd: FormData) => void; pending: boolean; state: ActionState;
   subjects: SubjectVM[]; classes: ClassVM[]; terms: TermVM[]; questions: QuestionVM[];
   classSubjects?: { classId: string; subjectId: string; subjectName: string }[];
-  assessmentTypes: AssessmentTypeVM[];
+  assessmentTypes: AssessmentTypeVM[]; weightings?: WeightingVM[];
   selectedClass: string; setSelectedClass: (v: string) => void;
   availableSubjects: SubjectVM[];
 }) {
   const [selSubject, setSelSubject] = useState("");
+  const [selAssessType, setSelAssessType] = useState("");
+  const [subWeights, setSubWeights] = useState<Record<string, string>>({});
+
+  const selectedType = assessmentTypes.find((t) => t.code === selAssessType);
+  const hasSubAssessments = selectedType && selectedType.children.length > 0;
+  const parentWeight = selectedType?.defaultWeight ?? 0;
+  const subTotal = hasSubAssessments
+    ? Object.values(subWeights).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+    : 0;
+  const weightValid = !hasSubAssessments || Math.abs(subTotal - parentWeight) < 0.01;
+
   const filteredQuestions = selSubject
-    ? questions.filter((q) => q.id) // subject filtering would need question.subjectId
+    ? questions.filter((q) => q.id)
     : questions;
 
   return (
     <form action={action} className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 space-y-4">
+      <input type="hidden" name="subAssessmentWeights" value={JSON.stringify(
+        hasSubAssessments
+          ? selectedType.children
+              .filter((c) => parseFloat(subWeights[c.id] || "0") > 0)
+              .map((c) => ({ subAssessmentTypeId: c.id, weightPercentage: parseFloat(subWeights[c.id] || "0") }))
+          : []
+      )} />
       <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">New Exam</h3>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -203,9 +222,10 @@ function CreateExamForm({
         </div>
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Assessment type</label>
-          <select name="assessmentTypeId" required
+          <select name="assessmentTypeId" required value={selAssessType}
+            onChange={(e) => { setSelAssessType(e.target.value); setSubWeights({}); }}
             className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md"
-          ><option value="">Select type</option>{assessmentTypes.map((t) => <option key={t.code} value={t.code}>{t.name} ({t.code})</option>)}</select>
+          ><option value="">Select type</option>{assessmentTypes.map((t) => <option key={t.code} value={t.code}>{t.name} ({t.code}){t.defaultWeight ? ` — ${t.defaultWeight}%` : ""}</option>)}</select>
         </div>
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Duration (minutes)</label>
@@ -213,6 +233,40 @@ function CreateExamForm({
             className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md" />
         </div>
       </div>
+
+      {/* Sub-assessment weight distribution */}
+      {hasSubAssessments && (
+        <div className="border border-outline-variant rounded-lg p-4 space-y-3 bg-surface-container-low">
+          <div className="flex items-center justify-between">
+            <h4 className="font-label-lg text-label-lg text-on-surface font-semibold">{selectedType.name} Sub-Assessment Weights</h4>
+            <span className="font-label-sm text-label-sm text-on-surface-variant">Total: {parentWeight}%</span>
+          </div>
+          <p className="font-body-sm text-body-sm text-on-surface-variant">
+            Distribute the {parentWeight}% among the sub-assessments. Leave unused sub-assessments at 0.
+          </p>
+          <div className="space-y-2">
+            {selectedType.children.map((child) => (
+              <div key={child.id} className="flex items-center gap-3">
+                <label className="flex-1 font-body-md text-body-md text-on-surface">{child.name}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min={0} max={parentWeight} step={0.5}
+                    value={subWeights[child.id] ?? ""}
+                    onChange={(e) => setSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
+                    placeholder="0"
+                    className="w-24 border border-outline-variant rounded p-2 text-sm text-right"
+                  />
+                  <span className="font-body-sm text-body-sm text-on-surface-variant w-4">%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className={`flex items-center justify-between pt-2 border-t border-outline-variant ${weightValid ? "text-green-700" : "text-red-600"}`}>
+            <span className="font-label-sm text-label-sm">Sub-total</span>
+            <span className="font-label-md text-label-md font-semibold">{subTotal.toFixed(1)}% {weightValid ? "✓" : `(must equal ${parentWeight}%)`}</span>
+          </div>
+        </div>
+      )}
 
       <div>
         <label className="font-label-sm text-label-sm text-on-surface-variant block mb-2">Questions</label>
@@ -237,21 +291,39 @@ function CreateExamForm({
 
       {state.error && <p className="bg-red-50 text-red-700 font-body-sm text-body-sm px-3 py-2 rounded">{state.error}</p>}
       {state.success && <p className="bg-green-50 text-green-700 font-body-sm text-body-sm px-3 py-2 rounded">{state.success}</p>}
-      <button type="submit" disabled={pending}
+      <button type="submit" disabled={pending || (hasSubAssessments && !weightValid)}
         className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366] disabled:opacity-60"
       >{pending ? "Creating..." : "Create Exam"}</button>
     </form>
   );
 }
 
-function EditExamForm({ exam, action, pending, state, subjects, classes, terms, assessmentTypes, onCancel }: {
+function EditExamForm({ exam, action, pending, state, subjects, classes, terms, assessmentTypes, weightings, onCancel }: {
   exam: ExamVM; action: (fd: FormData) => void; pending: boolean; state: ActionState;
   subjects: SubjectVM[]; classes: ClassVM[]; terms: TermVM[];
-  assessmentTypes: AssessmentTypeVM[]; onCancel: () => void;
+  assessmentTypes: AssessmentTypeVM[]; weightings?: WeightingVM[]; onCancel: () => void;
 }) {
+  const [editAssessType, setEditAssessType] = useState(exam.assessmentTypeId);
+  const [editSubWeights, setEditSubWeights] = useState<Record<string, string>>({});
+
+  const editSelectedType = assessmentTypes.find((t) => t.code === editAssessType);
+  const editHasSub = editSelectedType && editSelectedType.children.length > 0;
+  const editParentWeight = editSelectedType?.defaultWeight ?? 0;
+  const editSubTotal = editHasSub
+    ? Object.values(editSubWeights).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+    : 0;
+  const editWeightValid = !editHasSub || Math.abs(editSubTotal - editParentWeight) < 0.01;
+
   return (
     <form action={action} className="space-y-3">
       <input type="hidden" name="examId" value={exam.id} />
+      <input type="hidden" name="subAssessmentWeights" value={JSON.stringify(
+        editHasSub
+          ? editSelectedType.children
+              .filter((c) => parseFloat(editSubWeights[c.id] || "0") > 0)
+              .map((c) => ({ subAssessmentTypeId: c.id, weightPercentage: parseFloat(editSubWeights[c.id] || "0") }))
+          : []
+      )} />
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Subject</label>
@@ -279,9 +351,11 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
         </div>
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Type</label>
-          <select name="assessmentTypeId" defaultValue={exam.assessmentTypeId} required
+          <select name="assessmentTypeId" value={editAssessType}
+            onChange={(e) => { setEditAssessType(e.target.value); setEditSubWeights({}); }}
+            required
             className="w-full border border-outline-variant rounded p-2 text-sm"
-          >{assessmentTypes.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}</select>
+          >{assessmentTypes.map((t) => <option key={t.code} value={t.code}>{t.name}{t.defaultWeight ? ` (${t.defaultWeight}%)` : ""}</option>)}</select>
         </div>
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Duration</label>
@@ -289,10 +363,43 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
             className="w-full border border-outline-variant rounded p-2 text-sm" />
         </div>
       </div>
+
+      {/* Sub-assessment weight distribution */}
+      {editHasSub && (
+        <div className="border border-outline-variant rounded p-3 space-y-2 bg-surface-container-low">
+          <div className="flex items-center justify-between">
+            <h4 className="font-label-sm text-label-sm text-on-surface font-semibold">{editSelectedType.name} Sub-Assessment Weights</h4>
+            <span className="font-label-sm text-label-sm text-on-surface-variant">Total: {editParentWeight}%</span>
+          </div>
+          <p className="font-body-sm text-body-sm text-on-surface-variant text-xs">
+            Distribute the {editParentWeight}% among sub-assessments.
+          </p>
+          <div className="space-y-1.5">
+            {editSelectedType.children.map((child) => (
+              <div key={child.id} className="flex items-center gap-2">
+                <span className="flex-1 text-sm">{child.name}</span>
+                <input
+                  type="number" min={0} max={editParentWeight} step={0.5}
+                  value={editSubWeights[child.id] ?? ""}
+                  onChange={(e) => setEditSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
+                  placeholder="0"
+                  className="w-20 border border-outline-variant rounded p-1 text-sm text-right"
+                />
+                <span className="text-xs text-on-surface-variant">%</span>
+              </div>
+            ))}
+          </div>
+          <div className={`flex items-center justify-between pt-1.5 border-t border-outline-variant text-xs ${editWeightValid ? "text-green-700" : "text-red-600"}`}>
+            <span>Sub-total</span>
+            <span className="font-semibold">{editSubTotal.toFixed(1)}% {editWeightValid ? "✓" : `(must equal ${editParentWeight}%)`}</span>
+          </div>
+        </div>
+      )}
+
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state.success && <p className="text-sm text-green-600">{state.success}</p>}
       <div className="flex gap-2">
-        <button type="submit" disabled={pending}
+        <button type="submit" disabled={pending || (editHasSub && !editWeightValid)}
           className="bg-[#002046] text-white text-sm px-3 py-1.5 rounded hover:bg-[#003366] disabled:opacity-60"
         >{pending ? "Saving..." : "Save"}</button>
         <button type="button" onClick={onCancel}

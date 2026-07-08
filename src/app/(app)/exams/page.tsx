@@ -12,7 +12,7 @@ export default async function ExamsPage() {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
-  const [exams, subjects, classes, terms, questions, classSubjects, assessmentTypes] = await Promise.all([
+  const [exams, subjects, classes, terms, questions, classSubjects, assessmentTypes, weightings] = await Promise.all([
     prisma.exam.findMany({
       where: { schoolId: user.schoolId },
       include: {
@@ -43,7 +43,13 @@ export default async function ExamsPage() {
     }),
     prisma.assessmentType.findMany({
       where: { schoolId: user.schoolId, parentId: null },
+      include: {
+        children: { orderBy: { sortOrder: "asc" } },
+      },
       orderBy: { sortOrder: "asc" },
+    }),
+    prisma.assessmentWeighting.findMany({
+      where: { schoolId: user.schoolId },
     }),
   ]);
 
@@ -87,10 +93,26 @@ export default async function ExamsPage() {
           subjectId: cs.subject.id,
           subjectName: cs.subject.name,
         }))}
-        assessmentTypes={assessmentTypes.map((t) => ({
-          id: t.id,
-          name: t.name,
-          code: t.code,
+        assessmentTypes={assessmentTypes.map((t) => {
+          const w = weightings.find(
+            (w) => w.assessmentTypeId === t.code && w.subjectId === null
+          );
+          return {
+            id: t.id,
+            name: t.name,
+            code: t.code,
+            defaultWeight: w?.weightPercentage ?? null,
+            children: t.children.map((c) => ({
+              id: c.id,
+              name: c.name,
+              code: c.code,
+            })),
+          };
+        })}
+        weightings={weightings.map((w) => ({
+          assessmentTypeId: w.assessmentTypeId,
+          weightPercentage: w.weightPercentage,
+          subjectId: w.subjectId,
         }))}
       />
     </div>
