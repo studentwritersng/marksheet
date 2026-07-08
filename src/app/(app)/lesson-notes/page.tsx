@@ -4,6 +4,7 @@ import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { LessonNotesForm } from "./lesson-notes-form";
 import { LessonNotesList } from "./lesson-notes-list";
+import { ExportButtons } from "@/components/export-buttons";
 
 export default async function LessonNotesPage() {
   const user = await getCurrentUser();
@@ -24,13 +25,34 @@ export default async function LessonNotesPage() {
     }),
   ]);
 
+  const csvHeaders = ["Topic", "Subject", "Class", "Term", "Source", "Status", "Created"];
+  const csvRows = notes.map((n) => [
+    n.topic,
+    n.subject.name,
+    n.class.name,
+    n.term.name,
+    n.source,
+    n.status,
+    n.createdAt.toISOString().slice(0, 10),
+  ]);
+
   return (
-    <div>
-      <h1 className="font-headline-lg text-headline-lg text-on-surface">Lesson Notes</h1>
-      <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
-        AI drafts land as <strong>draft</strong> — review and publish to make them available
-        for question generation and essay grading.
-      </p>
+    <div id="lesson-notes-content">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-headline-lg text-headline-lg text-on-surface">Lesson Notes</h1>
+          <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
+            AI drafts land as <strong>draft</strong> — review and publish to make them available
+            for question generation and essay grading.
+          </p>
+        </div>
+        <ExportButtons
+          contentId="lesson-notes-content"
+          filename={`LessonNotes_${new Date().toISOString().slice(0, 10)}`}
+          pdfTitle="Lesson Notes"
+          csvData={{ headers: csvHeaders, rows: csvRows }}
+        />
+      </div>
 
       <div className="mt-6">
         <LessonNotesForm

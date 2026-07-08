@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { CreateClassForm } from "./create-class-form";
 import { ClassRow } from "./class-row";
 import Link from "next/link";
+import { ExportButtons } from "@/components/export-buttons";
 
 const LEVEL_ORDER = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
 
@@ -34,21 +35,39 @@ export default async function ClassesPage() {
     return acc;
   }, {});
 
+  const csvHeaders = ["Level", "Class Name", "Section", "Department", "Students", "Session"];
+  const csvRows = classes.map((c) => [
+    c.level,
+    c.name,
+    c.section || "",
+    c.department || "",
+    String(c._count.students),
+    c.session?.label ?? "",
+  ]);
+
   return (
-    <div>
-      <div className="flex items-center justify-between">
+    <div id="classes-content">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface">Classes</h1>
           <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
             {currentSession?.label ?? "No active session"}
           </p>
         </div>
-        <Link
-          href="/promotion"
-          className="rounded-lg border border-outline-variant px-4 py-2 font-label-md text-label-md text-on-surface hover:bg-surface-container-low"
-        >
-          Promotion
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/promotion"
+            className="rounded-lg border border-outline-variant px-4 py-2 font-label-md text-label-md text-on-surface hover:bg-surface-container-low"
+          >
+            Promotion
+          </Link>
+          <ExportButtons
+            contentId="classes-content"
+            filename={`Classes_${new Date().toISOString().slice(0, 10)}`}
+            pdfTitle="Class List"
+            csvData={{ headers: csvHeaders, rows: csvRows }}
+          />
+        </div>
       </div>
 
       <div className="mt-6">

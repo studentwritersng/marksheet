@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { ExamsList } from "./exams-list";
+import { ExportButtons } from "@/components/export-buttons";
 
 export default async function ExamsPage() {
   const user = await getCurrentUser();
@@ -53,15 +54,34 @@ export default async function ExamsPage() {
     }),
   ]);
 
+  const csvHeaders = ["Subject", "Classes", "Term", "Assessment Type", "Duration (min)", "Questions", "Submissions"];
+  const csvRows = exams.map((e) => [
+    e.subject.name,
+    e.classes.map((ec) => ec.class.name).join("; "),
+    `${e.term.name}${e.term.session ? ` (${e.term.session.label})` : ""}`,
+    e.assessmentTypeId,
+    String(e.durationMinutes),
+    String(e.examQuestions.length),
+    `${e.attempts.filter((a) => a.status === "submitted").length}/${e.attempts.length}`,
+  ]);
+
   return (
-    <div className="flex flex-col gap-stack-lg">
-      <div>
-        <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
-          Exams
-        </h2>
-        <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-          Create and manage exams, track submissions, and assign resits.
-        </p>
+    <div id="exams-content" className="flex flex-col gap-stack-lg">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
+            Exams
+          </h2>
+          <p className="font-body-md text-body-md text-on-surface-variant mt-1">
+            Create and manage exams, track submissions, and assign resits.
+          </p>
+        </div>
+        <ExportButtons
+          contentId="exams-content"
+          filename={`Exams_${new Date().toISOString().slice(0, 10)}`}
+          pdfTitle="Exam List"
+          csvData={{ headers: csvHeaders, rows: csvRows }}
+        />
       </div>
 
       <ExamsList

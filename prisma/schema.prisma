@@ -442,24 +442,29 @@ model CurriculumTopic {
 }
 
 model LessonNote {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  subjectId             String
-  classId               String
-  termId                String
-  syllabusId            String?
-  topic                 String
+  id                      String   @id @default(cuid())
+  schoolId                String
+  subjectId               String
+  classId                 String
+  termId                  String
+  syllabusId              String?
+  topic                   String
+  themeOrAspect           String?   // theme / aspect of the syllabus
+  duration                String?   // e.g. "40 minutes"
+  referenceBooks          String?   // recommended textbooks
+  instructionalMaterials  String?   // teaching aids
   // Structured lesson note sections
-  previousKnowledge     String?   // what students should already know
-  introduction          String?   // set induction / opening activity
-  behaviouralObjectives Json?     // array of objective strings
-  content               String?   // students' note / board summary
-  presentationSteps     Json?     // array of {step_number, objective_reference, teacher_activity, student_activity}
-  evaluation            String?   // evaluation questions
-  summary               String?   // summary / conclusion
-  assignment            String?   // homework
-  source                String    // manual / ai_generated
-  status                String    @default("draft") // draft / published
+  previousKnowledge       String?   // what students should already know
+  introduction            String?   // set induction / opening activity
+  behaviouralObjectives   Json?     // array of objective strings
+  content                 String?   // students' note / board summary
+  objectiveCoverageMap    String?   // traceability: which parts of content cover which objective
+  presentationSteps       Json?     // array of {step_number, objective_reference, teacher_activity, student_activity}
+  evaluation              String?   // evaluation questions
+  summary                 String?   // summary / conclusion
+  assignment              String?   // homework
+  source                  String    // manual / ai_generated
+  status                  String    @default("draft") // draft / published
   createdBy  String   // staff id
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
