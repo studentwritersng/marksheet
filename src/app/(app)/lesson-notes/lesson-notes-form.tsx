@@ -11,7 +11,7 @@ export function LessonNotesForm({
   terms,
 }: {
   subjects: { id: string; name: string }[];
-  classes: { id: string; name: string }[];
+  classes: { id: string; name: string; level: string }[];
   terms: { id: string; name: string }[];
 }) {
   const [manualState, manualAction, manualPending] = useActionState(createLessonNoteAction, init);
@@ -39,13 +39,30 @@ export function LessonNotesForm({
       const cls = classes.find((c) => c.id === classId);
       const term = terms.find((t) => t.id === termId);
       if (!subject || !cls || !term) return;
-      // The class name might be like "JSS1A" and we need the level "JSS1"
-      // We'll derive the class level from the class name
-      const levelMatch = cls.name.match(/^(JSS\d|SS\d)/i);
-      const classLevel = levelMatch?.[1]?.toUpperCase() ?? cls.name;
+      const classLevel = cls.level;
       const termName = term.name.toUpperCase();
 
-      const topics = await getCurriculumTopicsAction(subject.name, classLevel, termName);
+      let topics = await getCurriculumTopicsAction(subject.name, classLevel, termName);
+      // If no topics found, try common NERDC name variations
+      if (topics.length === 0) {
+        const altNames: Record<string, string[]> = {
+          "English Language": ["English Studies", "English"],
+          "Basic Science": ["Basic Science and Technology", "Integrated Science"],
+          "Basic Technology": ["Introductory Technology"],
+          "Business Studies": ["Business Education"],
+          "Civic Education": ["Civics"],
+          "Physical and Health Education": ["Physical Education", "PHE"],
+          "Social Studies": ["Social Sciences"],
+          "Agricultural Science": ["Agriculture"],
+          "Computer Science": ["Information Technology", "IT", "Computer Studies"],
+          "Home Economics": ["Home Management"],
+        };
+        const alternatives = altNames[subject.name] ?? [];
+        for (const alt of alternatives) {
+          topics = await getCurriculumTopicsAction(alt, classLevel, termName);
+          if (topics.length > 0) break;
+        }
+      }
       setCurriculumTopics(topics);
     } finally {
       setLoadingTopics(false);

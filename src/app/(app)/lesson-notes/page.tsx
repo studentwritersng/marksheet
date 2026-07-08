@@ -35,7 +35,7 @@ export default async function LessonNotesPage() {
       <div className="mt-6">
         <LessonNotesForm
           subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
-          classes={classes.map((c) => ({ id: c.id, name: c.name }))}
+          classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level }))}
           terms={terms.map((t) => ({ id: t.id, name: t.name }))}
         />
       </div>
