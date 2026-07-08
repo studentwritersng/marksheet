@@ -40,6 +40,7 @@ export function buildNav(
       { label: "Exams", href: "/exams", icon: "quiz" },
       { label: "Timetable", href: "/timetable", icon: "calendar_view_week" },
       { label: "Results", href: "/results", icon: "analytics" },
+      { label: "Broadsheet", href: "/broadsheet", icon: "table_chart" },
       { label: "Audit Log", href: "/audit-log", icon: "history" },
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
       { label: "Settings", href: "/settings/school", icon: "settings" },
