@@ -69,7 +69,7 @@ export default async function ExamTakePage(props: {
       studentId={student.id}
       attemptId={existingAttempt?.id}
       subjectName={exam.subject.name}
-      className={exam.class.name}
+      className={exam.class?.name ?? ""}
       assessmentTypeId={exam.assessmentTypeId}
       durationMinutes={exam.durationMinutes}
       termName={`${exam.term.name}`}

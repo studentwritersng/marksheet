@@ -15,7 +15,11 @@ export default async function AssessmentWeightingsPage() {
   const [subjects, weightings, assessmentTypes] = await Promise.all([
     prisma.subject.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } }),
     prisma.assessmentWeighting.findMany({ where: { schoolId: user.schoolId } }),
-    prisma.assessmentType.findMany({ where: { schoolId: user.schoolId }, orderBy: { sortOrder: "asc" } }),
+    prisma.assessmentType.findMany({
+      where: { schoolId: user.schoolId },
+      include: { children: { orderBy: { sortOrder: "asc" } } },
+      orderBy: { sortOrder: "asc" },
+    }),
   ]);
 
   return (
@@ -41,6 +45,8 @@ export default async function AssessmentWeightingsPage() {
             name: t.name,
             code: t.code,
             sortOrder: t.sortOrder,
+            parentId: t.parentId,
+            children: t.children.map((c) => ({ id: c.id, name: c.name, code: c.code, sortOrder: c.sortOrder })),
           }))}
         />
       </div>

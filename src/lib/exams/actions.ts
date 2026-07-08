@@ -12,32 +12,32 @@ export interface ActionState {
 
 export async function createExamAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   let ctx;
-  try {
-    ctx = await requireSchoolAdmin();
-  } catch {
-    return { error: "Not authorised." };
-  }
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
 
   const subjectId = formData.get("subjectId") as string;
-  const classId = formData.get("classId") as string;
   const termId = formData.get("termId") as string;
   const assessmentTypeId = formData.get("assessmentTypeId") as string;
   const durationMinutes = parseInt(formData.get("durationMinutes") as string);
+  const classIds = formData.getAll("classIds[]") as string[];
   const questionIds = formData.getAll("questionIds[]") as string[];
 
-  if (!subjectId || !classId || !termId || !assessmentTypeId || !durationMinutes) {
-    return { error: "Missing required fields." };
+  if (!subjectId || !termId || !assessmentTypeId || !durationMinutes || classIds.length === 0) {
+    return { error: "Missing required fields. Select at least one class." };
   }
 
+  // Create exam linked to the first class for backward compat
   const exam = await prisma.exam.create({
     data: {
       schoolId: ctx.schoolId,
       subjectId,
-      classId,
+      classId: classIds[0],
       termId,
       assessmentTypeId,
       durationMinutes,
       shuffleEnabled: true,
+      classes: {
+        create: classIds.map((cId) => ({ classId: cId })),
+      },
     },
   });
 
@@ -48,15 +48,78 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
   }
 
   await recordAudit({
-    schoolId: ctx.schoolId,
-    actorId: ctx.user.userId,
-    action: "create",
-    entityType: "exam",
-    afterValue: { examId: exam.id, subjectId, classId, termId, questionCount: questionIds.length } as never,
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "create", entityType: "exam",
+    afterValue: { examId: exam.id, subjectId, classIds, termId, questionCount: questionIds.length } as never,
   });
 
   revalidatePath("/exams");
   return { success: "Exam created." };
+}
+
+export async function updateExamAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  const examId = formData.get("examId") as string;
+  const subjectId = formData.get("subjectId") as string;
+  const termId = formData.get("termId") as string;
+  const assessmentTypeId = formData.get("assessmentTypeId") as string;
+  const durationMinutes = parseInt(formData.get("durationMinutes") as string);
+  const classIds = formData.getAll("classIds[]") as string[];
+
+  if (!examId || !subjectId || !termId || !assessmentTypeId || !durationMinutes || classIds.length === 0) {
+    return { error: "Missing required fields." };
+  }
+
+  await prisma.exam.update({
+    where: { id: examId },
+    data: {
+      subjectId,
+      classId: classIds[0],
+      termId,
+      assessmentTypeId,
+      durationMinutes,
+      classes: {
+        deleteMany: {},
+        create: classIds.map((cId) => ({ classId: cId })),
+      },
+    },
+  });
+
+  revalidatePath("/exams");
+  return { success: "Exam updated." };
+}
+
+export async function deleteExamAction(examId: string): Promise<ActionState> {
+  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  await prisma.exam.delete({ where: { id: examId } });
+  revalidatePath("/exams");
+  return { success: "Exam deleted." };
+}
+
+export async function addQuestionsToExamAction(examId: string, questionIds: string[]): Promise<ActionState> {
+  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  await prisma.examQuestion.createMany({
+    data: questionIds.map((qId) => ({ examId, questionId: qId })),
+    skipDuplicates: true,
+  });
+
+  revalidatePath("/exams");
+  return { success: `${questionIds.length} question(s) added.` };
+}
+
+export async function removeQuestionFromExamAction(examId: string, questionId: string): Promise<ActionState> {
+  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  await prisma.examQuestion.deleteMany({
+    where: { examId, questionId },
+  });
+
+  revalidatePath("/exams");
+  return { success: "Question removed." };
 }
 
 export async function submitExamAction(attemptId: string, answers: { questionId: string; mcqSelectedOptionId?: string; essayResponseText?: string }[]): Promise<ActionState> {
@@ -121,11 +184,7 @@ export async function startExamAction(examId: string, studentId: string): Promis
 
 export async function assignResitAction(examId: string, studentIds: string[]): Promise<ActionState> {
   let ctx;
-  try {
-    ctx = await requireSchoolAdmin();
-  } catch {
-    return { error: "Not authorised." };
-  }
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
 
   await prisma.examAttempt.updateMany({
     where: { examId, studentId: { in: studentIds } },

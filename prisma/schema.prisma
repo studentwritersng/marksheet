@@ -124,6 +124,7 @@ model Class {
   promotionsTo     PromotionRecord[] @relation("PromotionToClass")
   lessonNotes      LessonNote[]
   exams            Exam[]
+  examClasses      ExamClass[]
   timetableEntries TimetableEntry[]
   classSubjects     ClassSubject[]
 
@@ -582,25 +583,40 @@ model Exam {
   id                String  @id @default(cuid())
   schoolId          String
   subjectId         String
-  classId           String
+  classId           String? // kept for backward compat; use ExamClass for multiple
   termId            String
   assessmentTypeId  String
   durationMinutes   Int
   shuffleEnabled    Boolean @default(true)
   attemptType       ExamAttemptType @default(original)
-  originalExamId    String? // set only for resits
+  originalExamId    String?
   createdAt         DateTime @default(now())
 
   school  School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id])
-  class   Class   @relation(fields: [classId], references: [id])
+  class   Class?  @relation(fields: [classId], references: [id])
   term    Term    @relation(fields: [termId], references: [id])
   examQuestions ExamQuestion[]
   attempts      ExamAttempt[]
+  classes       ExamClass[]
 
   @@index([schoolId])
   @@index([subjectId, classId, termId])
   @@map("exams")
+}
+
+model ExamClass {
+  id      String @id @default(cuid())
+  examId  String
+  classId String
+
+  exam  Exam  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  class Class @relation(fields: [classId], references: [id])
+
+  @@unique([examId, classId])
+  @@index([examId])
+  @@index([classId])
+  @@map("exam_classes")
 }
 
 model ExamQuestion {
@@ -680,8 +696,12 @@ model AssessmentType {
   schoolId  String
   name      String   // e.g. "Mid Term Test"
   code      String   @default("") // e.g. "MDT" — short code used elsewhere (results, exams)
+  parentId  String?  // self-reference for sub-assessments
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
+
+  parent   AssessmentType?  @relation("SubAssessments", fields: [parentId], references: [id])
+  children AssessmentType[] @relation("SubAssessments")
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 

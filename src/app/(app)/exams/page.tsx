@@ -12,7 +12,7 @@ export default async function ExamsPage() {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
-  const [exams, subjects, classes, terms, questions, classSubjects] = await Promise.all([
+  const [exams, subjects, classes, terms, questions, classSubjects, assessmentTypes] = await Promise.all([
     prisma.exam.findMany({
       where: { schoolId: user.schoolId },
       include: {
@@ -21,6 +21,7 @@ export default async function ExamsPage() {
         term: { include: { session: true } },
         examQuestions: { include: { question: { select: { id: true, text: true, type: true, marks: true } } } },
         attempts: { select: { id: true, studentId: true, status: true } },
+        classes: { include: { class: { select: { id: true, name: true } } } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -40,6 +41,10 @@ export default async function ExamsPage() {
       where: { schoolId: user.schoolId },
       include: { subject: { select: { id: true, name: true } } },
     }),
+    prisma.assessmentType.findMany({
+      where: { schoolId: user.schoolId, parentId: null },
+      orderBy: { sortOrder: "asc" },
+    }),
   ]);
 
   return (
@@ -57,13 +62,15 @@ export default async function ExamsPage() {
         exams={exams.map((e) => ({
           id: e.id,
           subjectName: e.subject.name,
-          className: e.class.name,
+          className: e.classes.map((ec) => ec.class.name).join(", "),
+          classNames: e.classes.map((ec) => ec.class.name).join(", "),
           termName: `${e.term.name}${e.term.session ? ` (${e.term.session.label})` : ""}`,
           assessmentTypeId: e.assessmentTypeId,
           durationMinutes: e.durationMinutes,
           questionCount: e.examQuestions.length,
           attemptCount: e.attempts.length,
           submittedCount: e.attempts.filter((a) => a.status === "submitted").length,
+          questionIds: e.examQuestions.map((eq) => eq.question.id),
         }))}
         subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
         classes={classes.map((c) => ({ id: c.id, name: c.name }))}
@@ -79,6 +86,11 @@ export default async function ExamsPage() {
           classId: cs.classId,
           subjectId: cs.subject.id,
           subjectName: cs.subject.name,
+        }))}
+        assessmentTypes={assessmentTypes.map((t) => ({
+          id: t.id,
+          name: t.name,
+          code: t.code,
         }))}
       />
     </div>

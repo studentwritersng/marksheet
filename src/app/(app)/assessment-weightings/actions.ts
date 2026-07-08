@@ -21,8 +21,15 @@ export async function createAssessmentTypeAction(
 
   const name = (formData.get("name") as string)?.trim();
   const code = (formData.get("code") as string)?.trim().toUpperCase();
+  const parentId = (formData.get("parentId") as string)?.trim() || null;
+
   if (!name) return { error: "Assessment type name is required." };
   if (!code) return { error: "Assessment type code is required." };
+
+  if (parentId) {
+    const parent = await prisma.assessmentType.findUnique({ where: { id: parentId, schoolId: ctx.schoolId } });
+    if (!parent) return { error: "Parent assessment type not found." };
+  }
 
   const existingName = await prisma.assessmentType.findUnique({
     where: { schoolId_name: { schoolId: ctx.schoolId, name } },
@@ -41,13 +48,13 @@ export async function createAssessmentTypeAction(
   });
 
   await prisma.assessmentType.create({
-    data: { schoolId: ctx.schoolId, name, code, sortOrder: (maxOrder?.sortOrder ?? 0) + 1 },
+    data: { schoolId: ctx.schoolId, name, code, parentId, sortOrder: (maxOrder?.sortOrder ?? 0) + 1 },
   });
 
   await recordAudit({
     schoolId: ctx.schoolId, actorId: ctx.user.userId,
     action: "create", entityType: "assessment_type",
-    afterValue: { name, code } as never,
+    afterValue: { name, code, parentId } as never,
   });
 
   revalidatePath("/assessment-weightings");

@@ -38,7 +38,7 @@ export default async function EssayGradingPage() {
       </div>
 
       <EssayGradingView
-        exams={exams.map((e) => ({ id: e.id, label: `${e.subject.name} · ${e.class.name}` }))}
+        exams={exams.map((e) => ({ id: e.id, label: `${e.subject.name} · ${e.class?.name ?? ""}` }))}
         pendingCount={pendingCount}
       />
     </div>

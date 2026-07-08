@@ -44,17 +44,26 @@ export function WeightingsPage({
   );
 }
 
-function AssessmentTypesSection({ types }: { types: { id: string; name: string; code: string; sortOrder: number }[] }) {
+function AssessmentTypesSection({ types }: { types: { id: string; name: string; code: string; sortOrder: number; parentId?: string | null; children?: { id: string; name: string; code: string; sortOrder: number }[] }[] }) {
   const [state, action, pending] = useActionState(createAssessmentTypeAction, {});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editCode, setEditCode] = useState("");
 
+  const parents = types.filter((t) => !t.parentId);
+  const children = types.filter((t) => t.parentId);
+  const childMap = new Map<string, typeof children>();
+  for (const c of children) {
+    const arr = childMap.get(c.parentId!) ?? [];
+    arr.push(c);
+    childMap.set(c.parentId!, arr);
+  }
+
   return (
     <div className="bg-white border border-outline-variant rounded-xl p-6">
       <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-1">Assessment Types</h2>
       <p className="font-body-sm text-body-sm text-on-surface-variant mb-4">
-        Define assessment types with a full name and a short code (e.g. "Mid Term Test" / "MDT"). Codes are used in weightings and results.
+        Define assessment types with a full name and a short code (e.g. "Mid Term Test" / "MDT"). Add sub-assessments for exams with multiple papers (e.g. MCQ, Essay, Practical).
       </p>
 
       {types.length === 0 && (
@@ -62,45 +71,73 @@ function AssessmentTypesSection({ types }: { types: { id: string; name: string; 
       )}
 
       <div className="space-y-2 mb-6">
-        {types.map((t) => (
-          <div key={t.id} className="flex items-center justify-between bg-surface-container-low rounded-lg px-4 py-3">
-            {editingId === t.id ? (
-              <div className="flex items-center gap-2 flex-1">
-                <input value={editName} onChange={(e) => setEditName(e.target.value)}
-                  className="border border-outline-variant rounded px-2 py-1 font-body-md text-body-md w-40" />
-                <input value={editCode} onChange={(e) => setEditCode(e.target.value.toUpperCase())}
-                  className="border border-outline-variant rounded px-2 py-1 font-body-md text-body-md w-20" />
-                <button onClick={async () => {
-                  const { updateAssessmentTypeAction } = await import("./actions");
-                  await updateAssessmentTypeAction(t.id, editName, editCode);
-                  setEditingId(null);
-                }} className="text-primary font-label-sm text-label-sm">Save</button>
-                <button onClick={() => setEditingId(null)} className="text-on-surface-variant font-label-sm text-label-sm">Cancel</button>
-              </div>
-            ) : (
-              <>
+        {parents.map((t) => (
+          <div key={t.id}>
+            <div className="flex items-center justify-between bg-surface-container-low rounded-lg px-4 py-3">
+              {editingId === t.id ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <input value={editName} onChange={(e) => setEditName(e.target.value)}
+                    className="border border-outline-variant rounded px-2 py-1 font-body-md text-body-md w-40" />
+                  <input value={editCode} onChange={(e) => setEditCode(e.target.value.toUpperCase())}
+                    className="border border-outline-variant rounded px-2 py-1 font-body-md text-body-md w-20" />
+                  <button onClick={async () => {
+                    const { updateAssessmentTypeAction } = await import("./actions");
+                    await updateAssessmentTypeAction(t.id, editName, editCode);
+                    setEditingId(null);
+                  }} className="text-primary font-label-sm text-label-sm">Save</button>
+                  <button onClick={() => setEditingId(null)} className="text-on-surface-variant font-label-sm text-label-sm">Cancel</button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <span className="font-label-md text-label-md text-on-surface">{t.name}</span>
+                    <span className="font-label-sm text-label-sm bg-primary/10 text-primary px-2 py-0.5 rounded">{t.code}</span>
+                    <span className="font-label-sm text-label-sm text-on-surface-variant">Order: {t.sortOrder}</span>
+                    <span className="font-label-sm text-label-sm bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded">Parent</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingId(t.id); setEditName(t.name); setEditCode(t.code); }}
+                      className="font-label-sm text-label-sm text-primary hover:underline">Edit</button>
+                    <button onClick={() => setEditingId(`sub-${t.id}`)}
+                      className="font-label-sm text-label-sm text-primary hover:underline">+ Sub</button>
+                    <form action={async () => {
+                      const { deleteAssessmentTypeAction } = await import("./actions");
+                      await deleteAssessmentTypeAction(t.id);
+                    }}>
+                      <button type="submit" className="font-label-sm text-label-sm text-red-600 hover:underline">Delete</button>
+                    </form>
+                  </div>
+                </>
+              )}
+            </div>
+            {/* Sub-assessment inline create */}
+            {editingId === `sub-${t.id}` && (
+              <SubAssessmentForm parentId={t.id} parentCode={t.code} onClose={() => setEditingId(null)} />
+            )}
+            {/* Children list */}
+            {(childMap.get(t.id) ?? []).map((child) => (
+              <div key={child.id} className="flex items-center justify-between bg-surface-container-low rounded-lg px-4 py-2.5 ml-6 mt-1 border-l-2 border-primary/20">
                 <div className="flex items-center gap-3">
-                  <span className="font-label-md text-label-md text-on-surface">{t.name}</span>
-                  <span className="font-label-sm text-label-sm bg-primary/10 text-primary px-2 py-0.5 rounded">{t.code}</span>
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">Order: {t.sortOrder}</span>
+                  <span className="material-symbols-outlined text-sm text-on-surface-variant">subdirectory_arrow_right</span>
+                  <span className="font-label-md text-label-md text-on-surface">{child.name}</span>
+                  <span className="font-label-sm text-label-sm bg-primary/10 text-primary px-2 py-0.5 rounded">{child.code}</span>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setEditingId(t.id); setEditName(t.name); setEditCode(t.code); }}
-                    className="font-label-sm text-label-sm text-primary hover:underline">Edit</button>
                   <form action={async () => {
                     const { deleteAssessmentTypeAction } = await import("./actions");
-                    await deleteAssessmentTypeAction(t.id);
+                    await deleteAssessmentTypeAction(child.id);
                   }}>
-                    <button type="submit" className="font-label-sm text-label-sm text-red-600 hover:underline">Delete</button>
+                    <button type="submit" className="font-label-sm text-label-sm text-red-600 hover:underline">Remove</button>
                   </form>
                 </div>
-              </>
-            )}
+              </div>
+            ))}
           </div>
         ))}
       </div>
 
       <form action={action} className="flex items-end gap-3 border-t border-outline-variant pt-4">
+        <input type="hidden" name="parentId" value="" />
         <div>
           <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Name</label>
           <input name="name" placeholder="e.g. Mid Term Test" required
@@ -118,6 +155,31 @@ function AssessmentTypesSection({ types }: { types: { id: string; name: string; 
       {state.error && <p className="text-sm text-red-600 mt-2">{state.error}</p>}
       {state.success && <p className="text-sm text-green-600 mt-2">{state.success}</p>}
     </div>
+  );
+}
+
+function SubAssessmentForm({ parentId, parentCode, onClose }: { parentId: string; parentCode: string; onClose: () => void }) {
+  const [state, action, pending] = useActionState(createAssessmentTypeAction, {});
+  return (
+    <form action={action} className="flex items-end gap-2 ml-6 mt-1 p-3 bg-surface-container-low rounded-lg border border-outline-variant">
+      <input type="hidden" name="parentId" value={parentId} />
+      <div>
+        <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Sub-assessment name</label>
+        <input name="name" placeholder="e.g. MCQ Paper" required
+          className="border border-outline-variant rounded p-2 font-body-md text-body-md w-36 text-sm" />
+      </div>
+      <div>
+        <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Code</label>
+        <input name="code" placeholder={`${parentCode}-MCQ`} required
+          className="border border-outline-variant rounded p-2 font-body-md text-body-md w-24 text-sm uppercase" />
+      </div>
+      <button type="submit" disabled={pending}
+        className="bg-[#002046] text-white text-sm px-3 py-2 rounded hover:bg-[#003366] disabled:opacity-60"
+      >{pending ? "..." : "Add"}</button>
+      <button type="button" onClick={onClose}
+        className="text-sm text-on-surface-variant px-2 py-2">Cancel</button>
+      {state.error && <p className="text-xs text-red-600">{state.error}</p>}
+    </form>
   );
 }
 
