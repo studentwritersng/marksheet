@@ -5,6 +5,19 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { recordAudit } from "@/lib/audit";
 import { parseStudentCsv, type StagedRow } from "@/lib/csv/student-import";
+import bcrypt from "bcryptjs";
+
+/** Pad a number to at least 5 digits */
+function padSeq(n: number): string {
+  return String(n).padStart(5, "0");
+}
+
+function formatDob(d: Date): string {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(d.getFullYear());
+  return `${dd}${mm}${yyyy}`;
+}
 
 export interface CsvActionState {
   error?: string;
@@ -53,34 +66,28 @@ export async function commitStudentCsvAction(
   if (valid.length === 0) return { error: "No valid rows to commit." };
 
   // Resolve class names + department to IDs.
-  const classKeys = [...new Set(valid.filter((r) => r.className).map((r) => `${r.className}||${r.department || ""}`))];
   const allClasses = await prisma.class.findMany({
     where: { schoolId: ctx.schoolId },
     select: { id: true, name: true, level: true, department: true, section: true },
   });
   const classMap = new Map<string, string>();
   for (const c of allClasses) {
-    classMap.set(`${c.name}||`, c.id); // match by name only (no dept)
-    if (c.department) classMap.set(`${c.name}||${c.department}`, c.id); // match by name + dept
-    // Also match by level + department (in case CSV uses level like "SSS1")
+    classMap.set(`${c.name}||`, c.id);
+    if (c.department) classMap.set(`${c.name}||${c.department}`, c.id);
     classMap.set(`${c.level}||${c.department}`, c.id);
   }
 
-  // Check for duplicate admission numbers.
-  const admissionNumbers = valid.map((r) => r.admissionNumber);
-  const existing = await prisma.student.findMany({
-    where: { schoolId: ctx.schoolId, admissionNumber: { in: admissionNumbers } },
-    select: { admissionNumber: true },
-  });
-  const existingSet = new Set(existing.map((s) => s.admissionNumber));
+  // Get school for shortcode
+  const school = await prisma.school.findUnique({ where: { id: ctx.schoolId } });
+  if (!school?.shortcode) {
+    return { error: "School shortcode not set. Go to Settings → School to configure it first." };
+  }
 
   let created = 0;
-  const studentsToCreate = [];
+  let sequenceSkip = 0;
   const unresolvableClasses: string[] = [];
 
   for (const r of valid) {
-    if (existingSet.has(r.admissionNumber)) continue;
-
     const classKey = `${r.className}||${r.department || ""}`;
     const classId = r.className ? (classMap.get(classKey) ?? classMap.get(`${r.className}||`)) : null;
     if (r.className && !classId) {
@@ -88,28 +95,41 @@ export async function commitStudentCsvAction(
       continue;
     }
 
-    studentsToCreate.push({
-      schoolId: ctx.schoolId,
-      admissionNumber: r.admissionNumber,
-      firstName: r.firstName,
-      middleName: r.middleName || null,
-      lastName: r.lastName,
-      email: r.email || null,
-      gender: r.gender || null,
-      currentClassId: classId,
-      guardians: r.guardianName
-        ? { create: [{ fullName: r.guardianName, phone: r.guardianPhone || null, email: r.guardianEmail || null, relationship: r.guardianRelation || "father" }] }
-        : undefined,
+    // Atomically increment sequence
+    const updated = await prisma.school.update({
+      where: { id: ctx.schoolId },
+      data: { studentSequence: { increment: 1 } },
     });
-  }
+    const admissionNumber = `${school.shortcode}${padSeq(updated.studentSequence)}`;
 
-  // Batch create
-  for (const data of studentsToCreate) {
-    const { guardians, ...studentData } = data;
+    // Generate user account
+    const email = `${admissionNumber.toLowerCase()}@ums.edu.ng`;
+    const dob = r.dateOfBirth ? new Date(r.dateOfBirth) : null;
+    const passwordRaw = dob ? formatDob(dob) : `${r.firstName.toLowerCase().slice(0, 3)}${r.lastName.toLowerCase().slice(0, 3)}2026`;
+    const passwordHash = await bcrypt.hash(passwordRaw, 10);
+
+    const user = await prisma.user.create({
+      data: { email, passwordHash, role: "student", schoolId: ctx.schoolId, isActive: true },
+    });
+
     await prisma.student.create({
-      data: guardians
-        ? { ...studentData, guardians }
-        : studentData,
+      data: {
+        schoolId: ctx.schoolId,
+        admissionNumber,
+        firstName: r.firstName,
+        middleName: r.middleName || null,
+        lastName: r.lastName,
+        dateOfBirth: dob || null,
+        ethnicity: r.ethnicity || null,
+        religion: r.religion || null,
+        email: r.email || null,
+        gender: r.gender || null,
+        currentClassId: classId,
+        userId: user.id,
+        guardians: r.guardianName
+          ? { create: [{ fullName: r.guardianName, phone: r.guardianPhone || null, email: r.guardianEmail || null, relationship: r.guardianRelation || "father" }] }
+          : undefined,
+      },
     });
     created++;
   }
@@ -117,9 +137,6 @@ export async function commitStudentCsvAction(
   let warnings: string[] = [];
   if (unresolvableClasses.length > 0) {
     warnings.push(`Unresolvable classes: ${[...new Set(unresolvableClasses)].join(", ")} — those rows were skipped.`);
-  }
-  if (existingSet.size > 0) {
-    warnings.push(`${existingSet.size} duplicate admission number(s) skipped.`);
   }
 
   await recordAudit({

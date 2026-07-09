@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { CreateStudentForm } from "./create-student-form";
 import { StudentCsvImport } from "./student-csv-import";
 import { StudentList } from "./student-list";
-import { ExportButtons } from "@/components/export-buttons";
 
 export default async function StudentsPage() {
   const user = await getCurrentUser();
@@ -30,7 +29,7 @@ export default async function StudentsPage() {
     }),
   ]);
 
-  const csvHeaders = ["Admission No", "First Name", "Last Name", "Email", "Gender", "Status", "Class", "Guardian"];
+  const csvHeaders = ["Student ID", "First Name", "Last Name", "Email", "Gender", "Status", "Class", "Guardian"];
   const csvRows = students.map((s) => [
     s.admissionNumber ?? "",
     s.firstName,
@@ -43,7 +42,7 @@ export default async function StudentsPage() {
   ]);
 
   return (
-    <div id="students-content">
+    <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface">Students</h1>
@@ -51,12 +50,6 @@ export default async function StudentsPage() {
             {students.filter((s) => s.status === "active").length} active student(s)
           </p>
         </div>
-        <ExportButtons
-          contentId="students-content"
-          filename={`Students_${new Date().toISOString().slice(0, 10)}`}
-          pdfTitle="Student List"
-          csvData={{ headers: csvHeaders, rows: csvRows }}
-        />
       </div>
 
       <div className="mt-6 grid gap-6 sm:grid-cols-2">
@@ -68,6 +61,8 @@ export default async function StudentsPage() {
 
       <div className="mt-8">
         <StudentList
+          csvData={{ headers: csvHeaders, rows: csvRows }}
+          contentId="students-content"
           students={students.map((s) => ({
             id: s.id,
             admissionNumber: s.admissionNumber,

@@ -382,12 +382,21 @@ function generateQuestions(userPrompt: string): Record<string, unknown> {
   const classMatch = userPrompt.match(/Class:\s*(\S+)/i);
   const subjectMatch = userPrompt.match(/Subject:\s*(.+)/i);
   const topicMatch = userPrompt.match(/Topic:\s*(.+)/i);
+  const groundingMatch = userPrompt.match(/Grounding percentage:\s*(\d+)/i);
 
   const count = countMatch ? Math.max(1, Math.min(50, Number(countMatch[1]))) : 3;
   const marks = marksMatch ? Number(marksMatch[1]) : 5;
   const cls = classMatch ? classMatch[1] : "SSS1";
   const subject = subjectMatch?.[1]?.trim() ?? "the subject";
   const topic = topicMatch?.[1]?.trim() ?? "the topic";
+  const groundingPercentage = groundingMatch ? Math.max(0, Math.min(100, Number(groundingMatch[1]))) : 75;
+
+  // Extract lesson note content from prompt (text after "Lesson note content:")
+  const lessonNoteContent = extractLessonNoteContent(userPrompt);
+
+  // Grounding split: first N questions use lesson-note content, rest use pool
+  const groundedCount = Math.round(count * groundingPercentage / 100);
+  const extensionCount = count - groundedCount;
 
   // 40-40-20 distribution
   const diffLevels = ["Easy", "Medium", "Hard"];
@@ -411,17 +420,268 @@ function generateQuestions(userPrompt: string): Record<string, unknown> {
 
   if (isMcq) {
     const questions = Array.from({ length: count }, (_, i) => {
+      const isGrounded = i < groundedCount;
       const q = generateMcq(subject, cls, topic, isSenior, i, marks, diffAssign[i] ?? "Medium");
-      return q;
+      return injectLessonContentIntoMcq(q, lessonNoteContent, isGrounded, i);
     });
     return { questions };
   }
 
   const questions = Array.from({ length: count }, (_, i) => {
+    const isGrounded = i < groundedCount;
     const q = generateEssay(subject, cls, topic, isSenior, i, marks, diffAssign[i] ?? "Medium");
-    return q;
+    return injectLessonContentIntoEssay(q, lessonNoteContent, isGrounded, topic, marks);
   });
   return { questions };
+}
+
+/**
+ * Extract the Student's Note (content) section from the lesson note prompt block.
+ * Looks for the `*** STUDENT'S NOTE ***` marker, then `Content:`, then everything else.
+ */
+function extractLessonNoteContent(prompt: string): string {
+  const fullMatch = prompt.match(/Lesson note content:\s*([\s\S]*?)(?:\n\n(?:Subject|Class|Number of|Marks per|Grounding|Difficulty)|$)/i);
+  if (!fullMatch) return "";
+  const raw = fullMatch[1];
+
+  // Extract the Student's Note section (new format: "Student's Note:\n...")
+  const studentNoteMatch = raw.match(/Student's Note:\s*([\s\S]*?)(?:\n--- Lesson Note:|$)/i);
+  if (studentNoteMatch) return studentNoteMatch[1].trim();
+
+  // Fallback: try *** STUDENT'S NOTE *** (old format)
+  const legacyMatch = raw.match(/\*\*\* STUDENT'S NOTE[^*]+\*\*\*\s*([\s\S]*?)(?:\n\n(?:Evaluation|Summary|Assignment|Previous Knowledge|Introduction)|\n--- Lesson Note:|$)/i);
+  if (legacyMatch) return legacyMatch[1].trim();
+
+  // Fallback: try Content: marker (older format)
+  const contentMatch = raw.match(/Content:\s*([\s\S]*?)(?:\n\n(?:Evaluation|Summary|Assignment|Previous Knowledge|Introduction)|\n--- Lesson Note:|$)/i);
+  if (contentMatch) return contentMatch[1].trim();
+
+  // Last fallback: return everything stripping headers
+  const lines = raw.split("\n").filter((l) => {
+    const t = l.trim();
+    return t.length > 0 && !t.startsWith("---") && !/^(Student's Note|Previous Knowledge|Introduction|Content|Evaluation|Summary|Assignment):/i.test(t);
+  });
+  return lines.join("\n").trim();
+}
+
+/**
+ * Split content into meaningful sentences, filtering out short/trivial lines.
+ */
+function extractSentences(content: string): string[] {
+  const lines = content
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 25)
+    // Exclude lines that are only uppercase, digits, and punctuation (headings)
+    .filter((l) => /[a-z]/.test(l));
+  if (lines.length < 2) {
+    // Fall back to sentence-boundary splitting
+    return content
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 25 && !/^\d/.test(s) && /[a-z]/.test(s));
+  }
+  return lines;
+}
+
+/** Pick a short (~5 word) key term from a sentence for question focus. */
+function pickTerm(sentence: string): string | null {
+  const words = sentence.split(/\s+/);
+  // Prefer a capitalized multi-word term early in the sentence
+  for (let i = 0; i < Math.min(8, words.length); i++) {
+    if (words[i].length > 4 && /^[A-Z]/.test(words[i]) && !["Which", "What", "Where", "When", "Why", "How", "The", "This", "These", "Those"].includes(words[i])) {
+      // Take up to 3 consecutive capitalized words
+      const term: string[] = [words[i].replace(/[^a-zA-Z0-9]/g, "")];
+      for (let j = i + 1; j < Math.min(i + 4, words.length); j++) {
+        if (/^[A-Z]/.test(words[j])) term.push(words[j].replace(/[^a-zA-Z0-9]/g, ""));
+        else break;
+      }
+      return term.join(" ");
+    }
+  }
+  // Fallback: use the longest word
+  const longest = [...words].filter((w) => w.length > 5).sort((a, b) => b.length - a.length)[0];
+  return longest ? longest.replace(/[^a-zA-Z0-9]/g, "") : null;
+}
+
+/** For a grounded MCQ, generate a natural question from the lesson content. */
+function injectLessonContentIntoMcq(
+  q: Record<string, unknown>,
+  lessonContent: string,
+  isGrounded: boolean,
+  index: number,
+): Record<string, unknown> {
+  if (!lessonContent || !isGrounded) return q;
+
+  const sentences = extractSentences(lessonContent);
+  if (sentences.length === 0) return q;
+
+  const si = index % sentences.length;
+  const sentence = sentences[si];
+  const term = pickTerm(sentence);
+
+  // Build distractors from other sentences (key concepts)
+  const distractorTerms: string[] = [];
+  for (let i = 0; i < sentences.length && distractorTerms.length < 3; i++) {
+    if (i === si) continue;
+    const t = pickTerm(sentences[i]);
+    if (t && t !== term && !distractorTerms.includes(t)) distractorTerms.push(t);
+  }
+
+  // Pick question pattern based on index for diversity
+  const pattern = index % 5;
+  const marks = q.marks as number;
+  const difficulty = q.difficulty as string;
+
+  // Common helpers
+  const baseOpts = (correct: string, wrong1: string, wrong2: string, wrong3: string) => [
+    { label: "A", text: correct, is_correct: true },
+    { label: "B", text: wrong1, is_correct: false },
+    { label: "C", text: wrong2, is_correct: false },
+    { label: "D", text: wrong3, is_correct: false },
+  ];
+  const distractorPool = distractorTerms.length >= 3 ? distractorTerms : ["a different process", "an unrelated part", "the opposite concept"];
+
+  if (pattern === 0 && term) {
+    // Definition / best-answer
+    const opts = baseOpts(
+      sentence.slice(0, 80),
+      `${distractorPool[0]} described in the lesson`,
+      `${distractorPool[1]} as explained in the note`,
+      `${distractorPool[2]} mentioned in the text`,
+    );
+    return {
+      question_text: `Which of the following best describes ${term}?`,
+      marks, difficulty, options: opts,
+      rationale: `The lesson note states: ${sentence.slice(0, 150)}`,
+      grounding_summary: { target_grounding_percentage: 75, grounded_count: 1, extension_count: 0 },
+    };
+  }
+
+  if (pattern === 1 && term) {
+    // Negative option — pick what does NOT belong
+    const opts = baseOpts(
+      sentence.slice(0, 80),
+      `${distractorPool[0]}`,
+      `${distractorPool[1]}`,
+      `${distractorPool[2]}`,
+    );
+    return {
+      question_text: `Which of the following is NOT true about ${term}?`,
+      marks, difficulty, options: opts,
+      rationale: `Based on the lesson note: ${sentence.slice(0, 150)}`,
+      grounding_summary: { target_grounding_percentage: 75, grounded_count: 1, extension_count: 0 },
+    };
+  }
+
+  if (pattern === 2) {
+    // Fill-in-the-blank (sentence completion)
+    const words = sentence.split(/\s+/);
+    const blankIdx = Math.min(Math.floor(words.length / 2), words.length - 2);
+    const blankWord = words[blankIdx].replace(/[^a-zA-Z0-9]/g, "");
+    if (blankWord.length >= 4) {
+      const stem = words.slice(0, blankIdx).join(" ");
+      const rest = words.slice(blankIdx + 1).join(" ");
+      const fillers = distractorTerms.length >= 3
+        ? distractorTerms
+        : ["component", "element", "factor"];
+      const opts = baseOpts(blankWord, fillers[0], fillers[1], fillers[2]);
+      return {
+        question_text: `Complete the sentence: "${stem} ________ ${rest}"`,
+        marks, difficulty, options: opts,
+        rationale: `The lesson note states: ${sentence.slice(0, 150)}`,
+        grounding_summary: { target_grounding_percentage: 75, grounded_count: 1, extension_count: 0 },
+      };
+    }
+  }
+
+  if (pattern === 3 && term) {
+    // Comprehension / true-statement
+    const opts = baseOpts(
+      sentence.slice(0, 80),
+      `The opposite of what the lesson teaches about ${term}`,
+      `An incorrect claim about ${distractorPool[0]}`,
+      `A statement not supported by the lesson note`,
+    );
+    return {
+      question_text: `According to the lesson note, which of the following statements is true about ${term}?`,
+      marks, difficulty, options: opts,
+      rationale: `The lesson note states: ${sentence.slice(0, 150)}`,
+      grounding_summary: { target_grounding_percentage: 75, grounded_count: 1, extension_count: 0 },
+    };
+  }
+
+  if (pattern === 4 && term && distractorTerms.length >= 2) {
+    // Classification / cause-effect
+    const opts = baseOpts(
+      sentence.slice(0, 80),
+      `${distractorTerms[0]}`,
+      `${distractorTerms[1]}`,
+      distractorTerms[2] || "none of the above",
+    );
+    return {
+      question_text: `Which of the following is an example or consequence of ${term}?`,
+      marks, difficulty, options: opts,
+      rationale: `The lesson note states: ${sentence.slice(0, 150)}`,
+      grounding_summary: { target_grounding_percentage: 75, grounded_count: 1, extension_count: 0 },
+    };
+  }
+
+  // Final fallback: simple definition question
+  if (term) {
+    const opts = baseOpts(
+      sentence.slice(0, 80),
+      `A different concept: ${distractorPool[0]}`,
+      `An unrelated idea: ${distractorPool[1]}`,
+      `Another topic: ${distractorPool[2]}`,
+    );
+    return {
+      question_text: `What does the lesson note say about ${term}?`,
+      marks, difficulty, options: opts,
+      rationale: `The lesson note states: ${sentence.slice(0, 150)}`,
+      grounding_summary: { target_grounding_percentage: 75, grounded_count: 1, extension_count: 0 },
+    };
+  }
+
+  return q;
+}
+
+/** For a grounded essay, use content sentences for (a)(b)(c) parts. */
+function injectLessonContentIntoEssay(
+  q: Record<string, unknown>,
+  lessonContent: string,
+  isGrounded: boolean,
+  topic: string,
+  marks: number,
+): Record<string, unknown> {
+  if (!lessonContent || !isGrounded) return q;
+
+  const sentences = extractSentences(lessonContent);
+  if (sentences.length < 2) return q;
+
+  const p1 = Math.round(marks * 0.35);
+  const p2 = Math.round(marks * 0.35);
+  const p3 = marks - p1 - p2;
+
+  const sA = sentences[0];
+  const sB = sentences[Math.min(1, sentences.length - 1)];
+  const termA = pickTerm(sA) || topic;
+  const termB = pickTerm(sB) || topic;
+
+  const qText = `Question 1 [${marks} marks]\n(a) Explain ${termA} as discussed in the lesson note. [${p1} marks]\n(b) Describe ${termB} based on what you have learned. [${p2} marks]\n(c) With reference to ${termA} and ${termB}, explain their importance in everyday life. Give one relevant Nigerian example. [${p3} marks]`;
+
+  return {
+    question_text: qText,
+    marks,
+    difficulty: q.difficulty,
+    model_answer: `(a) ${sA.slice(0, 250)}\n\n(b) ${sB.slice(0, 250)}\n\n(c) [Student explains relevance with a Nigerian example — e.g. how ${termA} and ${termB} apply to farming, healthcare, education, or daily communication in Nigeria.]`,
+    rubric_points: [
+      { description: `Correct explanation of ${termA}`, marks: p1, source_type: "grounded", lesson_note_reference: sA.slice(0, 80) },
+      { description: `Correct explanation of ${termB}`, marks: p2, source_type: "grounded", lesson_note_reference: sB.slice(0, 80) },
+      { description: "Relevant application to real life with a valid Nigerian example", marks: p3, source_type: "extension", lesson_note_reference: "" },
+    ],
+    grounding_summary: { target_grounding_percentage: 75, actual_grounded_points: 2, actual_extension_points: 1 },
+  };
 }
 
 /** Generate a single Nigerian-standard MCQ with specific content and plausible options. */

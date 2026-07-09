@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
-import { approveQuestionAction, rejectQuestionAction, deleteQuestionAction } from "./actions";
+import {
+  approveQuestionAction, rejectQuestionAction, deleteQuestionAction,
+  bulkApproveQuestionsAction, bulkDeleteQuestionsAction, bulkEditTopicAction,
+} from "./actions";
 
 interface QuestionVM {
   id: string;
@@ -39,11 +42,12 @@ export function QuestionList({
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
 
-  // Filters
   const [filterClass, setFilterClass] = useState("all");
   const [filterSubject, setFilterSubject] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [editingTopic, setEditingTopic] = useState<string | null>(null);
+  const [editTopicValue, setEditTopicValue] = useState("");
 
   const filtered = useMemo(() => {
     return questions.filter((q) => {
@@ -95,6 +99,31 @@ export function QuestionList({
     if (!confirm("Permanently delete this question?")) return;
     start(async () => {
       const r = await deleteQuestionAction(id);
+      if (r.error) alert(r.error);
+    });
+  }
+
+  function handleBulkApprove(ids: string[]) {
+    if (!confirm(`Approve all ${ids.length} question(s) in this group?`)) return;
+    start(async () => {
+      const r = await bulkApproveQuestionsAction(ids);
+      if (r.error) alert(r.error);
+    });
+  }
+
+  function handleBulkDelete(ids: string[]) {
+    if (!confirm(`Permanently delete all ${ids.length} question(s) in this group?`)) return;
+    start(async () => {
+      const r = await bulkDeleteQuestionsAction(ids);
+      if (r.error) alert(r.error);
+    });
+  }
+
+  function handleBulkEditTopic(oldTopic: string, ids: string[]) {
+    const newTopic = prompt("Rename topic to:", oldTopic);
+    if (!newTopic || newTopic.trim() === oldTopic) return;
+    start(async () => {
+      const r = await bulkEditTopicAction(ids, newTopic.trim());
       if (r.error) alert(r.error);
     });
   }
@@ -160,6 +189,9 @@ export function QuestionList({
       <div className="space-y-3">
         {groups.map((g) => {
           const isExpanded = expandedTopic === g.topic;
+          const qIds = g.questions.map((q) => q.id);
+          const allApproved = g.questions.every((q) => q.status === "approved");
+
           return (
             <div
               key={g.topic}
@@ -192,92 +224,127 @@ export function QuestionList({
                 </div>
               </button>
 
-              {/* Expanded individual questions */}
+              {/* Expanded — bulk actions + individual questions */}
               {isExpanded && (
-                <div className="border-t border-outline-variant divide-y divide-outline-variant">
-                  {g.questions.map((q) => {
-                    const qExpanded = expandedQuestion === q.id;
-                    return (
-                      <div key={q.id}>
-                        {/* Question row */}
-                        <div
-                          onClick={() => setExpandedQuestion(qExpanded ? null : q.id)}
-                          className="flex items-start justify-between gap-4 px-4 py-3 cursor-pointer hover:bg-surface-container-low transition-colors"
+                <>
+                  {/* Bulk action toolbar */}
+                  <div className="border-t border-outline-variant bg-surface-container-low px-4 py-2 flex items-center justify-between">
+                    <p className="font-label-sm text-label-sm text-on-surface-variant">
+                      {g.questions.length} question(s) · {g.questions.filter((q) => q.status === "approved").length} approved
+                    </p>
+                    <div className="flex items-center gap-2">
+                      {!allApproved && (
+                        <button
+                          onClick={() => handleBulkApprove(qIds)}
+                          disabled={pending}
+                          className="rounded bg-primary px-2 py-1 font-label-sm text-label-sm text-on-primary hover:bg-primary-container disabled:opacity-60"
                         >
-                          <div className="flex-1 min-w-0">
-                            <p className="font-body-sm text-body-sm text-on-surface leading-relaxed">
-                              {q.text.slice(0, 180)}
-                              {q.text.length > 180 ? "…" : ""}
-                            </p>
-                            <p className="mt-1 font-label-sm text-label-sm text-on-surface-variant">
-                              {q.marks} mark(s) · {q.difficulty ?? "N/A"} · {q.source}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <StatusBadge status={q.status} />
-                            {q.status !== "approved" && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleApprove(q.id); }}
-                                disabled={pending}
-                                className="rounded bg-primary px-2 py-1 font-label-sm text-label-sm text-on-primary hover:bg-primary-container disabled:opacity-60"
-                              >
-                                Approve
-                              </button>
-                            )}
-                            {q.status !== "draft" && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleReject(q.id); }}
-                                disabled={pending}
-                                className="rounded bg-tertiary-container px-2 py-1 font-label-sm text-label-sm text-on-tertiary-container hover:bg-surface-container-low disabled:opacity-60"
-                              >
-                                Reject
-                              </button>
-                            )}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
-                              disabled={pending}
-                              className="font-label-sm text-label-sm text-on-surface-variant hover:text-red-600 disabled:opacity-60"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
+                          Approve All
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleBulkDelete(qIds)}
+                        disabled={pending}
+                        className="rounded bg-red-600 px-2 py-1 font-label-sm text-label-sm text-white hover:bg-red-700 disabled:opacity-60"
+                      >
+                        Delete All
+                      </button>
+                      <button
+                        onClick={() => handleBulkEditTopic(g.topic, qIds)}
+                        disabled={pending}
+                        className="rounded border border-outline-variant px-2 py-1 font-label-sm text-label-sm text-on-surface hover:bg-surface-container disabled:opacity-60"
+                      >
+                        Edit Topic
+                      </button>
+                    </div>
+                  </div>
 
-                        {/* Expanded question details */}
-                        {qExpanded && (
-                          <div className="border-t border-outline-variant bg-surface-container-low px-4 py-3">
-                            <p className="font-body-md text-body-md text-on-surface whitespace-pre-wrap mb-3">{q.text}</p>
-                            {q.mcqOptions.length > 0 && (
-                              <div className="mb-3 space-y-1">
-                                <p className="font-label-sm text-label-sm text-on-surface mb-1">Options:</p>
-                                {q.mcqOptions.map((o) => (
-                                  <div
-                                    key={o.id}
-                                    className={`rounded px-2 py-1 font-label-sm text-label-sm ${
-                                      o.isCorrect
-                                        ? "bg-secondary-container font-medium text-on-secondary-container"
-                                        : "text-on-surface-variant"
-                                    }`}
-                                  >
-                                    {o.isCorrect ? "✓ " : ""}{o.text}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {q.modelAnswer && (
-                              <div>
-                                <p className="mb-1 font-label-sm text-label-sm text-on-surface">Model answer:</p>
-                                <p className="rounded bg-surface-container-lowest px-2 py-1 font-label-sm text-label-sm text-on-surface whitespace-pre-wrap">
-                                  {q.modelAnswer}
-                                </p>
-                              </div>
-                            )}
+                  {/* Individual questions */}
+                  <div className="border-t border-outline-variant divide-y divide-outline-variant">
+                    {g.questions.map((q) => {
+                      const qExpanded = expandedQuestion === q.id;
+                      return (
+                        <div key={q.id}>
+                          {/* Question row */}
+                          <div
+                            onClick={() => setExpandedQuestion(qExpanded ? null : q.id)}
+                            className="flex items-start justify-between gap-4 px-4 py-3 cursor-pointer hover:bg-surface-container-low transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-body-sm text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap">
+                                {q.text.slice(0, 500)}
+                                {q.text.length > 500 ? "…" : ""}
+                              </p>
+                              <p className="mt-1 font-label-sm text-label-sm text-on-surface-variant">
+                                {q.marks} mark(s) · {q.difficulty ?? "N/A"} · {q.source}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <StatusBadge status={q.status} />
+                              {q.status !== "approved" && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleApprove(q.id); }}
+                                  disabled={pending}
+                                  className="rounded bg-primary px-2 py-1 font-label-sm text-label-sm text-on-primary hover:bg-primary-container disabled:opacity-60"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              {q.status !== "draft" && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleReject(q.id); }}
+                                  disabled={pending}
+                                  className="rounded bg-tertiary-container px-2 py-1 font-label-sm text-label-sm text-on-tertiary-container hover:bg-surface-container-low disabled:opacity-60"
+                                >
+                                  Reject
+                                </button>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
+                                disabled={pending}
+                                className="font-label-sm text-label-sm text-on-surface-variant hover:text-red-600 disabled:opacity-60"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+
+                          {/* Expanded question details */}
+                          {qExpanded && (
+                            <div className="border-t border-outline-variant bg-surface-container-low px-4 py-3">
+                              <p className="font-body-md text-body-md text-on-surface whitespace-pre-wrap mb-3">{q.text}</p>
+                              {q.mcqOptions.length > 0 && (
+                                <div className="mb-3 space-y-1">
+                                  <p className="font-label-sm text-label-sm text-on-surface mb-1">Options:</p>
+                                  {q.mcqOptions.map((o) => (
+                                    <div
+                                      key={o.id}
+                                      className={`rounded px-2 py-1 font-label-sm text-label-sm ${
+                                        o.isCorrect
+                                          ? "bg-secondary-container font-medium text-on-secondary-container"
+                                          : "text-on-surface-variant"
+                                      }`}
+                                    >
+                                      {o.isCorrect ? "✓ " : ""}{o.text}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {q.modelAnswer && (
+                                <div>
+                                  <p className="mb-1 font-label-sm text-label-sm text-on-surface">Model answer:</p>
+                                  <p className="rounded bg-surface-container-lowest px-2 py-1 font-label-sm text-label-sm text-on-surface whitespace-pre-wrap">
+                                    {q.modelAnswer}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           );

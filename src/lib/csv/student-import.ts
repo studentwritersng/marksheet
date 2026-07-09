@@ -8,10 +8,12 @@ import { z } from "zod";
 
 export interface StagedRow {
   row: number;
-  admissionNumber: string;
   firstName: string;
   middleName: string;
   lastName: string;
+  dateOfBirth: string;
+  ethnicity: string;
+  religion: string;
   gender: string;
   className: string;
   department: string;
@@ -25,10 +27,12 @@ export interface StagedRow {
 }
 
 const rowSchema = z.object({
-  admissionNumber: z.string().min(1, "Required"),
   firstName: z.string().min(1, "Required"),
   middleName: z.string().optional().default(""),
   lastName: z.string().min(1, "Required"),
+  dateOfBirth: z.string().optional().default(""),
+  ethnicity: z.string().optional().default(""),
+  religion: z.string().optional().default(""),
   gender: z.string().optional().default(""),
   className: z.string().optional().default(""),
   department: z.string().optional().default(""),
@@ -66,10 +70,12 @@ export function parseStudentCsv(
 
     return {
       row: i + 2, // 1-indexed header + data
-      admissionNumber: parsed.data?.admissionNumber ?? raw.admissionNumber ?? "",
       firstName: parsed.data?.firstName ?? raw.firstName ?? "",
       middleName: parsed.data?.middleName ?? raw.middleName ?? "",
       lastName: parsed.data?.lastName ?? raw.lastName ?? "",
+      dateOfBirth: parsed.data?.dateOfBirth ?? raw.dateOfBirth ?? "",
+      ethnicity: parsed.data?.ethnicity ?? raw.ethnicity ?? "",
+      religion: parsed.data?.religion ?? raw.religion ?? "",
       gender: parsed.data?.gender ?? raw.gender ?? "",
       className: parsed.data?.className ?? raw.className ?? "",
       department: parsed.data?.department ?? raw.department ?? "",

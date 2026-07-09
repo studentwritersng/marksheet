@@ -25,6 +25,7 @@ export function CreateQuestionForm({
   const [subjectNotes, setSubjectNotes] = useState<{ id: string; topic: string; class: string }[]>([]);
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
   const [loadingNotes, setLoadingNotes] = useState(false);
+  const [groundingSlider, setGroundingSlider] = useState(75);
 
   function addRubricPoint() {
     setRubricPoints([...rubricPoints, { description: "", mark: 0 }]);
@@ -253,10 +254,22 @@ export function CreateQuestionForm({
                 className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary" />
               <p className="mt-0.5 font-label-sm text-label-sm text-on-surface-variant">For essay, AI distributes across (a)(b)(c) sub-parts</p>
             </div>
-            <div>
-              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Grounding % (lesson-note based)</label>
-              <input type="number" name="groundingPercentage" defaultValue={75} min={0} max={100}
-                className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary" />
+            <div className="col-span-2">
+              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">
+                Grounding: <strong>Lesson-note content</strong> vs AI knowledge
+              </label>
+              <div className="flex items-center gap-3">
+                <span className="font-label-sm text-label-sm text-on-surface-variant whitespace-nowrap">More AI knowledge</span>
+                <input type="range" name="groundingPercentage" value={groundingSlider} min={0} max={100} step={5}
+                  onChange={(e) => setGroundingSlider(Number(e.target.value))}
+                  className="flex-1 accent-[#002046]"
+                />
+                <span className="font-label-sm text-label-sm text-on-surface font-semibold w-28 text-right">{groundingSlider}% lesson note</span>
+              </div>
+              <div className="flex justify-between mt-0.5">
+                <span className="font-label-sm text-label-sm text-on-surface-variant">0% (all AI knowledge)</span>
+                <span className="font-label-sm text-label-sm text-on-surface-variant">100% (strictly from notes)</span>
+              </div>
             </div>
             <div className="col-span-3">
               <p className="font-label-sm text-label-sm text-on-surface-variant">

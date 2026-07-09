@@ -6,6 +6,7 @@ import {
   addQuestionsToExamAction, removeQuestionFromExamAction,
 } from "@/lib/exams/actions";
 import type { ActionState } from "@/lib/exams/actions";
+import { ExportButtons } from "@/components/export-buttons";
 
 interface ExamVM {
   id: string; subjectName: string; className: string; classNames: string;
@@ -22,10 +23,13 @@ interface WeightingVM { assessmentTypeId: string; weightPercentage: number; subj
 
 export function ExamsList({
   exams, subjects, classes, terms, questions, classSubjects, assessmentTypes, weightings,
+  csvData, contentId,
 }: {
   exams: ExamVM[]; subjects: SubjectVM[]; classes: ClassVM[]; terms: TermVM[];
   questions: QuestionVM[]; classSubjects?: { classId: string; subjectId: string; subjectName: string }[];
   assessmentTypes: AssessmentTypeVM[]; weightings?: WeightingVM[];
+  csvData?: { headers: string[]; rows: string[][] };
+  contentId?: string;
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [createState, createAction, createPending] = useActionState(createExamAction, {});
@@ -78,7 +82,17 @@ export function ExamsList({
       )}
 
       {/* Exam table */}
-      <div className="overflow-x-auto bg-surface-container-lowest border border-outline-variant rounded-lg">
+      <div id={contentId} className="overflow-x-auto bg-surface-container-lowest border border-outline-variant rounded-lg">
+        {csvData && (
+          <div className="p-3 border-b border-outline-variant flex justify-end bg-surface-container-low">
+            <ExportButtons
+              contentId={contentId ?? "exams-content"}
+              filename={`Exams_${new Date().toISOString().slice(0, 10)}`}
+              pdfTitle="Exam List"
+              csvData={csvData}
+            />
+          </div>
+        )}
         <table className="w-full text-left">
           <thead className="bg-surface-container border-b border-outline-variant">
             <tr>

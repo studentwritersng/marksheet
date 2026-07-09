@@ -46,7 +46,7 @@ export default async function ClassesPage() {
   ]);
 
   return (
-    <div id="classes-content">
+    <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface">Classes</h1>
@@ -61,12 +61,6 @@ export default async function ClassesPage() {
           >
             Promotion
           </Link>
-          <ExportButtons
-            contentId="classes-content"
-            filename={`Classes_${new Date().toISOString().slice(0, 10)}`}
-            pdfTitle="Class List"
-            csvData={{ headers: csvHeaders, rows: csvRows }}
-          />
         </div>
       </div>
 
@@ -74,7 +68,15 @@ export default async function ClassesPage() {
         <CreateClassForm sessionId={currentSession?.id ?? ""} />
       </div>
 
-      <div className="mt-8 space-y-6">
+      <div id="classes-content" className="mt-8 space-y-6">
+        <div className="flex justify-end">
+          <ExportButtons
+            contentId="classes-content"
+            filename={`Classes_${new Date().toISOString().slice(0, 10)}`}
+            pdfTitle="Class List"
+            csvData={{ headers: csvHeaders, rows: csvRows }}
+          />
+        </div>
         {Object.keys(grouped).length === 0 && (
           <p className="font-body-sm text-body-sm text-on-surface-variant">No classes yet. Create one above.</p>
         )}

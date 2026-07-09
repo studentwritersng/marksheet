@@ -1,8 +1,10 @@
 export const studentCsvHeaders = [
-  "admissionNumber",
   "firstName",
   "middleName",
   "lastName",
+  "dateOfBirth",
+  "ethnicity",
+  "religion",
   "gender",
   "className",
   "department",
@@ -16,10 +18,12 @@ export const studentCsvHeaders = [
 export function generateStudentCsvTemplate(): string {
   const header = studentCsvHeaders.join(",");
   const sample = [
-    "STU001",
     "John",
     "",
     "Doe",
+    "2010-05-15",
+    "Igbo",
+    "Christianity",
     "Male",
     "JSS1",
     "",

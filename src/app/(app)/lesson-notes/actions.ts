@@ -254,6 +254,89 @@ export async function getCurriculumTopicsAction(
   return topics;
 }
 
+/** Edit/update a lesson note (works for both draft and published). */
+export async function updateLessonNoteAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try {
+    ctx = await requireSchoolAdmin();
+  } catch {
+    return { error: "Not authorised." };
+  }
+
+  const noteId = String(formData.get("noteId") ?? "");
+  const topic = String(formData.get("topic") ?? "").trim();
+  const previousKnowledge = String(formData.get("previousKnowledge") ?? "").trim() || null;
+  const introduction = String(formData.get("introduction") ?? "").trim() || null;
+  const content = String(formData.get("content") ?? "").trim() || null;
+  const evaluation = String(formData.get("evaluation") ?? "").trim() || null;
+  const summary = String(formData.get("summary") ?? "").trim() || null;
+  const assignment = String(formData.get("assignment") ?? "").trim() || null;
+
+  if (!noteId || !topic) return { error: "Note ID and topic are required." };
+
+  const existing = await prisma.lessonNote.findFirst({
+    where: { id: noteId, schoolId: ctx.schoolId },
+  });
+  if (!existing) return { error: "Note not found." };
+
+  await prisma.lessonNote.update({
+    where: { id: noteId },
+    data: {
+      topic,
+      previousKnowledge,
+      introduction,
+      content,
+      evaluation,
+      summary,
+      assignment,
+    },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "update",
+    entityType: "lesson_note",
+    entityId: noteId,
+    afterValue: { topic } as never,
+  });
+
+  revalidatePath("/lesson-notes");
+  return { success: `"${topic}" updated.` };
+}
+
+/** Delete a lesson note. */
+export async function deleteLessonNoteAction(noteId: string): Promise<ActionState> {
+  let ctx;
+  try {
+    ctx = await requireSchoolAdmin();
+  } catch {
+    return { error: "Not authorised." };
+  }
+
+  const note = await prisma.lessonNote.findFirst({
+    where: { id: noteId, schoolId: ctx.schoolId },
+  });
+  if (!note) return { error: "Note not found." };
+
+  await prisma.lessonNote.delete({ where: { id: noteId } });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "delete",
+    entityType: "lesson_note",
+    entityId: noteId,
+    beforeValue: { topic: note.topic } as never,
+  });
+
+  revalidatePath("/lesson-notes");
+  return { success: "Lesson note deleted." };
+}
+
 /** Publish a draft lesson note (status draft → published). */
 export async function publishNoteAction(noteId: string): Promise<ActionState> {
   let ctx;

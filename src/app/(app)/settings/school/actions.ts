@@ -24,6 +24,7 @@ export async function updateSchoolSettingsAction(
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "School name is required." };
 
+  const shortcode = String(formData.get("shortcode") ?? "").trim().toUpperCase() || null;
   const address = String(formData.get("address") ?? "").trim() || null;
   const logo = String(formData.get("logo") ?? "").trim() || null;
   const signature = String(formData.get("signature") ?? "").trim() || null;
@@ -31,10 +32,11 @@ export async function updateSchoolSettingsAction(
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const email = String(formData.get("email") ?? "").trim() || null;
   const motto = String(formData.get("motto") ?? "").trim() || null;
+  const maintenanceMode = formData.get("maintenanceMode") === "on";
 
   await prisma.school.update({
     where: { id: ctx.schoolId },
-    data: { name, address, logo, signature, stamp, phone, email, motto },
+    data: { name, shortcode, address, logo, signature, stamp, phone, email, motto, maintenanceMode },
   });
 
   await recordAudit({

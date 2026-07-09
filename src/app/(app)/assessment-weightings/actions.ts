@@ -47,9 +47,28 @@ export async function createAssessmentTypeAction(
     select: { sortOrder: true },
   });
 
-  await prisma.assessmentType.create({
+  const parent = await prisma.assessmentType.create({
     data: { schoolId: ctx.schoolId, name, code, parentId, sortOrder: (maxOrder?.sortOrder ?? 0) + 1 },
   });
+
+  // Auto-create standard sub-assessment types (OBJ, THEORY, PRC) for parent types
+  if (!parentId) {
+    const subs = [
+      { name: "Objective", code: "OBJ", sortOrder: 1 },
+      { name: "Theory", code: "THEORY", sortOrder: 2 },
+      { name: "Practical", code: "PRC", sortOrder: 3 },
+    ];
+    for (const sub of subs) {
+      const subExists = await prisma.assessmentType.findUnique({
+        where: { schoolId_code: { schoolId: ctx.schoolId, code: sub.code } },
+      });
+      if (!subExists) {
+        await prisma.assessmentType.create({
+          data: { schoolId: ctx.schoolId, name: sub.name, code: sub.code, parentId: parent.id, sortOrder: sub.sortOrder },
+        });
+      }
+    }
+  }
 
   await recordAudit({
     schoolId: ctx.schoolId, actorId: ctx.user.userId,
@@ -58,7 +77,7 @@ export async function createAssessmentTypeAction(
   });
 
   revalidatePath("/assessment-weightings");
-  return { success: `Assessment type "${name}" (${code}) created.` };
+  return { success: `Assessment type "${name}" (${code}) created with Objective, Theory, and Practical sub-assessments.` };
 }
 
 export async function updateAssessmentTypeAction(

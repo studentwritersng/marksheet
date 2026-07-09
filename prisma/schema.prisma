@@ -32,6 +32,12 @@ model School {
   gradingScale       Json?
   // Admission number format template, e.g. "SCH/{year}/{seq:4}"
   admissionFormat    String?
+  // Shortcode for auto-generating student IDs, e.g. "TDC" → "TDC00123"
+  shortcode          String?
+  // Auto-incrementing counter for student numbers
+  studentSequence    Int          @default(0)
+  // Maintenance mode — when true, non-admin users see a maintenance page
+  maintenanceMode    Boolean      @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -284,6 +290,8 @@ model Student {
   lastName        String
   email           String?       // student email
   dateOfBirth     DateTime?
+  ethnicity       String?
+  religion        String?
   gender          String?
   passportPhoto   String?
   currentClassId  String?

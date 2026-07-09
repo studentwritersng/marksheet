@@ -140,14 +140,7 @@ export async function aiGenerateQuestionsAction(
   });
   if (!note) return { error: "Lesson note not found." };
 
-  const noteContent = [
-    note.previousKnowledge ? `Previous Knowledge: ${note.previousKnowledge}` : "",
-    note.introduction ? `Introduction: ${note.introduction}` : "",
-    note.content ? `Content: ${note.content}` : "",
-    note.evaluation ? `Evaluation: ${note.evaluation}` : "",
-    note.summary ? `Summary: ${note.summary}` : "",
-    note.assignment ? `Assignment: ${note.assignment}` : "",
-  ].filter(Boolean).join("\n\n") || note.content || "";
+  const noteContent = note.content ? `Student's Note:\n${note.content}` : "";
 
   const result = await createCompletion({
     taskType: "question_generation",
@@ -222,24 +215,69 @@ Difficulty distribution: 1 Easy, 1 Medium, 1 Hard`,
       },
     ],
     temperature: 0.6,
+    maxTokens: 8192,
   });
 
-  // Create a placeholder question record representing the bundle.
-  await prisma.question.create({
-    data: {
-      schoolId: ctx.schoolId,
-      subjectId: note.subjectId,
-      topic: note.topic,
-      classLevel: note.class?.name ?? null,
-      type: "essay",
-      text: `[AI Generated from: ${note.topic}]\n\n${result.content.slice(0, 500)}`,
-      marks: 5,
-      source: "ai_generated",
-      status: "draft",
-      lessonNoteId: note.id,
-      createdBy: ctx.user.userId,
-    },
-  });
+  // Parse the AI JSON response — strip markdown fences first
+  let cleanContent = result.content.trim();
+  cleanContent = cleanContent.replace(/^```(?:json)?\s*([\s\S]*?)```$/i, "$1").trim();
+  const jsonStart = cleanContent.search(/[{[]/);
+  if (jsonStart > 0) cleanContent = cleanContent.slice(jsonStart);
+
+  // Fix common JSON issues: trailing commas, missing brackets, unterminated strings
+  cleanContent = fixJson(cleanContent);
+
+  let parsed: { questions?: unknown[] } = {};
+  let parseError = "";
+  try {
+    parsed = JSON.parse(cleanContent);
+  } catch (e) {
+    parseError = String(e);
+  }
+
+  const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
+
+  if (questions.length === 0) {
+    // Fallback: store raw content
+    await prisma.question.create({
+      data: {
+        schoolId: ctx.schoolId,
+        subjectId: note.subjectId,
+        topic: note.topic,
+        classLevel: note.class?.name ?? null,
+        type: "essay",
+        text: `[AI Generated from: ${note.topic}]\n\n${result.content.slice(0, 500)}`,
+        marks: 5,
+        source: "ai_generated",
+        status: "draft",
+        lessonNoteId: note.id,
+        createdBy: ctx.user.userId,
+      },
+    });
+  } else {
+    for (const q of questions) {
+      const qm = q as Record<string, unknown>;
+      const qText = String(qm.question_text ?? "");
+      const qMarks = Number(qm.marks ?? 5);
+      const qDiff = String(qm.difficulty ?? "Medium");
+      await prisma.question.create({
+        data: {
+          schoolId: ctx.schoolId,
+          subjectId: note.subjectId,
+          topic: note.topic,
+          classLevel: note.class?.name ?? null,
+          type: "essay",
+          text: qText,
+          marks: qMarks,
+          difficulty: qDiff,
+          source: "ai_generated",
+          status: "draft",
+          lessonNoteId: note.id,
+          createdBy: ctx.user.userId,
+        },
+      });
+    }
+  }
 
   await recordAudit({
     schoolId: ctx.schoolId,
@@ -250,7 +288,7 @@ Difficulty distribution: 1 Easy, 1 Medium, 1 Hard`,
   });
 
   revalidatePath("/questions");
-  return { success: `AI questions generated from "${note.topic}". Review in drafts.` };
+  return { success: `AI ${questions.length > 0 ? questions.length + " " : ""}questions generated from "${note.topic}". Review in drafts.` };
 }
 
 /** Fetch published lesson notes for a subject, optionally filtered by class level. */
@@ -303,15 +341,7 @@ export async function aiGenerateQuestionsMultiAction(
   if (notes.length === 0) return { error: "No published lesson notes found." };
 
   const combinedContent = notes.map((n) => {
-    const sections = [
-      n.previousKnowledge ? `Previous Knowledge: ${n.previousKnowledge}` : "",
-      n.introduction ? `Introduction: ${n.introduction}` : "",
-      n.content ? `Content: ${n.content}` : "",
-      n.evaluation ? `Evaluation: ${n.evaluation}` : "",
-      n.summary ? `Summary: ${n.summary}` : "",
-      n.assignment ? `Assignment: ${n.assignment}` : "",
-    ];
-    const body = sections.filter(Boolean).join("\n\n") || "";
+    const body = n.content ? `Student's Note:\n${n.content}` : "";
     return `--- Lesson Note: ${n.topic} (${n.class.name}) ---\n${body.slice(0, 2000)}`;
   }).join("\n\n");
 
@@ -324,6 +354,8 @@ export async function aiGenerateQuestionsMultiAction(
 
 NIGERIAN STANDARD MCQ FORMAT — FOLLOW THIS EXACT STYLE
 Each MCQ must follow the standard Nigerian school examination format:
+- Read the Student's Note section of each selected lesson note carefully, understand its contents, and create class-level questions directly from it.
+- Use diverse question types: best answer, negative option ("Which of the following is NOT..."), sentence completion (fill-in-the-blank with ________), comprehension test, cause-and-effect, classification, application to real-life scenarios, and critical thinking questions. Avoid repeating the same question pattern.
 - Question stems must be direct, specific knowledge-testing queries (e.g., "Which of the following is a vowel sound?", "The plural of 'child' is ________.", "Which of these is a common weed found on Nigerian farms?").
 - NEVER use vague stems like "Which of the following best describes X" or "What is true about Y" — be specific.
 - Questions should test recall of facts (Easy), understanding (Medium), or analytical/application thinking (Hard), matching the assigned difficulty tag.
@@ -336,8 +368,11 @@ You will be given a count of how many questions should be Easy, Medium, and Hard
 
 CRITICAL — THE GROUNDING RATIO CONTROLS DISTRACTOR COMPOSITION, NOT JUST GENERAL TONE
 You will be given a grounding_percentage value (0-100). This determines the proportion of the correct-answer knowledge that must be:
-- "grounded": directly traceable to specific content in the provided lesson note(s) — the exact fact, rule, term, or example must appear in the lesson note text.
+- "grounded": directly traceable to specific content in the provided lesson note(s) — the exact fact, rule, term, or example must appear in the Student's Note section below.
 - "extension": correct, curriculum-appropriate content on the same topic that goes beyond what the lesson note explicitly covers but remains within the same subject, topic, and class-level scope.
+
+GROUNDING — STUDENT'S NOTE IS THE SOURCE
+The lesson note content provided below contains only the Student's Note section — the board-summary content taught to students. This is the authoritative grounding material. Draw all grounded questions from this section.
 
 EXTENSION CONTENT BOUNDARIES (even at low grounding_percentage, these still apply)
 - Extension content must remain within the same topic and theme/aspect as the lesson note — never drift into unrelated topics, even ones from the same subject.
@@ -419,8 +454,11 @@ For each question:
 
 CRITICAL — THE GROUNDING RATIO CONTROLS RUBRIC COMPOSITION, NOT JUST GENERAL TONE
 You will be given a grounding_percentage value (0-100). This determines the proportion of each question's rubric points that must be:
-- "grounded": directly traceable to specific content in the provided lesson note(s) — the exact fact, explanation, or example must appear in the lesson note text.
+- "grounded": directly traceable to specific content in the provided Student's Note section below.
 - "extension": correct, curriculum-appropriate content on the same topic that goes beyond what the lesson note explicitly covers, but remains within the same subject, topic, and class-level scope.
+
+GROUNDING — STUDENT'S NOTE IS THE SOURCE
+The lesson note content provided below contains only the Student's Note section — the board-summary content taught to students. This is the authoritative grounding material. Draw all grounded rubric points from this section.
 
 Apply this ratio per question: if a question's rubric has 4 points and grounding_percentage is 75, 3 points should be grounded and 1 should be extension. Round to the nearest whole point count; if the ratio doesn't divide evenly across a question's point count, distribute the remainder toward "grounded" (grounding takes priority in ties).
 
@@ -447,7 +485,9 @@ Difficulty distribution (how many of each): {{difficulty_distribution}}
 
 Do not generate multiple-choice content. Do not generate a shared passage/stimulus unless explicitly instructed to.
 
-Output valid JSON only, with this exact shape and no additional text before or after it:
+IMPORTANT — You must generate the EXACT NUMBER of questions specified in the "Number of essay questions to generate" instruction above. The "questions" array in the output JSON must contain exactly that many items — one per question. Do not generate fewer or more than the specified count.
+
+Output valid JSON only, with this exact shape and no additional text before or after it. The shape below shows a single question object — repeat it N times (N = the specified question count) inside the "questions" array:
 {
   "questions": [
     {
@@ -489,34 +529,70 @@ Lesson note content:\n${combinedContent.slice(0, 8000)}`,
       },
     ],
     temperature: 0.6,
+    maxTokens: isMcq ? 4096 : 8192,
   });
 
-  // Parse the AI JSON response
+  // Parse the AI JSON response — strip markdown fences first
+  let cleanContent = result.content.trim();
+  cleanContent = cleanContent.replace(/^```(?:json)?\s*([\s\S]*?)```$/i, "$1").trim();
+  const jsonStart = cleanContent.search(/[{[]/);
+  if (jsonStart > 0) cleanContent = cleanContent.slice(jsonStart);
+
+  // Fix common JSON issues: trailing commas, missing brackets, unterminated strings
+  cleanContent = fixJson(cleanContent);
+
+  // One more pass: try to locate the outermost { … } block and extract only that
+  const outermostObj = (() => {
+    const start = cleanContent.indexOf("{");
+    if (start < 0) return cleanContent;
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    for (let i = start; i < cleanContent.length; i++) {
+      const ch = cleanContent[i];
+      if (esc) { esc = false; continue; }
+      if (ch === "\\") { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === "{") depth++;
+      if (ch === "}") { depth--; if (depth === 0) { return cleanContent.slice(start, i + 1); } }
+    }
+    return cleanContent;
+  })();
+
+  if (outermostObj && outermostObj !== cleanContent) {
+    // Re-run fixJson on the extracted block in case braces inside strings confused it
+    cleanContent = outermostObj;
+  }
+
   let parsed: { questions?: unknown[] } = {};
+  let parseError = "";
   try {
-    parsed = JSON.parse(result.content);
-  } catch {
-    // fall back to storing raw content
+    parsed = JSON.parse(cleanContent);
+  } catch (e) {
+    // Try again with more aggressive fixes
+    const moreFixed = cleanContent
+      .replace(/,\s*([}\]])/g, "$1")       // remove trailing commas
+      .replace(/\/\/.*/g, "")               // remove // comments
+      .replace(/\/\*[\s\S]*?\*\//g, "");    // remove /* */ comments
+    try {
+      parsed = JSON.parse(moreFixed);
+    } catch (e2) {
+      parseError = String(e2);
+    }
   }
 
   const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
 
   if (questions.length === 0) {
-    // Fallback: store the raw AI output as one draft record
-    await prisma.question.create({
-      data: {
-        schoolId: ctx.schoolId,
-        subjectId,
-        topic,
-        classLevel,
-        type: isMcq ? "mcq" : "essay",
-        text: `[AI Generated from ${notes.length} lesson notes]\n\n${result.content.slice(0, 500)}`,
-        marks: marksPerQuestion,
-        source: "ai_generated",
-        status: "draft",
-        createdBy: ctx.user.userId,
-      },
-    });
+    console.error("===== AI JSON PARSE FAILED =====");
+    console.error("Parse error:", parseError);
+    console.error("Raw AI response length:", result.content.length);
+    console.error("Clean content length:", cleanContent.length);
+    console.error("Clean content (first 500):", cleanContent.slice(0, 500));
+    console.error("Clean content (last 2000):", cleanContent.slice(-2000));
+    console.error("===== END AI OUTPUT =====");
+    return { error: `AI returned invalid JSON. The provider may be overloaded or the model may not support structured output. ${parseError ? `Parse error: ${parseError.slice(0, 100)}` : "No questions found in response."}` };
   } else {
     for (const q of questions) {
       const qm = q as Record<string, unknown>;
@@ -644,6 +720,90 @@ export async function rejectQuestionAction(questionId: string, comment?: string)
   return { success: "Question returned to draft." };
 }
 
+/** Bulk approve all questions in a topic group. */
+export async function bulkApproveQuestionsAction(questionIds: string[]): Promise<ActionState> {
+  let ctx;
+  try {
+    ctx = await requireSchoolAdmin();
+  } catch {
+    return { error: "Not authorised." };
+  }
+
+  if (!questionIds.length) return { error: "No questions selected." };
+
+  await prisma.question.updateMany({
+    where: { id: { in: questionIds }, schoolId: ctx.schoolId, status: { not: "approved" } },
+    data: { status: "approved" },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "approve",
+    entityType: "question",
+    afterValue: { count: questionIds.length, ids: questionIds } as never,
+  });
+
+  revalidatePath("/questions");
+  return { success: `${questionIds.length} question(s) approved.` };
+}
+
+/** Bulk delete all questions in a topic group. */
+export async function bulkDeleteQuestionsAction(questionIds: string[]): Promise<ActionState> {
+  let ctx;
+  try {
+    ctx = await requireSchoolAdmin();
+  } catch {
+    return { error: "Not authorised." };
+  }
+
+  if (!questionIds.length) return { error: "No questions selected." };
+
+  await prisma.question.deleteMany({
+    where: { id: { in: questionIds }, schoolId: ctx.schoolId },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "delete",
+    entityType: "question",
+    afterValue: { count: questionIds.length } as never,
+  });
+
+  revalidatePath("/questions");
+  return { success: `${questionIds.length} question(s) deleted.` };
+}
+
+/** Bulk edit topic name for a group of questions. */
+export async function bulkEditTopicAction(questionIds: string[], newTopic: string): Promise<ActionState> {
+  let ctx;
+  try {
+    ctx = await requireSchoolAdmin();
+  } catch {
+    return { error: "Not authorised." };
+  }
+
+  if (!questionIds.length) return { error: "No questions selected." };
+  if (!newTopic.trim()) return { error: "New topic name is required." };
+
+  await prisma.question.updateMany({
+    where: { id: { in: questionIds }, schoolId: ctx.schoolId },
+    data: { topic: newTopic.trim() },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "update",
+    entityType: "question",
+    afterValue: { count: questionIds.length, newTopic: newTopic.trim() } as never,
+  });
+
+  revalidatePath("/questions");
+  return { success: `Topic renamed to "${newTopic.trim()}" for ${questionIds.length} question(s).` };
+}
+
 /** Delete a question. */
 export async function deleteQuestionAction(questionId: string): Promise<ActionState> {
   let ctx;
@@ -670,4 +830,67 @@ export async function deleteQuestionAction(questionId: string): Promise<ActionSt
 
   revalidatePath("/questions");
   return { success: "Question deleted." };
+}
+
+/**
+ * Try to repair malformed JSON from AI output.
+ * Handles: truncated mid-string, missing brackets, trailing commas.
+ */
+function fixJson(raw: string): string {
+  if (!raw) return raw;
+  let s = raw;
+  s = s.replace(/^```(?:json)?\s*([\s\S]*?)```$/i, "$1").trim();
+  const firstBrace = s.search(/[{[]/);
+  if (firstBrace > 0) s = s.slice(firstBrace);
+
+  // Balance unescaped quotes (detect unterminated string)
+  let esc = false;
+  let quoteCount = 0;
+  for (const ch of s) {
+    if (esc) { esc = false; continue; }
+    if (ch === "\\") { esc = true; continue; }
+    if (ch === '"') quoteCount++;
+  }
+  if (quoteCount % 2 !== 0) s += '"';
+
+  // Track nesting order to close brackets in LIFO order
+  const unescapedBrackets = (str: string) => {
+    const result: string[] = [];
+    let i = 0;
+    let e = false;
+    while (i < str.length) {
+      const ch = str[i];
+      if (e) { e = false; i++; continue; }
+      if (ch === "\\") { e = true; i++; continue; }
+      if (ch === '"') {
+        i++;
+        while (i < str.length) {
+          const c2 = str[i];
+          if (c2 === "\\") { i += 2; continue; }
+          if (c2 === '"') break;
+          i++;
+        }
+        if (i >= str.length) break;
+      } else if (ch === "{" || ch === "[") {
+        result.push(ch);
+      } else if (ch === "}") {
+        if (result.length > 0 && result[result.length - 1] === "{") result.pop();
+      } else if (ch === "]") {
+        if (result.length > 0 && result[result.length - 1] === "[") result.pop();
+      }
+      i++;
+    }
+    return result;
+  };
+
+  const unmatched = unescapedBrackets(s);
+  // Close in reverse order (LIFO)
+  for (let i = unmatched.length - 1; i >= 0; i--) {
+    s += unmatched[i] === "{" ? "}" : "]";
+  }
+
+  // Remove trailing commas before closing brackets
+  s = s.replace(/,\s*([}\]])/g, "$1");
+
+  return s;
 }

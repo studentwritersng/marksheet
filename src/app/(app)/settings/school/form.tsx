@@ -7,7 +7,7 @@ import { ImageUploader } from "@/components/image-uploader";
 export function SchoolSettingsForm({
   school,
 }: {
-  school: { name: string; address: string; logo: string; phone: string; email: string; motto: string; signature: string; stamp: string };
+  school: { name: string; address: string; logo: string; phone: string; email: string; motto: string; signature: string; stamp: string; shortcode: string; maintenanceMode: boolean };
 }) {
   const [state, action, pending] = useActionState(updateSchoolSettingsAction, {});
   const [logoUrl, setLogoUrl] = useState(school.logo);
@@ -23,6 +23,11 @@ export function SchoolSettingsForm({
           <div className="md:col-span-2">
             <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">School Name</label>
             <input name="name" defaultValue={school.name} required className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary" />
+          </div>
+          <div>
+            <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Shortcode</label>
+            <input name="shortcode" defaultValue={school.shortcode} maxLength={5} placeholder="e.g. TDC" className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary uppercase" />
+            <p className="mt-1 font-label-sm text-label-sm text-on-surface-variant">Used to generate student IDs (e.g. TDC00123). Enter 2–5 uppercase letters.</p>
           </div>
           <div className="md:col-span-2">
             <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Motto</label>
@@ -40,6 +45,20 @@ export function SchoolSettingsForm({
             <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Email</label>
             <input name="email" type="email" defaultValue={school.email} placeholder="admin@school.edu.ng" className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary" />
           </div>
+        </div>
+      </div>
+
+      {/* Maintenance Mode */}
+      <div className="bg-white border border-outline-variant rounded-xl p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Maintenance Mode</h3>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">When enabled, only Super Admins can access the portal. Other users see a maintenance notice.</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="maintenanceMode" defaultChecked={school.maintenanceMode} className="sr-only peer" />
+            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+          </label>
         </div>
       </div>
 

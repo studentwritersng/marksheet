@@ -1,21 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { exportToCSV } from "@/lib/export/csv";
 import { exportToPDF } from "@/lib/export/pdf";
 import { exportToDOC } from "@/lib/export/doc";
 
 interface ExportButtonsProps {
-  /** Unique id for the printable element (uses document.getElementById) */
   contentId: string;
-  /** Filename without extension */
   filename: string;
   pdfTitle?: string;
-  /** CSV data (only shown when provided) */
   csvData?: { headers: string[]; rows: string[][]; csvTitle?: string };
-  /** Additional buttons to right of export group */
   children?: React.ReactNode;
-  /** Classes for the wrapper */
   className?: string;
 }
 
@@ -32,7 +27,9 @@ export function ExportButtons({
   const handlePrint = () => {
     setExporting("print");
     setTimeout(() => {
-      window.print();
+      const el = document.getElementById(contentId);
+      if (!el) return;
+      printElement(el);
       setExporting(null);
     }, 100);
   };
@@ -63,12 +60,10 @@ export function ExportButtons({
     try {
       const el = document.getElementById(contentId);
       if (!el) return;
-      // If the element has a special data-doc-content, use that; else clone the innerHTML
       let docContent = el.dataset.docContent;
       if (!docContent) {
         const clone = el.cloneNode(true) as HTMLElement;
-        // Remove any export button groups from the clone
-        clone.querySelectorAll('[data-export-ignore]').forEach((n) => n.remove());
+        clone.querySelectorAll("[data-export-ignore]").forEach((n) => n.remove());
         docContent = clone.innerHTML;
       }
       exportToDOC(docContent, filename, pdfTitle);
@@ -82,28 +77,24 @@ export function ExportButtons({
 
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`} data-export-ignore>
-      {/* Print */}
       <button onClick={handlePrint} disabled={exporting === "print"} className={btnClass}>
         {exporting === "print" ? "..." : null}
         <span className="material-symbols-outlined text-base leading-none">print</span>
         Print
       </button>
 
-      {/* PDF */}
       <button onClick={handlePDF} disabled={exporting === "pdf"} className={btnClass}>
         {exporting === "pdf" ? "..." : null}
         <span className="material-symbols-outlined text-base leading-none">picture_as_pdf</span>
         PDF
       </button>
 
-      {/* DOC */}
       <button onClick={handleDOC} disabled={exporting === "doc"} className={btnClass}>
         {exporting === "doc" ? "..." : null}
         <span className="material-symbols-outlined text-base leading-none">description</span>
         DOC
       </button>
 
-      {/* CSV (only when data provided) */}
       {csvData && (
         <button onClick={handleCSV} disabled={exporting === "csv"} className={btnClass}>
           {exporting === "csv" ? "..." : null}
@@ -115,4 +106,58 @@ export function ExportButtons({
       {children}
     </div>
   );
+}
+
+/** Open a new window with only the content element, styled for print. */
+function printElement(element: HTMLElement) {
+  const styles = document.querySelectorAll("style, link[rel='stylesheet']");
+  let styleHTML = "";
+  styles.forEach((s) => {
+    if (s.tagName === "STYLE") {
+      styleHTML += s.innerHTML;
+    } else if (s.tagName === "LINK") {
+      styleHTML += `<link rel="stylesheet" href="${(s as HTMLLinkElement).href}">`;
+    }
+  });
+
+  const printWindow = window.open("", "_blank", "width=1024,height=768");
+  if (!printWindow) {
+    alert("Popup blocked. Please allow popups for this site to use Print.");
+    return;
+  }
+
+  const contentHTML = element.outerHTML;
+  printWindow.document.open();
+  printWindow.document.write(`\
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${document.title}</title>
+  ${styleHTML}
+  <style>
+    body {
+      background: white !important;
+      color: #000 !important;
+      margin: 1.5cm;
+      font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
+      font-size: 12pt;
+      line-height: 1.5;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    @page { margin: 1.5cm; }
+    [data-export-ignore] { display: none !important; }
+    aside, header, nav, footer { display: none !important; }
+  </style>
+</head>
+<body>
+  ${contentHTML}
+  <script>
+    window.onload = function() { window.print(); window.close(); };
+  <\/script>
+</body>
+</html>`);
+  printWindow.document.close();
 }

@@ -16,6 +16,15 @@ export default async function AppLayout({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // Maintenance mode check — super admins bypass
+  if (user.schoolId && user.role !== "super_admin") {
+    const school = await prisma.school.findUnique({
+      where: { id: user.schoolId },
+      select: { maintenanceMode: true },
+    });
+    if (school?.maintenanceMode) redirect("/maintenance");
+  }
+
   const perms = await resolvePermissions(user);
   const nav = buildNav(user, perms);
 

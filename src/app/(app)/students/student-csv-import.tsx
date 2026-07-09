@@ -90,9 +90,9 @@ export function StudentCsvImport() {
               <thead className="sticky top-0 bg-surface-container">
                 <tr>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">#</th>
-                  <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Adm No.</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Name</th>
-                  <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Email</th>
+                  <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">DOB</th>
+                  <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Gender</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Class</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Dept</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Guardian</th>
@@ -108,11 +108,11 @@ export function StudentCsvImport() {
                     }
                   >
                     <td className="px-2 py-1 text-on-surface-variant">{r.row}</td>
-                    <td className="px-2 py-1">{r.admissionNumber}</td>
                     <td className="px-2 py-1">
                       {r.firstName} {r.lastName}
                     </td>
-                    <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.email || "—"}</td>
+                    <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.dateOfBirth || "—"}</td>
+                    <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.gender || "—"}</td>
                     <td className="px-2 py-1">{r.className || "—"}</td>
                     <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.department || "—"}</td>
                     <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.guardianName || "—"}</td>

@@ -25,18 +25,20 @@ export default async function SchoolSettingsPage() {
       </p>
 
       <div className="mt-6 max-w-2xl">
-        <SchoolSettingsForm
-          school={{
-            name: school.name,
-            address: school.address ?? "",
-            logo: school.logo ?? "",
-            signature: school.signature ?? "",
-            stamp: school.stamp ?? "",
-            phone: school.phone ?? "",
-            email: school.email ?? "",
-            motto: school.motto ?? "",
-          }}
-        />
+          <SchoolSettingsForm
+            school={{
+              name: school.name,
+              shortcode: school.shortcode ?? "",
+              maintenanceMode: school.maintenanceMode,
+              address: school.address ?? "",
+              logo: school.logo ?? "",
+              signature: school.signature ?? "",
+              stamp: school.stamp ?? "",
+              phone: school.phone ?? "",
+              email: school.email ?? "",
+              motto: school.motto ?? "",
+            }}
+          />
       </div>
     </div>
   );

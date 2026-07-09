@@ -3,7 +3,6 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { ExamsList } from "./exams-list";
-import { ExportButtons } from "@/components/export-buttons";
 
 export default async function ExamsPage() {
   const user = await getCurrentUser();
@@ -66,7 +65,7 @@ export default async function ExamsPage() {
   ]);
 
   return (
-    <div id="exams-content" className="flex flex-col gap-stack-lg">
+    <div className="flex flex-col gap-stack-lg">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
@@ -76,15 +75,11 @@ export default async function ExamsPage() {
             Create and manage exams, track submissions, and assign resits.
           </p>
         </div>
-        <ExportButtons
-          contentId="exams-content"
-          filename={`Exams_${new Date().toISOString().slice(0, 10)}`}
-          pdfTitle="Exam List"
-          csvData={{ headers: csvHeaders, rows: csvRows }}
-        />
       </div>
 
       <ExamsList
+        csvData={{ headers: csvHeaders, rows: csvRows }}
+        contentId="exams-content"
         exams={exams.map((e) => ({
           id: e.id,
           subjectName: e.subject.name,

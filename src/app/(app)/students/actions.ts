@@ -13,6 +13,18 @@ export interface ActionState {
   generatedPassword?: string;
 }
 
+/** Pad a number to at least 5 digits */
+function padSeq(n: number): string {
+  return String(n).padStart(5, "0");
+}
+
+function formatDob(d: Date): string {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(d.getFullYear());
+  return `${dd}${mm}${yyyy}`;
+}
+
 export async function createStudentAction(
   _prev: ActionState,
   formData: FormData,
@@ -24,30 +36,46 @@ export async function createStudentAction(
     return { error: "Not authorised." };
   }
 
-  const admissionNumber = String(formData.get("admissionNumber") ?? "").trim();
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
   const studentEmail = String(formData.get("email") ?? "").trim().toLowerCase() || null;
   const classId = String(formData.get("classId") ?? "").trim() || null;
   const gender = String(formData.get("gender") ?? "").trim() || null;
+  const dobRaw = String(formData.get("dateOfBirth") ?? "").trim();
+  const ethnicity = String(formData.get("ethnicity") ?? "").trim() || null;
+  const religion = String(formData.get("religion") ?? "").trim() || null;
   const guardianName = String(formData.get("guardianName") ?? "").trim();
   const guardianPhone = String(formData.get("guardianPhone") ?? "").trim();
   const guardianEmail = String(formData.get("guardianEmail") ?? "").trim().toLowerCase() || null;
   const guardianRelation = String(formData.get("guardianRelation") ?? "").trim() || "father";
   const passportPhoto = String(formData.get("passportPhoto") ?? "").trim() || null;
 
-  if (!admissionNumber || !firstName || !lastName) {
-    return { error: "Admission number, first name, and last name are required." };
+  if (!firstName || !lastName) {
+    return { error: "First name and last name are required." };
   }
 
-  const existing = await prisma.student.findUnique({
-    where: { schoolId_admissionNumber: { schoolId: ctx.schoolId, admissionNumber } },
+  // Parse date of birth; if invalid, return error early
+  const dateOfBirth = dobRaw ? new Date(dobRaw) : null;
+  if (dobRaw && isNaN(dateOfBirth!.getTime())) {
+    return { error: "Invalid date of birth." };
+  }
+
+  // Auto-generate admission number: shortcode + 5-digit sequence
+  const school = await prisma.school.findUnique({ where: { id: ctx.schoolId } });
+  const shortcode = school?.shortcode;
+  if (!shortcode) {
+    return { error: "School shortcode not set. Go to Settings → School to configure it first." };
+  }
+
+  const updated = await prisma.school.update({
+    where: { id: ctx.schoolId },
+    data: { studentSequence: { increment: 1 } },
   });
-  if (existing) return { error: `Admission number ${admissionNumber} already exists.` };
+  const admissionNumber = `${shortcode}${padSeq(updated.studentSequence)}`;
 
   // Auto-generate student login
-  const email = `${admissionNumber.toLowerCase().replace(/\s+/g, ".")}@ums.edu.ng`;
-  const passwordRaw = `${firstName.toLowerCase().slice(0, 3)}${lastName.toLowerCase().slice(0, 3)}2026`;
+  const email = `${admissionNumber.toLowerCase()}@ums.edu.ng`;
+  const passwordRaw = dateOfBirth ? formatDob(dateOfBirth) : `${firstName.toLowerCase().slice(0, 3)}${lastName.toLowerCase().slice(0, 3)}2026`;
   const passwordHash = await bcrypt.hash(passwordRaw, 10);
 
   const user = await prisma.user.create({
@@ -67,6 +95,9 @@ export async function createStudentAction(
       firstName,
       lastName,
       email: studentEmail,
+      dateOfBirth,
+      ethnicity,
+      religion,
       passportPhoto,
       gender,
       currentClassId: classId,

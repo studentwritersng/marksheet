@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useTransition } from "react";
 import { archiveStudentAction } from "./actions";
+import { ExportButtons } from "@/components/export-buttons";
 
 interface StudentVM {
   id: string;
@@ -18,8 +20,12 @@ interface StudentVM {
 
 export function StudentList({
   students,
+  csvData,
+  contentId,
 }: {
   students: StudentVM[];
+  csvData?: { headers: string[]; rows: string[][] };
+  contentId?: string;
 }) {
   const [pending, start] = useTransition();
 
@@ -28,11 +34,21 @@ export function StudentList({
   }
 
   return (
-    <div className="overflow-x-auto bg-surface-container-lowest border border-outline-variant rounded-lg">
+    <div id={contentId} className="overflow-x-auto bg-surface-container-lowest border border-outline-variant rounded-lg">
+      {csvData && (
+        <div className="p-3 border-b border-outline-variant flex justify-end bg-surface-container-low">
+          <ExportButtons
+            contentId={contentId ?? "students-content"}
+            filename={`Students_${new Date().toISOString().slice(0, 10)}`}
+            pdfTitle="Student List"
+            csvData={csvData}
+          />
+        </div>
+      )}
       <table className="w-full text-left">
         <thead className="bg-surface-container border-b border-outline-variant">
           <tr>
-            <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase">Adm No.</th>
+            <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase">Student ID</th>
             <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase">Name</th>
             <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase">Email</th>
             <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase">Class</th>
@@ -44,7 +60,11 @@ export function StudentList({
         <tbody className="divide-y divide-outline-variant">
           {students.map((s) => (
             <tr key={s.id} className="hover:bg-surface-container-low transition-colors">
-              <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface">{s.admissionNumber}</td>
+              <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface">
+                <Link href={`/students/${s.id}`} className="hover:text-primary underline underline-offset-2 decoration-outline-variant">
+                  {s.admissionNumber}
+                </Link>
+              </td>
               <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface font-medium">{s.firstName} {s.lastName}</td>
               <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface-variant">{s.email || "—"}</td>
               <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface-variant">{s.className || "—"}</td>
