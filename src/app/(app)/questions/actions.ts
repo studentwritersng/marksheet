@@ -253,10 +253,14 @@ Difficulty distribution: 1 Easy, 1 Medium, 1 Hard`,
   return { success: `AI questions generated from "${note.topic}". Review in drafts.` };
 }
 
-/** Fetch published lesson notes for a subject. */
-export async function getLessonNotesBySubjectAction(subjectId: string): Promise<{ id: string; topic: string; class: string }[]> {
+/** Fetch published lesson notes for a subject, optionally filtered by class level. */
+export async function getLessonNotesBySubjectAction(subjectId: string, classLevel?: string): Promise<{ id: string; topic: string; class: string }[]> {
+  const where: Record<string, unknown> = { subjectId, status: "published" };
+  if (classLevel) {
+    where.class = { level: classLevel };
+  }
   const notes = await prisma.lessonNote.findMany({
-    where: { subjectId, status: "published" },
+    where: where as never,
     include: { class: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
     take: 50,

@@ -21,6 +21,7 @@ export function CreateQuestionForm({
 
   // AI multi-select state
   const [aiSubjectId, setAiSubjectId] = useState("");
+  const [aiClassLevel, setAiClassLevel] = useState("SSS1");
   const [subjectNotes, setSubjectNotes] = useState<{ id: string; topic: string; class: string }[]>([]);
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
   const [loadingNotes, setLoadingNotes] = useState(false);
@@ -41,11 +42,11 @@ export function CreateQuestionForm({
     setSelectedNoteIds(next);
   }
 
-  async function loadNotes(subjectId: string) {
+  async function loadNotes(subjectId: string, classLevel?: string) {
     if (!subjectId) { setSubjectNotes([]); return; }
     setLoadingNotes(true);
     try {
-      const notes = await getLessonNotesBySubjectAction(subjectId);
+      const notes = await getLessonNotesBySubjectAction(subjectId, classLevel);
       setSubjectNotes(notes);
       setSelectedNoteIds(new Set());
     } finally {
@@ -205,7 +206,7 @@ export function CreateQuestionForm({
               <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
               <select
                 value={aiSubjectId}
-                onChange={(e) => { setAiSubjectId(e.target.value); loadNotes(e.target.value); }}
+                onChange={(e) => { setAiSubjectId(e.target.value); loadNotes(e.target.value, aiClassLevel); }}
                 className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
               >
                 <option value="">Select subject…</option>
@@ -235,7 +236,7 @@ export function CreateQuestionForm({
             </div>
             <div>
               <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Class Level</label>
-              <select name="classLevel" defaultValue="SSS1" className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary">
+              <select name="classLevel" value={aiClassLevel} onChange={(e) => { setAiClassLevel(e.target.value); if (aiSubjectId) loadNotes(aiSubjectId, e.target.value); }} className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary">
                 {["JSS1","JSS2","JSS3","SSS1","SSS2","SSS3"].map((lv) => (
                   <option key={lv} value={lv}>{lv}</option>
                 ))}
