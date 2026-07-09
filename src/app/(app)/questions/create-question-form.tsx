@@ -90,6 +90,7 @@ export function CreateQuestionForm({
         <form action={manualAction} className="space-y-4">
           <input type="hidden" name="type" value="mcq" />
           <SubjectMarksFields subjects={subjects} />
+          <TopicClassFields />
           <textarea
             name="text"
             placeholder="Question text"
@@ -135,6 +136,7 @@ export function CreateQuestionForm({
         <form action={manualAction} className="space-y-4">
           <input type="hidden" name="type" value="essay" />
           <SubjectMarksFields subjects={subjects} />
+          <TopicClassFields />
           <textarea
             name="text"
             placeholder="Question text"
@@ -196,27 +198,39 @@ export function CreateQuestionForm({
       {tab === "ai" && (
         <form action={handleAiGenerate} className="space-y-4">
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Select a subject, then choose one or more published lesson notes. Set the question type, class level, number, and difficulty before generating.
+            Select a subject and topic, then choose one or more published lesson notes. Set the question type, class level, number, and marks before generating.
           </p>
-          <div>
-            <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
-            <select
-              value={aiSubjectId}
-              onChange={(e) => { setAiSubjectId(e.target.value); loadNotes(e.target.value); }}
-              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
-            >
-              <option value="">Select subject…</option>
-              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
+              <select
+                value={aiSubjectId}
+                onChange={(e) => { setAiSubjectId(e.target.value); loadNotes(e.target.value); }}
+                className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
+              >
+                <option value="">Select subject…</option>
+                {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block font-label-md text-label-md text-on-surface">Topic *</label>
+              <input
+                type="text"
+                name="topic"
+                placeholder="e.g. Photosynthesis, Fractions, Organs of Speech"
+                required
+                className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
+              />
+            </div>
           </div>
 
           {/* Generation options */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Question Type</label>
               <select name="questionType" defaultValue="essay" className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary">
-                <option value="essay">Essay</option>
-                <option value="mcq">MCQ</option>
+                <option value="essay">Essay (Theory)</option>
+                <option value="mcq">MCQ (Objective)</option>
               </select>
             </div>
             <div>
@@ -233,22 +247,20 @@ export function CreateQuestionForm({
                 className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary" />
             </div>
             <div>
-              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Marks per Question</label>
+              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Total Marks per Question</label>
               <input type="number" name="marksPerQuestion" defaultValue={5} min={1}
                 className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary" />
-            </div>
-            <div>
-              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Difficulty</label>
-              <select name="difficulty" defaultValue="application" className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary">
-                {["recall","application","analysis","synthesis"].map((d) => (
-                  <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-                ))}
-              </select>
+              <p className="mt-0.5 font-label-sm text-label-sm text-on-surface-variant">For essay, AI distributes across (a)(b)(c) sub-parts</p>
             </div>
             <div>
               <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Grounding % (lesson-note based)</label>
               <input type="number" name="groundingPercentage" defaultValue={75} min={0} max={100}
                 className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary" />
+            </div>
+            <div className="col-span-3">
+              <p className="font-label-sm text-label-sm text-on-surface-variant">
+                Questions auto-distributed: 40% Easy · 40% Medium · 20% Hard
+              </p>
             </div>
           </div>
 
@@ -323,11 +335,40 @@ function SubjectMarksFields({
         />
       </div>
       <div className="w-32">
-        <input
+        <select
           name="difficulty"
-          placeholder="Difficulty"
+          className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+        >
+          <option value="">Difficulty</option>
+          {["Easy", "Medium", "Hard"].map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function TopicClassFields() {
+  return (
+    <div className="flex gap-3">
+      <div className="flex-1">
+        <input
+          name="topic"
+          placeholder="Topic (e.g. Photosynthesis, Fractions)"
           className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
         />
+      </div>
+      <div className="w-32">
+        <select
+          name="classLevel"
+          className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+        >
+          <option value="">Class level</option>
+          {["JSS1","JSS2","JSS3","SSS1","SSS2","SSS3"].map((lv) => (
+            <option key={lv} value={lv}>{lv}</option>
+          ))}
+        </select>
       </div>
     </div>
   );

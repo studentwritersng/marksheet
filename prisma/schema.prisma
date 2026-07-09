@@ -528,6 +528,7 @@ model Question {
   schoolId        String
   subjectId       String
   classLevel      String?
+  topic           String?
   type            QuestionType
   questionGroupId String?
   text            String
