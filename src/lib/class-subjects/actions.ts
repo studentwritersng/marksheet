@@ -54,3 +54,17 @@ export async function linkSubjectToClassAction(
   if (skipped > 0) parts.push(`${skipped} already existed`);
   return { success: parts.join(", ") + "." };
 }
+
+export async function unlinkSubjectAction(
+  classId: string,
+  subjectId: string,
+): Promise<ActionState> {
+  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  await prisma.classSubject.delete({
+    where: { classId_subjectId: { classId, subjectId } },
+  });
+
+  revalidatePath("/class-subjects");
+  return { success: "Subject unlinked." };
+}
