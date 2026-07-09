@@ -43,16 +43,22 @@ export function ImageUploader({
       fd.set("file", file);
 
       const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
+      let data: { url?: string; error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        setError(`Upload failed (${res.status} ${res.statusText})`);
+        return;
+      }
 
       if (data.url) {
         onUploaded(data.url);
         setPreview(data.url);
       } else {
-        setError(data.error ?? "Upload failed");
+        setError(data.error ?? `Upload failed (${res.status})`);
       }
-    } catch {
-      setError("Upload failed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
       URL.revokeObjectURL(localUrl);
