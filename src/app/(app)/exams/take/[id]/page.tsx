@@ -34,7 +34,7 @@ export default async function ExamTakePage(props: {
 
   // Find student record + their class details
   const student = await prisma.student.findFirst({
-    where: { schoolId: user.schoolId },
+    where: { userId: user.userId },
     include: { currentClass: { select: { id: true, department: true, level: true } } },
   });
   if (!student || !student.currentClass) {
@@ -150,7 +150,7 @@ async function SubmittedView({
           Essay answers will be graded shortly.
         </p>
         <a
-          href="/exams"
+          href="/my-exams"
           className="mt-6 inline-block bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container transition-colors"
         >
           Back to Exams
