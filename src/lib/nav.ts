@@ -49,6 +49,12 @@ export function buildNav(
     items.push(
       { label: "My Wards", href: "/parent", icon: "family_history" },
     );
+  } else if (user.role === "student") {
+    items.push(
+      { label: "My Results", href: "/my-results", icon: "analytics" },
+      { label: "My Timetable", href: "/my-timetable", icon: "calendar_view_week" },
+      { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
+    );
   } else {
     if (
       perms.subjectTeacherClassIds.size > 0 ||

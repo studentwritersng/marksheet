@@ -47,6 +47,56 @@ export default async function DashboardPage() {
 
   const admin = canManageSchool(perms);
 
+  if (user.role === "student") {
+    const myStudent = await prisma.student.findUnique({
+      where: { userId: user.userId },
+      select: { id: true, firstName: true, lastName: true, currentClass: { select: { name: true } } },
+    });
+    const termResultCount = myStudent
+      ? await prisma.termResult.count({ where: { studentId: myStudent.id } })
+      : 0;
+
+    return (
+      <section className="flex flex-col gap-stack-lg">
+        <div>
+          <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
+            Welcome, {myStudent ? `${myStudent.firstName} ${myStudent.lastName}` : "Student"}
+          </h2>
+          <p className="font-body-md text-body-md text-on-surface-variant mt-1">
+            {session
+              ? `${session.label} · ${session.terms[0]?.name ?? ""} Term`
+              : "No active session yet"}
+            {myStudent?.currentClass ? ` · ${myStudent.currentClass.name}` : ""}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <DashboardStat label="Term Results" value={termResultCount} icon="analytics" color="green" />
+          <div className="card-light card-light-blue hover:border-primary transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-label-md text-label-md text-on-surface-variant">Quick Links</span>
+              <span className="material-symbols-outlined text-[20px] text-[#002046]">link</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              <a href="/my-results" className="flex items-center gap-2 font-label-sm text-label-sm text-primary hover:underline">
+                <span className="material-symbols-outlined text-[16px]">analytics</span> View My Results
+              </a>
+              <a href="/my-timetable" className="flex items-center gap-2 font-label-sm text-label-sm text-primary hover:underline">
+                <span className="material-symbols-outlined text-[16px]">calendar_view_week</span> My Timetable
+              </a>
+              <a href="/fee-status" className="flex items-center gap-2 font-label-sm text-label-sm text-primary hover:underline">
+                <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span> Fee Status
+              </a>
+              <a href="/settings/profile" className="flex items-center gap-2 font-label-sm text-label-sm text-primary hover:underline">
+                <span className="material-symbols-outlined text-[16px]">person</span> My Profile
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="flex flex-col gap-stack-lg">
       {/* Welcome */}
