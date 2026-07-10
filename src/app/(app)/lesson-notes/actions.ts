@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { recordAudit } from "@/lib/audit";
 import { createCompletion } from "@/lib/ai/gateway";
+import { safeJsonParse } from "@/lib/json-utils";
 
 export interface ActionState {
   error?: string;
@@ -190,13 +191,8 @@ Write a complete lesson note following the structure above. Ensure all content i
     temperature: 0.5,
   });
 
-  // Parse the JSON response
-  let parsed: Record<string, unknown> = {};
-  try {
-    parsed = JSON.parse(result.content);
-  } catch {
-    // Store as raw content if JSON parse fails
-  }
+  // Parse the JSON response (with markdown fence / truncation resilience)
+  const parsed = safeJsonParse<Record<string, unknown>>(result.content) ?? {};
 
   await prisma.lessonNote.create({
     data: {
