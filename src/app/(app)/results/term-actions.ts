@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import type { Prisma } from "@prisma/client";
 
 export interface ActionState {
@@ -17,6 +18,7 @@ export async function saveAffectiveRatingsAction(
   let ctx;
   try { ctx = await requireSchoolAdmin(); }
   catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const termId = formData.get("termId") as string;
   const raw = formData.get("ratings") as string;
@@ -57,6 +59,7 @@ export async function saveAttendanceAction(
   let ctx;
   try { ctx = await requireSchoolAdmin(); }
   catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const termId = formData.get("termId") as string;
   const raw = formData.get("attendance") as string;
@@ -97,6 +100,7 @@ export async function saveRemarksAction(
   let ctx;
   try { ctx = await requireSchoolAdmin(); }
   catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const termId = formData.get("termId") as string;
   const raw = formData.get("remarks") as string;

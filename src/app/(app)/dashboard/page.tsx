@@ -3,6 +3,8 @@ import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { AnnouncementBanner } from "@/components/announcement-banner";
+import { SchoolLicenseBanner } from "@/components/school-license-banner";
 
 function greeting() {
   const h = new Date().getHours();
@@ -18,7 +20,7 @@ export default async function DashboardPage() {
 
   const schoolId = user.schoolId!;
 
-  if (user.role === "super_admin") {
+  if (user.role === "super_admin" || user.role === "platform_owner") {
     const [schools, configs] = await Promise.all([
       prisma.school.count(),
       prisma.aiProviderConfig.count(),
@@ -37,6 +39,7 @@ export default async function DashboardPage() {
             <p className="font-body-md text-body-md text-on-surface-variant mt-1">Super Admin — platform-level management</p>
           </div>
         </div>
+        {user.schoolId && <AnnouncementBanner schoolId={user.schoolId} userRole={user.role} />}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <StatCard label="Schools" value={schools} icon="domain" gradient="from-[#1e3a5f] to-[#002046]" />
           <StatCard label="AI Provider Configs" value={configs} icon="settings" gradient="from-[#1e3a5f] to-[#002046]" />
@@ -89,6 +92,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        <AnnouncementBanner schoolId={schoolId} userRole={user.role} />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard label="Term Results" value={termResultCount} icon="analytics" gradient="from-emerald-500 to-emerald-700" />
           <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5 hover:shadow-md transition-shadow col-span-1 sm:col-span-2">
@@ -134,6 +138,8 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      <AnnouncementBanner schoolId={schoolId} userRole={user.role} />
+      <SchoolLicenseBanner schoolId={schoolId} />
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {admin && (

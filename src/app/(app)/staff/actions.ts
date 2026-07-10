@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email/send";
 
@@ -24,6 +25,7 @@ export async function createStaffAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const fullName = String(formData.get("fullName") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();

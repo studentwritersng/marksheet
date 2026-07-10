@@ -3,5 +3,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 
 export default async function Home() {
   const user = await getCurrentUser();
-  redirect(user ? "/dashboard" : "/login");
+  if (!user) redirect("/login");
+  if (user.role === "platform_owner") redirect("/console");
+  redirect("/dashboard");
 }

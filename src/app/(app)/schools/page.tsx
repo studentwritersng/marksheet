@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default async function SchoolsPage() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "super_admin") redirect("/dashboard");
+  if (!user || (user.role !== "super_admin" && user.role !== "platform_owner")) redirect("/dashboard");
 
   const schools = await prisma.school.findMany({ orderBy: { name: "asc" } });
 

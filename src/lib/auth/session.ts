@@ -8,7 +8,7 @@ import crypto from "crypto";
 
 export interface SessionPayload {
   userId: string;
-  role: "super_admin" | "staff" | "student" | "parent";
+  role: "super_admin" | "platform_owner" | "staff" | "student" | "parent";
   schoolId: string | null;
   staffId: string | null;
   email: string;

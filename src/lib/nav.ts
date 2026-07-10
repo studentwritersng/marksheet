@@ -14,7 +14,7 @@ export function buildNav(
 ): NavItem[] {
   const items: NavItem[] = [{ label: "Dashboard", href: "/dashboard", icon: "overview" }];
 
-  if (user.role === "super_admin") {
+  if (user.role === "super_admin" || user.role === "platform_owner") {
     items.push(
       { label: "Schools", href: "/schools", icon: "domain" },
       { label: "AI Provider", href: "/settings/ai", icon: "settings" },
@@ -54,6 +54,7 @@ export function buildNav(
         { label: "Broadsheet", href: "/broadsheet", icon: "table_chart" },
       ]},
       { label: "System", icon: "settings", children: [
+        { label: "Announcements", href: "/announcements", icon: "campaign" },
         { label: "Audit Log", href: "/audit-log", icon: "history" },
         { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
         { label: "Settings", href: "/settings/school", icon: "settings" },

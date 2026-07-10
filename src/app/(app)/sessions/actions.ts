@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { TermName } from "@prisma/client";
 
@@ -31,6 +32,7 @@ export async function createSessionAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const label = String(formData.get("label") ?? "").trim();
   if (!/^\d{4}\/\d{4}$/.test(label)) {
@@ -86,6 +88,7 @@ export async function setCurrentSessionAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const target = await prisma.session.findFirst({
     where: { id: sessionId, schoolId: ctx.schoolId },
@@ -127,6 +130,7 @@ export async function setCurrentTermAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const term = await prisma.term.findUnique({
     where: { id: termId },
@@ -168,6 +172,7 @@ export async function updateTermDatesAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const termId = String(formData.get("termId") ?? "");
   const start = String(formData.get("startDate") ?? "");

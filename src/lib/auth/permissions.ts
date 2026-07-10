@@ -41,7 +41,7 @@ export async function resolvePermissions(
   user: SessionPayload,
 ): Promise<EffectivePermissions> {
   const empty: EffectivePermissions = {
-    isSuperAdmin: user.role === "super_admin",
+    isSuperAdmin: user.role === "super_admin" || user.role === "platform_owner",
     isSchoolAdmin: false,
     isExamOfficer: false,
     isFeeStatusManager: false,
@@ -54,7 +54,7 @@ export async function resolvePermissions(
     visibleClassIds: new Set(),
   };
 
-  if (user.role === "super_admin") return empty;
+  if (user.role === "super_admin" || user.role === "platform_owner") return empty;
   if (!user.staffId || !user.schoolId) return empty;
 
   // Current session for this school.

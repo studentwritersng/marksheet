@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 
 export interface ActionState {
@@ -18,6 +19,7 @@ export async function createAssessmentTypeAction(
 ): Promise<ActionState> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const name = (formData.get("name") as string)?.trim();
   const code = (formData.get("code") as string)?.trim().toUpperCase();
@@ -87,6 +89,7 @@ export async function updateAssessmentTypeAction(
 ): Promise<ActionState> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const newName = name.trim();
   const newCode = code.trim().toUpperCase();
@@ -115,7 +118,9 @@ export async function updateAssessmentTypeAction(
 export async function deleteAssessmentTypeAction(
   id: string,
 ): Promise<ActionState> {
-  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   await prisma.assessmentType.delete({ where: { id } });
   revalidatePath("/assessment-weightings");
@@ -130,6 +135,7 @@ export async function upsertWeightingAction(
 ): Promise<ActionState> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const subjectId = String(formData.get("subjectId") ?? "").trim() || null;
   const assessmentTypeId = String(formData.get("assessmentTypeId") ?? "").trim();
@@ -169,7 +175,9 @@ export async function deleteWeightingAction(
   subjectId: string | null,
   assessmentTypeId: string,
 ): Promise<ActionState> {
-  await requireSchoolAdmin();
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const existing = await prisma.assessmentWeighting.findFirst({
     where: { schoolId, subjectId, assessmentTypeId },

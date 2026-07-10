@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 
 export interface ActionState {
@@ -18,8 +19,9 @@ export async function createClassAction(
   try {
     ctx = await requireSchoolAdmin();
   } catch {
-    return { error: "Not authorised." };
+    return { error: "Not authorised." }
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const level = String(formData.get("level") ?? "").trim();
   const section = String(formData.get("section") ?? "").trim().toUpperCase();
@@ -74,6 +76,7 @@ export async function updateClassAction(
 ): Promise<ActionState> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const classId = String(formData.get("classId") ?? "");
   const department = String(formData.get("department") ?? "").trim();
@@ -108,8 +111,9 @@ export async function archiveClassAction(
   try {
     ctx = await requireSchoolAdmin();
   } catch {
-    return { error: "Not authorised." };
+    return { error: "Not authorised." }
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const cls = await prisma.class.findFirst({
     where: { id: classId, schoolId: ctx.schoolId },

@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
+import { createNotification } from "@/lib/notifications/actions";
 import { computeClassResults, persistResults } from "@/lib/results/compute";
 
 export interface ActionState {
@@ -24,6 +26,7 @@ export async function computeResultsAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const results = await computeClassResults({
     schoolId: ctx.schoolId,
@@ -61,10 +64,11 @@ export async function finalizeTermResultsAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const termResults = await prisma.termResult.findMany({
     where: { termId, student: { schoolId: ctx.schoolId } },
-    select: { id: true, studentId: true },
+    select: { id: true, student: { select: { userId: true, firstName: true, lastName: true } } },
   });
 
   if (termResults.length === 0) return { error: "No computed results to finalize." };
@@ -76,7 +80,6 @@ export async function finalizeTermResultsAction(
     });
 
     for (const tr of termResults) {
-      // Generate verification code (PRD 09)
       const existing = await tx.verificationCode.findFirst({
         where: { termResultId: tr.id },
       });
@@ -91,6 +94,23 @@ export async function finalizeTermResultsAction(
       }
     }
   });
+
+  // Notify students
+  const term = await prisma.term.findUnique({ where: { id: termId }, select: { name: true } });
+  await Promise.all(
+    termResults
+      .filter((tr) => tr.student.userId)
+      .map((tr) =>
+        createNotification({
+          schoolId: ctx.schoolId,
+          recipientType: "student",
+          recipientId: tr.student.userId!,
+          eventType: "result_published",
+          title: "Results Published",
+          content: `Your ${term?.name ?? ""} term results have been published. Check your results now.`,
+        })
+      )
+  );
 
   await recordAudit({
     schoolId: ctx.schoolId,

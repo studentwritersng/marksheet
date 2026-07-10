@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { createCompletion } from "@/lib/ai/gateway";
 import { fixJson } from "@/lib/json-utils";
@@ -23,6 +24,7 @@ export async function createQuestionAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const subjectId = String(formData.get("subjectId") ?? "");
   const type = String(formData.get("type") ?? ""); // mcq | essay
@@ -134,6 +136,7 @@ export async function aiGenerateQuestionsAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const note = await prisma.lessonNote.findFirst({
     where: { id: lessonNoteId, schoolId: ctx.schoolId },
@@ -318,6 +321,7 @@ export async function aiGenerateQuestionsMultiAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const subjectId = String(formData.get("subjectId") ?? "");
   const noteIdsRaw = formData.getAll("lessonNoteIds") as string[];
@@ -672,6 +676,7 @@ export async function approveQuestionAction(questionId: string): Promise<ActionS
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const q = await prisma.question.findFirst({
     where: { id: questionId, schoolId: ctx.schoolId },
@@ -700,6 +705,7 @@ export async function rejectQuestionAction(questionId: string, comment?: string)
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const q = await prisma.question.findFirst({
     where: { id: questionId, schoolId: ctx.schoolId },
@@ -729,6 +735,7 @@ export async function bulkApproveQuestionsAction(questionIds: string[]): Promise
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   if (!questionIds.length) return { error: "No questions selected." };
 
@@ -757,6 +764,7 @@ export async function bulkDeleteQuestionsAction(questionIds: string[]): Promise<
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   if (!questionIds.length) return { error: "No questions selected." };
 
@@ -784,6 +792,7 @@ export async function bulkEditTopicAction(questionIds: string[], newTopic: strin
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   if (!questionIds.length) return { error: "No questions selected." };
   if (!newTopic.trim()) return { error: "New topic name is required." };
@@ -813,6 +822,7 @@ export async function deleteQuestionAction(questionId: string): Promise<ActionSt
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const q = await prisma.question.findFirst({
     where: { id: questionId, schoolId: ctx.schoolId },

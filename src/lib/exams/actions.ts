@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
+import { notifyStudents } from "@/lib/notifications/actions";
 import type { Prisma } from "@prisma/client";
 
 export interface ActionState {
@@ -14,6 +16,7 @@ export interface ActionState {
 export async function createExamAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const subjectId = formData.get("subjectId") as string;
   const termId = formData.get("termId") as string;
@@ -60,6 +63,13 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
     afterValue: { examId: exam.id, subjectId, classIds, termId, questionCount: questionIds.length } as never,
   });
 
+  // Notify students in assigned classes
+  const subjectName = (await prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } }))?.name ?? "";
+  const classes = await prisma.class.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true } });
+  await Promise.all(classes.map((c) =>
+    notifyStudents(c.id, "exam_graded", `New Exam: ${subjectName}`, `A new ${subjectName} exam has been created for ${c.name}. Complete it before the deadline.`, ctx.schoolId)
+  ));
+
   revalidatePath("/exams");
   return { success: "Exam created." };
 }
@@ -67,6 +77,7 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
 export async function updateExamAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const examId = formData.get("examId") as string;
   const subjectId = formData.get("subjectId") as string;
@@ -105,7 +116,9 @@ export async function updateExamAction(_prev: ActionState, formData: FormData): 
 }
 
 export async function deleteExamAction(examId: string): Promise<ActionState> {
-  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   await prisma.exam.delete({ where: { id: examId } });
   revalidatePath("/exams");
@@ -113,7 +126,9 @@ export async function deleteExamAction(examId: string): Promise<ActionState> {
 }
 
 export async function addQuestionsToExamAction(examId: string, questionIds: string[]): Promise<ActionState> {
-  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   await prisma.examQuestion.createMany({
     data: questionIds.map((qId) => ({ examId, questionId: qId })),
@@ -125,7 +140,9 @@ export async function addQuestionsToExamAction(examId: string, questionIds: stri
 }
 
 export async function removeQuestionFromExamAction(examId: string, questionId: string): Promise<ActionState> {
-  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   await prisma.examQuestion.deleteMany({
     where: { examId, questionId },
@@ -198,6 +215,7 @@ export async function startExamAction(examId: string, studentId: string): Promis
 export async function assignResitAction(examId: string, studentIds: string[]): Promise<ActionState> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   await prisma.examAttempt.updateMany({
     where: { examId, studentId: { in: studentIds } },

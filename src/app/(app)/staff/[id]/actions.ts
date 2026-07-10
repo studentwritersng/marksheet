@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { AssignmentType } from "@prisma/client";
 
@@ -21,6 +22,7 @@ export async function createAssignmentAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const staffId = String(formData.get("staffId") ?? "");
   const assignmentType = String(formData.get("assignmentType") ?? "") as AssignmentType;
@@ -68,6 +70,7 @@ export async function removeAssignmentAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const assignment = await prisma.assignment.findFirst({
     where: { id: assignmentId, schoolId: ctx.schoolId },

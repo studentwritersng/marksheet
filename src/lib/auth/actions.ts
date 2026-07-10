@@ -65,3 +65,9 @@ export async function logoutAction(): Promise<void> {
   store.delete(SESSION_COOKIE);
   redirect("/login");
 }
+
+export async function consoleLogoutAction(): Promise<void> {
+  const store = await cookies();
+  store.delete(SESSION_COOKIE);
+  redirect("/console/login");
+}

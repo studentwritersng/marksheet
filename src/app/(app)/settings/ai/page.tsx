@@ -5,7 +5,7 @@ import { AiProviderForm } from "./form";
 
 export default async function AiSettingsPage() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "super_admin") redirect("/dashboard");
+  if (!user || (user.role !== "super_admin" && user.role !== "platform_owner")) redirect("/dashboard");
 
   const providers = await prisma.aiProviderConfig.findMany({ orderBy: { createdAt: "desc" } });
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions } from "@/lib/auth/permissions";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 
 export interface ActionState {
@@ -33,6 +34,7 @@ export async function updateFeeStatusAction(
   } catch {
     return { error: "Not authorised." };
   }
+  await guardActiveLicense(ctx.schoolId);
 
   const studentId = String(formData.get("studentId") ?? "");
   const termId = String(formData.get("termId") ?? "");
@@ -83,6 +85,7 @@ export async function bulkUpdateFeeStatusAction(
   } catch {
     return { error: "Not authorised." };
   }
+  await guardActiveLicense(ctx.schoolId);
 
   if (studentIds.length === 0 || !termId || !status) {
     return { error: "Selected students, term, and status are required." };

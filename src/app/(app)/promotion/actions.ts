@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 
 export interface ActionState {
@@ -25,6 +26,7 @@ export async function promoteStudentsAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const sourceClassId = String(formData.get("sourceClassId") ?? "");
   const destClassId = String(formData.get("destClassId") ?? "").trim() || null;

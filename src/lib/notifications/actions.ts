@@ -6,13 +6,30 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { sendEmail } from "@/lib/email/send";
 
+export async function notifyStudents(classId: string, eventType: string, title: string, content: string, schoolId?: string): Promise<void> {
+  const students = await prisma.student.findMany({
+    where: { currentClassId: classId, userId: { not: null } },
+    select: { id: true, userId: true },
+  });
+  await Promise.all(students.map((s) =>
+    createNotification({
+      schoolId,
+      recipientType: "student",
+      recipientId: s.userId!,
+      eventType,
+      title,
+      content,
+    })
+  ));
+}
+
 // ---------------------------------------------------------------------------
 // Create notification (in-app + optionally email)
 // ---------------------------------------------------------------------------
 
 export interface CreateNotificationInput {
   schoolId?: string | null;
-  recipientType: "parent" | "staff";
+  recipientType: "student" | "parent" | "staff";
   recipientId: string;
   recipientEmail?: string;
   eventType: string;
@@ -65,10 +82,13 @@ export async function markAllReadAction(): Promise<{ count: number }> {
   const user = await getCurrentUser();
   if (!user) return { count: 0 };
 
+  const nt = user.role === "parent" ? "parent" : user.role === "student" ? "student" : "staff";
+  const nid = user.role === "student" ? user.userId : user.role === "parent" ? user.userId : user.staffId ?? user.userId;
+
   const result = await prisma.notification.updateMany({
     where: {
-      recipientType: user.role === "parent" ? "parent" : "staff",
-      recipientId: user.role === "parent" ? user.userId : user.staffId ?? user.userId,
+      recipientType: nt,
+      recipientId: nid,
       isRead: false,
     },
     data: { isRead: true, readAt: new Date() },
@@ -95,11 +115,11 @@ export async function getMyNotifications(limit = 20): Promise<NotificationVM[]> 
   const user = await getCurrentUser();
   if (!user) return [];
 
-  const recipientId = user.role === "parent" ? user.userId : user.staffId ?? user.userId;
-  const recipientType = user.role === "parent" ? "parent" : "staff";
+  const nt2 = user.role === "parent" ? "parent" : user.role === "student" ? "student" : "staff";
+  const nid2 = user.role === "student" ? user.userId : user.role === "parent" ? user.userId : user.staffId ?? user.userId;
 
   const rows = await prisma.notification.findMany({
-    where: { recipientType, recipientId },
+    where: { recipientType: nt2, recipientId: nid2 },
     orderBy: { sentAt: "desc" },
     take: limit,
   });
@@ -118,10 +138,10 @@ export async function getUnreadCount(): Promise<number> {
   const user = await getCurrentUser();
   if (!user) return 0;
 
-  const recipientId = user.role === "parent" ? user.userId : user.staffId ?? user.userId;
-  const recipientType = user.role === "parent" ? "parent" : "staff";
+  const nt3 = user.role === "parent" ? "parent" : user.role === "student" ? "student" : "staff";
+  const nid3 = user.role === "student" ? user.userId : user.role === "parent" ? user.userId : user.staffId ?? user.userId;
 
   return prisma.notification.count({
-    where: { recipientType, recipientId, isRead: false },
+    where: { recipientType: nt3, recipientId: nid3, isRead: false },
   });
 }

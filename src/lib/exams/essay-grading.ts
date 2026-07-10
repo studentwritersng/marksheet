@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { createCompletion } from "@/lib/ai/gateway";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 
 export interface ActionState {
@@ -18,6 +19,7 @@ export async function gradeEssayAnswersAction(examId: string): Promise<ActionSta
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const pending = await prisma.studentAnswer.findMany({
     where: {
@@ -131,6 +133,7 @@ export async function reviewEssayScoreAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   await prisma.studentAnswer.update({
     where: { id: answerId },

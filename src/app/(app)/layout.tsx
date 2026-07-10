@@ -18,7 +18,7 @@ export default async function AppLayout({
   if (!user) redirect("/login");
 
   // Maintenance mode check — super admins bypass
-  if (user.schoolId && user.role !== "super_admin") {
+  if (user.schoolId && user.role !== "super_admin" && user.role !== "platform_owner") {
     const school = await prisma.school.findUnique({
       where: { id: user.schoolId },
       select: { maintenanceMode: true },
@@ -40,7 +40,7 @@ export default async function AppLayout({
   }
 
   const roleLabel =
-    user.role === "super_admin"
+    user.role === "super_admin" || user.role === "platform_owner"
       ? "Super Admin"
       : user.role === "parent"
         ? "Parent"

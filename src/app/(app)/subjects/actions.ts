@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 
 export interface ActionState {
   error?: string;
@@ -19,6 +20,7 @@ export async function createSubjectAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const name = String(formData.get("name") ?? "").trim();
   const code = String(formData.get("code") ?? "").trim() || null;
@@ -45,6 +47,7 @@ export async function deleteSubjectAction(subjectId: string): Promise<ActionStat
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const subject = await prisma.subject.findFirst({
     where: { id: subjectId, schoolId: ctx.schoolId },

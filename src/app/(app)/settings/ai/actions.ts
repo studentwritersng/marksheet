@@ -12,7 +12,7 @@ export async function upsertAiProviderAction(
   formData: FormData,
 ): Promise<AiProviderState> {
   const user = await getCurrentUser();
-  if (!user || user.role !== "super_admin") return { error: "Not authorised." };
+  if (!user || (user.role !== "super_admin" && user.role !== "platform_owner")) return { error: "Not authorised." };
 
   const id = String(formData.get("id") ?? "").trim() || undefined;
   const label = String(formData.get("label") ?? "").trim();
@@ -57,7 +57,7 @@ export async function upsertAiProviderAction(
 
 export async function deleteAiProviderAction(id: string): Promise<AiProviderState> {
   const user = await getCurrentUser();
-  if (!user || user.role !== "super_admin") return { error: "Not authorised." };
+  if (!user || (user.role !== "super_admin" && user.role !== "platform_owner")) return { error: "Not authorised." };
 
   await prisma.aiProviderConfig.delete({ where: { id } });
   revalidatePath("/settings/ai");

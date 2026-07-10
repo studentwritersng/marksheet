@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { parseStudentCsv, type StagedRow } from "@/lib/csv/student-import";
 import bcrypt from "bcryptjs";
@@ -33,11 +34,13 @@ export async function previewStudentCsvAction(
   _prev: CsvActionState,
   formData: FormData,
 ): Promise<CsvActionState> {
+  let ctx;
   try {
-    await requireSchoolAdmin();
+    ctx = await requireSchoolAdmin();
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const file = formData.get("file") as File | null;
   if (!file) return { error: "No file uploaded." };
@@ -58,6 +61,7 @@ export async function commitStudentCsvAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const rowsJson = String(formData.get("rows") ?? "");
   const rows: StagedRow[] = JSON.parse(rowsJson);

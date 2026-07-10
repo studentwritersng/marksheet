@@ -182,6 +182,11 @@ body {
   border-color: #e9d5ff;
 }
 
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 @media print {
   * {
     -webkit-print-color-adjust: exact !important;

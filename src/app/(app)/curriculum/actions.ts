@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 
 export interface CurriculumState { error?: string; success?: string }
@@ -13,6 +14,7 @@ export async function upsertCurriculumTopicAction(
 ): Promise<CurriculumState> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const classLevel = formData.get("classLevel") as string;
   const term = formData.get("term") as string;
@@ -79,7 +81,9 @@ export async function upsertCurriculumTopicAction(
 }
 
 export async function deleteCurriculumOverrideAction(id: string): Promise<CurriculumState> {
-  try { await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   await prisma.curriculumTopic.delete({ where: { id } });
   revalidatePath("/curriculum");

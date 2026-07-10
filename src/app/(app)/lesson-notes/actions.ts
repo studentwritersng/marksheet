@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { createCompletion } from "@/lib/ai/gateway";
 import { safeJsonParse } from "@/lib/json-utils";
@@ -23,6 +24,7 @@ export async function createLessonNoteAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const subjectId = String(formData.get("subjectId") ?? "");
   const classId = String(formData.get("classId") ?? "");
@@ -85,6 +87,7 @@ export async function aiGenerateNoteAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const subjectId = String(formData.get("subjectId") ?? "");
   const classId = String(formData.get("classId") ?? "");
@@ -274,6 +277,7 @@ export async function updateLessonNoteAction(
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const noteId = String(formData.get("noteId") ?? "");
   const topic = String(formData.get("topic") ?? "").trim();
@@ -325,6 +329,7 @@ export async function deleteLessonNoteAction(noteId: string): Promise<ActionStat
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const note = await prisma.lessonNote.findFirst({
     where: { id: noteId, schoolId: ctx.schoolId },
@@ -354,6 +359,7 @@ export async function publishNoteAction(noteId: string): Promise<ActionState> {
   } catch {
     return { error: "Not authorised." };
   }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const note = await prisma.lessonNote.findFirst({
     where: { id: noteId, schoolId: ctx.schoolId },

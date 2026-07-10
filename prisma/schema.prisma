@@ -57,6 +57,8 @@ model School {
   timetablePeriods TimetablePeriod[]
   timetableEntries TimetableEntry[]
   classSubjects    ClassSubject[]
+  announcements    Announcement[]
+  licenses         SchoolLicense[]
 
   @@map("schools")
 }
@@ -340,6 +342,7 @@ model Guardian {
 
 enum UserRole {
   super_admin
+  platform_owner
   staff
   student
   parent
@@ -918,4 +921,69 @@ model Notification {
 
   @@index([recipientType, recipientId])
   @@map("notifications")
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  schoolId    String
+  title       String
+  content     String
+  targetRoles String[] // ["student", "staff", "parent"]
+  isSticky    Boolean  @default(false)
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@map("announcements")
+}
+
+enum LicenseDurationType {
+  monthly
+  termly
+}
+
+model LicensePlan {
+  id           String             @id @default(cuid())
+  name         String             @unique // e.g. "Monthly", "Termly"
+  durationType LicenseDurationType
+  isActive     Boolean            @default(true) // can this plan be assigned to new schools?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  schoolLicenses SchoolLicense[]
+
+  @@map("license_plans")
+}
+
+enum LicenseStatus {
+  active
+  grace_period
+  expired
+  suspended
+}
+
+model SchoolLicense {
+  id               String         @id @default(cuid())
+  schoolId         String
+  planId           String
+  startDate        DateTime
+  endDate          DateTime
+  status           LicenseStatus  @default(active)
+  paymentReference String?        // free-text record of how/when the school paid
+  setBy            String?        // Platform Owner user id
+  autoRenewIntent  Boolean        @default(false) // informational only
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  school School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  plan   LicensePlan @relation(fields: [planId], references: [id])
+
+  @@index([schoolId])
+  @@index([status])
+  @@map("school_licenses")
 }
