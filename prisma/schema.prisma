@@ -960,6 +960,7 @@ model LicensePlan {
 
   schoolLicenses SchoolLicense[]
   payments       Payment[]
+  cashCodes      CashCode[]
 
   @@map("license_plans")
 }
@@ -1008,7 +1009,7 @@ model PaymentMethod {
   type      PaymentMethodType
   label     String            // display name e.g. "GTBank", "Cash", "Paystack"
   isActive  Boolean           @default(true)
-  details   Json?             // {bankName, accountNumber, accountName} / {provider, publicKey} / null for cash
+  details   Json?             // bank_transfer: {bankName, accountNumber, accountName, instructions} / online: {provider, publicKey} / cash: null
   sortOrder Int               @default(0)
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
@@ -1018,6 +1019,22 @@ model PaymentMethod {
   @@map("payment_methods")
 }
 
+model CashCode {
+  id             String   @id @default(cuid())
+  code           String   @unique // e.g. "CASH-A3B7K9"
+  planId         String
+  schoolId       String?  // pre-assigned to a school (optional)
+  isUsed         Boolean  @default(false)
+  usedAt         DateTime?
+  usedBySchoolId String?
+  createdAt      DateTime @default(now())
+
+  plan LicensePlan @relation(fields: [planId], references: [id])
+
+  @@index([code])
+  @@map("cash_codes")
+}
+
 model Payment {
   id              String          @id @default(cuid())
   schoolId        String
@@ -1025,6 +1042,7 @@ model Payment {
   amount          Decimal
   paymentMethodId String
   status          String          @default("pending") // pending, verified, failed, refunded
+  cashCodeId      String?         // links to the cash code used (for cash payments)
   reference       String?         // user-entered ref (bank transfer) or gateway ref (online)
   proofUrl        String?         // uploaded receipt image for bank transfer
   notes           String?

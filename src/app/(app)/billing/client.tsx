@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useRef } from "react";
 import { submitPaymentAction } from "./actions";
 
 interface PlanVM { id: string; name: string; durationType: string; price?: number | null; durationDays?: number | null; }
@@ -18,10 +18,21 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
 }) {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [selectedMethod, setSelectedMethod] = useState<string>("");
+  const [proofBase64, setProofBase64] = useState<string>("");
+  const [cashCode, setCashCode] = useState<string>("");
   const [state, action, pending] = useActionState(submitPaymentAction, {});
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const chosenPlan = plans.find((p) => p.id === selectedPlan);
   const chosenMethod = methods.find((m) => m.id === selectedMethod);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setProofBase64(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 py-6">
@@ -53,7 +64,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
           {plans.map((p) => {
             const active = selectedPlan === p.id;
             return (
-              <button key={p.id} onClick={() => { setSelectedPlan(p.id); setSelectedMethod(""); }}
+              <button key={p.id} onClick={() => { setSelectedPlan(p.id); setSelectedMethod(""); setCashCode(""); setProofBase64(""); }}
                 className={`text-left rounded-xl p-4 border transition-all ${
                   active ? "border-emerald-500/50 bg-emerald-900/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
                 }`}
@@ -77,7 +88,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
             {methods.map((m) => {
               const active = selectedMethod === m.id;
               return (
-                <button key={m.id} onClick={() => setSelectedMethod(m.id)}
+                <button key={m.id} onClick={() => { setSelectedMethod(m.id); setCashCode(""); setProofBase64(""); }}
                   className={`w-full text-left rounded-lg p-3 border transition-all ${
                     active ? "border-emerald-500/50 bg-emerald-900/10" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]"
                   }`}
@@ -90,10 +101,15 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
                     {active && <span className="material-symbols-outlined text-emerald-400 text-[18px]">check_circle</span>}
                   </div>
                   {active && m.type === "bank_transfer" && m.details && (
-                    <div className="mt-2 pt-2 border-t border-white/5 text-xs text-white/60 space-y-0.5">
+                    <div className="mt-2 pt-2 border-t border-white/5 text-xs text-white/60 space-y-1">
                       <p>Bank: <span className="text-white/80">{m.details.bankName}</span></p>
                       <p>Account: <span className="text-white/80">{m.details.accountNumber}</span></p>
                       <p>Name: <span className="text-white/80">{m.details.accountName}</span></p>
+                      {m.details.instructions && (
+                        <div className="mt-2 pt-2 border-t border-white/5 text-white/50 whitespace-pre-wrap">
+                          {m.details.instructions}
+                        </div>
+                      )}
                     </div>
                   )}
                 </button>
@@ -109,13 +125,35 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
 
           <input type="hidden" name="planId" value={selectedPlan} />
           <input type="hidden" name="methodId" value={selectedMethod} />
+          <input type="hidden" name="proofUrl" value={proofBase64} />
+
+          {chosenMethod?.type === "cash" && (
+            <div>
+              <label className="text-xs text-white/50 block mb-1">Cash Payment Code</label>
+              <input name="cashCode" value={cashCode} onChange={(e) => setCashCode(e.target.value.toUpperCase())}
+                required placeholder="Enter the code provided by your admin (e.g. CASH-A3B7K9)"
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20 font-mono tracking-widest" />
+              <p className="text-xs text-amber-400 mt-1">Enter the cash payment code you received after paying cash at the school office.</p>
+            </div>
+          )}
 
           {chosenMethod?.type === "bank_transfer" && (
-            <div>
-              <label className="text-xs text-white/50 block mb-1">Payment Reference / Teller ID</label>
-              <input name="reference" required placeholder="Enter bank teller ID or transaction ref"
-                className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
-            </div>
+            <>
+              <div>
+                <label className="text-xs text-white/50 block mb-1">Payment Reference / Teller ID</label>
+                <input name="reference" required placeholder="Enter bank teller ID or transaction ref"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
+              </div>
+              <div>
+                <label className="text-xs text-white/50 block mb-1">Upload Receipt (optional)</label>
+                <input ref={fileRef} type="file" accept="image/*" onChange={handleFile}
+                  className="w-full text-sm text-white/50 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-white/10 file:text-white/70 hover:file:bg-white/20" />
+                {proofBase64 && (
+                  <img src={proofBase64} alt="Receipt preview"
+                    className="mt-2 max-h-32 rounded-lg border border-white/10 object-contain" />
+                )}
+              </div>
+            </>
           )}
 
           <div>
@@ -127,10 +165,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
           <div className="flex items-center gap-3">
             <button type="submit" disabled={pending}
               className="bg-emerald-700 hover:bg-emerald-600 text-white text-sm px-5 py-2 rounded-lg disabled:opacity-60"
-            >{pending ? "Submitting..." : `Pay ${formatPrice(chosenPlan?.price) ?? ""}`}</button>
-            {chosenMethod?.type === "cash" && (
-              <span className="text-xs text-amber-400">You'll pay cash at the school office. This request needs verification.</span>
-            )}
+            >{pending ? "Submitting..." : chosenMethod?.type === "cash" ? "Activate with Code" : `Pay ${formatPrice(chosenPlan?.price) ?? ""}`}</button>
           </div>
           {state.error && <p className="text-red-400 text-xs">{state.error}</p>}
           {state.success && <p className="text-emerald-400 text-xs">{state.success}</p>}
