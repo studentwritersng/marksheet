@@ -7,17 +7,21 @@ export default async function PaymentsPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "platform_owner") redirect("/console/login");
 
-  const payments = await prisma.payment.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      school: { select: { name: true } },
-      plan: { select: { name: true } },
-      paymentMethod: { select: { label: true, type: true } },
-    },
-  });
+  const [payments, plans] = await Promise.all([
+    prisma.payment.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        school: { select: { name: true } },
+        plan: { select: { name: true } },
+        paymentMethod: { select: { label: true, type: true } },
+      },
+    }),
+    prisma.licensePlan.findMany({ where: { isActive: true, durationDays: { not: null } }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <PaymentsClient
+      plans={plans.map((p) => ({ id: p.id, name: p.name }))}
       payments={payments.map((p) => ({
         id: p.id,
         schoolName: p.school.name,

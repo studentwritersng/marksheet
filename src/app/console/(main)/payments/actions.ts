@@ -80,3 +80,20 @@ export async function rejectPaymentAction(paymentId: string): Promise<PayActionR
   revalidatePath("/console/payments");
   return { success: "Payment rejected." };
 }
+
+export async function generateCashCodeAction(_prev: PayActionResult, formData: FormData): Promise<PayActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const planId = formData.get("planId") as string;
+  const schoolId = (formData.get("schoolId") as string)?.trim() || undefined;
+  if (!planId) return { error: "Plan is required." };
+  const plan = await prisma.licensePlan.findUnique({ where: { id: planId } });
+  if (!plan) return { error: "Plan not found." };
+  if (!plan.durationDays) return { error: "Plan has no duration days set." };
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "CASH-";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  try { await prisma.cashCode.create({ data: { code, planId, schoolId: schoolId || null } }); }
+  catch { return { error: "Failed to generate code." }; }
+  revalidatePath("/console/payments");
+  return { success: code };
+}

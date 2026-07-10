@@ -23,8 +23,10 @@ export async function createPaymentMethodAction(_prev: PMActionResult, formData:
     const bankName = (formData.get("bankName") as string)?.trim();
     const accountNumber = (formData.get("accountNumber") as string)?.trim();
     const accountName = (formData.get("accountName") as string)?.trim();
+    const instructions = (formData.get("instructions") as string)?.trim();
     if (!bankName || !accountNumber || !accountName) return { error: "All bank details are required." };
     details = { bankName, accountNumber, accountName };
+    if (instructions) details.instructions = instructions;
   } else if (type === "online") {
     const provider = (formData.get("provider") as string)?.trim();
     const publicKey = (formData.get("publicKey") as string)?.trim();
