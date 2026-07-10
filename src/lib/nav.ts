@@ -53,6 +53,9 @@ export function buildNav(
         { label: "Remarks", href: "/results/remarks", icon: "rate_review" },
         { label: "Broadsheet", href: "/broadsheet", icon: "table_chart" },
       ]},
+      { label: "Billing", icon: "payments", children: [
+        { label: "Billing & License", href: "/billing", icon: "account_balance_wallet" },
+      ]},
       { label: "System", icon: "settings", children: [
         { label: "Announcements", href: "/announcements", icon: "campaign" },
         { label: "Audit Log", href: "/audit-log", icon: "history" },

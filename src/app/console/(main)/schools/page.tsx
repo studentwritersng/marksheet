@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export default async function ConsoleSchoolsPage() {
   const user = await getCurrentUser();
@@ -72,9 +73,12 @@ export default async function ConsoleSchoolsPage() {
                   )}
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button className="text-xs text-white/30 hover:text-white/70 transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30">
+                  <Link
+                    href={`/console/schools/${s.id}`}
+                    className="text-xs text-white/50 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30"
+                  >
                     View
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>

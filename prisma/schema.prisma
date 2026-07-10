@@ -59,6 +59,7 @@ model School {
   classSubjects    ClassSubject[]
   announcements    Announcement[]
   licenses         SchoolLicense[]
+  payments         Payment[]
 
   @@map("schools")
 }
@@ -360,9 +361,10 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  school School? @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  staff  Staff?  @relation(fields: [staffId], references: [id])
-  student Student?
+  school           School?   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  staff            Staff?    @relation(fields: [staffId], references: [id])
+  student          Student?
+  verifiedPayments Payment[]
 
   @@index([schoolId])
   @@map("users")
@@ -950,11 +952,14 @@ model LicensePlan {
   id           String             @id @default(cuid())
   name         String             @unique // e.g. "Monthly", "Termly"
   durationType LicenseDurationType
+  price        Decimal?           // e.g. 50000.00
+  durationDays Int?               // e.g. 30 or 90
   isActive     Boolean            @default(true) // can this plan be assigned to new schools?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
   schoolLicenses SchoolLicense[]
+  payments       Payment[]
 
   @@map("license_plans")
 }
@@ -986,4 +991,54 @@ model SchoolLicense {
   @@index([schoolId])
   @@index([status])
   @@map("school_licenses")
+}
+
+// ---------------------------------------------------------------------------
+// PRD X: Payment Methods & Payments
+// ---------------------------------------------------------------------------
+
+enum PaymentMethodType {
+  bank_transfer
+  cash
+  online
+}
+
+model PaymentMethod {
+  id        String            @id @default(cuid())
+  type      PaymentMethodType
+  label     String            // display name e.g. "GTBank", "Cash", "Paystack"
+  isActive  Boolean           @default(true)
+  details   Json?             // {bankName, accountNumber, accountName} / {provider, publicKey} / null for cash
+  sortOrder Int               @default(0)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  payments Payment[]
+
+  @@map("payment_methods")
+}
+
+model Payment {
+  id              String          @id @default(cuid())
+  schoolId        String
+  planId          String
+  amount          Decimal
+  paymentMethodId String
+  status          String          @default("pending") // pending, verified, failed, refunded
+  reference       String?         // user-entered ref (bank transfer) or gateway ref (online)
+  proofUrl        String?         // uploaded receipt image for bank transfer
+  notes           String?
+  verifiedById    String?
+  verifiedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  school        School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  plan          LicensePlan   @relation(fields: [planId], references: [id])
+  paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  verifiedBy    User?         @relation(fields: [verifiedById], references: [id])
+
+  @@index([schoolId])
+  @@index([status])
+  @@map("payments")
 }

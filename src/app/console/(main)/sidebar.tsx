@@ -13,6 +13,8 @@ const navItems: NavItem[] = [
   { label: "Dashboard", href: "/console", icon: "dashboard" },
   { label: "Schools", href: "/console/schools", icon: "domain" },
   { label: "Licenses", href: "/console/licenses", icon: "verified" },
+  { label: "Payments", href: "/console/payments", icon: "payments" },
+  { label: "Payment Methods", href: "/console/payment-methods", icon: "account_balance" },
   { label: "AI Config", href: "/console/ai", icon: "settings" },
   { label: "Audit Log", href: "/console/audit", icon: "history" },
 ];
@@ -31,7 +33,7 @@ export function ConsoleSidebar({ userEmail }: { userEmail: string }) {
 
       <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
-          const active = pathname === item.href;
+          const active = pathname === item.href || (item.href !== "/console" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}

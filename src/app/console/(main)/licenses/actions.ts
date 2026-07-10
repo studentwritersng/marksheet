@@ -18,10 +18,16 @@ export async function createPlanAction(_prev: LicenseActionResult, formData: For
   try { await guard(); } catch { return { error: "Not authorised." }; }
   const name = (formData.get("name") as string)?.trim();
   const durationType = formData.get("durationType") as string;
+  const priceRaw = formData.get("price") as string;
+  const durationDaysRaw = formData.get("durationDays") as string;
   if (!name || !durationType) return { error: "Name and duration type are required." };
   if (!["monthly", "termly"].includes(durationType)) return { error: "Invalid duration type." };
+  const price = priceRaw ? parseFloat(priceRaw) : null;
+  const durationDays = durationDaysRaw ? parseInt(durationDaysRaw, 10) : null;
+  if (price !== null && isNaN(price)) return { error: "Invalid price." };
+  if (durationDays !== null && (isNaN(durationDays) || durationDays < 1)) return { error: "Invalid duration days." };
   try {
-    await prisma.licensePlan.create({ data: { name, durationType: durationType as "monthly" | "termly" } });
+    await prisma.licensePlan.create({ data: { name, durationType: durationType as "monthly" | "termly", price, durationDays } });
   } catch (e: any) {
     if (e?.code === "P2002") return { error: "A plan with this name already exists." };
     return { error: "Failed to create plan." };

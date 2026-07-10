@@ -21,6 +21,8 @@ export default async function ConsoleLicensesPage() {
         id: p.id,
         name: p.name,
         durationType: p.durationType,
+        price: p.price?.toNumber(),
+        durationDays: p.durationDays,
         isActive: p.isActive,
       }))}
       licenses={licenses.map((l) => ({
