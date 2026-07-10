@@ -85,12 +85,14 @@ export default async function AppLayout({
           ))}
         </nav>
 
-        {/* CTA */}
+        {/* Logout */}
         <div className="pt-4 mt-auto border-t border-white/20">
-          <button className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-white/10 text-white rounded font-label-md text-label-md hover:bg-white/20 transition-colors">
-            <span className="material-symbols-outlined text-[18px]">add</span>
-            New Record
-          </button>
+          <form action={logoutAction}>
+            <button type="submit" className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-white/10 text-white rounded font-label-md text-label-md hover:bg-white/20 transition-colors">
+              <span className="material-symbols-outlined text-[18px]">logout</span>
+              Sign out
+            </button>
+          </form>
         </div>
       </aside>
 

@@ -12,6 +12,7 @@ interface UserDropdownProps {
 
 export function UserDropdown({ email, roleLabel, initials }: UserDropdownProps) {
   const [open, setOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,8 +25,17 @@ export function UserDropdown({ email, roleLabel, initials }: UserDropdownProps) 
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  function handleOpen() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setOpen(true);
+  }
+
+  function handleClose() {
+    closeTimer.current = setTimeout(() => setOpen(false), 300);
+  }
+
   return (
-    <div ref={ref} className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <div ref={ref} className="relative" onMouseEnter={handleOpen} onMouseLeave={handleClose}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -54,16 +64,17 @@ export function UserDropdown({ email, roleLabel, initials }: UserDropdownProps) 
             My Profile
           </Link>
           <hr className="my-1 border-outline-variant" />
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              onClick={() => setOpen(false)}
-              className="w-full flex items-center gap-3 px-4 py-2 font-body-sm text-body-sm text-red-600 hover:bg-red-50 transition-colors"
-            >
-              <span className="material-symbols-outlined text-[18px]">logout</span>
-              Sign out
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={async () => {
+              setOpen(false);
+              await logoutAction();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2 font-body-sm text-body-sm text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <span className="material-symbols-outlined text-[18px]">logout</span>
+            Sign out
+          </button>
         </div>
       )}
     </div>
