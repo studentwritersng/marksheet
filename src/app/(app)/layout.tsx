@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions } from "@/lib/auth/permissions";
 import { buildNav } from "@/lib/nav";
@@ -7,6 +6,7 @@ import { logoutAction } from "@/lib/auth/actions";
 import { NotificationBell } from "./notification-bell";
 import { prisma } from "@/lib/prisma";
 import { MobileSidebar } from "./mobile-sidebar";
+import { SidebarNav } from "./sidebar-nav";
 import { UserDropdown } from "./user-dropdown";
 
 export default async function AppLayout({
@@ -72,18 +72,7 @@ export default async function AppLayout({
         </div>
 
         {/* Nav links */}
-        <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 px-3 py-2 text-blue-200 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-label-md text-label-md"
-            >
-              <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-              <span className="font-label-md text-label-md">{item.label}</span>
-            </Link>
-          ))}
-        </nav>
+        <SidebarNav items={nav} />
 
         {/* Logout */}
         <div className="pt-4 mt-auto border-t border-white/20">

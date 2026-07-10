@@ -34,8 +34,8 @@ export default async function ExamsPage() {
     }),
     prisma.question.findMany({
       where: { schoolId: user.schoolId, status: "approved" },
-      include: { mcqOptions: { select: { id: true, optionText: true, isCorrect: true } } },
-      orderBy: { createdAt: "desc" },
+      include: { mcqOptions: { select: { id: true, optionText: true, isCorrect: true } }, subject: { select: { name: true } } },
+      orderBy: [{ topic: "asc" }, { createdAt: "desc" }],
     }),
     prisma.classSubject.findMany({
       where: { schoolId: user.schoolId },
@@ -101,6 +101,10 @@ export default async function ExamsPage() {
           text: q.text,
           type: q.type,
           marks: q.marks,
+          subjectId: q.subjectId,
+          subject: q.subject?.name ?? '',
+          classLevel: q.classLevel ?? '',
+          topic: q.topic ?? '',
           mcqOptions: q.mcqOptions.map((o) => ({ id: o.id, optionText: o.optionText, isCorrect: o.isCorrect })),
         }))}
         classSubjects={classSubjects.map((cs) => ({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState } from "react";
+import { useState, useActionState, useMemo } from "react";
 import {
   createExamAction, updateExamAction, deleteExamAction,
   addQuestionsToExamAction, removeQuestionFromExamAction,
@@ -17,7 +17,7 @@ interface ExamVM {
 interface SubjectVM { id: string; name: string }
 interface ClassVM { id: string; name: string; level: string; department: string }
 interface TermVM { id: string; name: string }
-interface QuestionVM { id: string; text: string; type: string; marks: number; mcqOptions: { id: string; optionText: string; isCorrect: boolean }[] }
+interface QuestionVM { id: string; text: string; type: string; marks: number; subjectId: string; subject: string; classLevel: string; topic: string; mcqOptions: { id: string; optionText: string; isCorrect: boolean }[] }
 interface AssessmentTypeVM { id: string; name: string; code: string; defaultWeight: number | null; children: { id: string; name: string; code: string }[] }
 interface WeightingVM { assessmentTypeId: string; weightPercentage: number; subjectId: string | null }
 
@@ -186,6 +186,7 @@ function CreateExamForm({
   const [selSubject, setSelSubject] = useState("");
   const [selAssessType, setSelAssessType] = useState("");
   const [subWeights, setSubWeights] = useState<Record<string, string>>({});
+  const [selClassLevels, setSelClassLevels] = useState<string[]>([]);
 
   const selectedType = assessmentTypes.find((t) => t.code === selAssessType);
   const hasSubAssessments = selectedType && selectedType.children.length > 0;
@@ -195,9 +196,28 @@ function CreateExamForm({
     : 0;
   const weightValid = !hasSubAssessments || Math.abs(subTotal - parentWeight) < 0.01;
 
-  const filteredQuestions = selSubject
-    ? questions.filter((q) => q.id)
-    : questions;
+  const filteredQuestions = questions.filter((q) => {
+    if (selSubject && q.subjectId !== selSubject) return false;
+    if (selClassLevels.length > 0 && !selClassLevels.includes(q.classLevel)) return false;
+    return true;
+  });
+
+  const topicGroups = useMemo(() => {
+    const map = new Map<string, QuestionVM[]>();
+    for (const q of filteredQuestions) {
+      const key = q.topic || "Untitled";
+      const existing = map.get(key);
+      if (existing) existing.push(q);
+      else map.set(key, [q]);
+    }
+    return Array.from(map.entries());
+  }, [filteredQuestions]);
+
+  function handleClassLevelChange(level: string, checked: boolean) {
+    setSelClassLevels((prev) =>
+      checked ? [...prev, level] : prev.filter((l) => l !== level)
+    );
+  }
 
   return (
     <form action={action} className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 space-y-4">
@@ -234,6 +254,7 @@ function CreateExamForm({
                         const cb = document.getElementById(`class-${item.id}`) as HTMLInputElement | null;
                         if (cb) cb.checked = e.target.checked;
                       });
+                      handleClassLevelChange(level, e.target.checked);
                     }} className="rounded border-outline-variant text-[#002046]" />
                     <span className="font-label-sm text-label-sm text-on-surface font-semibold">{level}</span>
                   </div>
@@ -241,6 +262,15 @@ function CreateExamForm({
                     {items.map((c) => (
                       <label key={c.id} className="flex items-center gap-1 text-xs cursor-pointer">
                         <input id={`class-${c.id}`} type="checkbox" name="classIds[]" value={c.id}
+                          onChange={(e) => {
+                            if (e.target.checked) handleClassLevelChange(level, true);
+                            else {
+                              const anyChecked = Array.from(document.querySelectorAll(`[name="classIds[]"]`) as NodeListOf<HTMLInputElement>)
+                                .filter((cb) => cb.id !== `class-${c.id}` && items.some((ic) => ic.id === cb.value))
+                                .some((cb) => cb.checked);
+                              if (!anyChecked) handleClassLevelChange(level, false);
+                            }
+                          }}
                           className="rounded border-outline-variant text-[#002046]" />
                         {c.name}
                         {c.department && <span className="bg-surface-variant text-on-surface-variant px-1.5 py-0.5 rounded text-[10px] uppercase font-semibold">{c.department}</span>}
@@ -307,22 +337,44 @@ function CreateExamForm({
       )}
 
       <div>
-        <label className="font-label-sm text-label-sm text-on-surface-variant block mb-2">Questions</label>
-        <div className="max-h-60 overflow-y-auto border border-outline-variant rounded divide-y divide-outline-variant">
-          {filteredQuestions.length === 0 && (
-            <p className="p-3 font-body-sm text-body-sm text-on-surface-variant">No approved questions found.</p>
-          )}
-          {filteredQuestions.map((q) => (
-            <label key={q.id} className="flex items-start gap-3 p-3 hover:bg-surface-container-low cursor-pointer">
-              <input type="checkbox" name="questionIds[]" value={q.id} className="mt-0.5 rounded border-outline-variant text-[#002046] focus:ring-[#002046]" />
-              <div className="flex-1 min-w-0">
-                <p className="font-body-sm text-body-sm text-on-surface line-clamp-2">{q.text}</p>
-                <div className="flex gap-2 mt-1">
-                  <span className="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded font-label-sm text-label-sm">{q.type === "mcq" ? "MCQ" : "Essay"}</span>
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">{q.marks} marks</span>
+        <label className="font-label-sm text-label-sm text-on-surface-variant block mb-2">
+          Question Bank {selSubject && <span className="text-on-surface-variant">— {filteredQuestions.length} question(s)</span>}
+        </label>
+        {filteredQuestions.length === 0 && (
+          <p className="p-3 font-body-sm text-body-sm text-on-surface-variant border border-outline-variant rounded">
+            {selSubject ? "No approved questions for this subject and class." : "Select a subject above to see available questions."}
+          </p>
+        )}
+        <div className="max-h-80 overflow-y-auto border border-outline-variant rounded divide-y divide-outline-variant">
+          {topicGroups.map(([topic, qs]) => (
+            <div key={topic} className="divide-y divide-outline-variant">
+              <div className="flex items-center justify-between px-3 py-2 bg-surface-container-low sticky top-0">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" onChange={(e) => {
+                    qs.forEach((q) => {
+                      const cb = document.getElementById(`eq-${q.id}`) as HTMLInputElement | null;
+                      if (cb) cb.checked = e.target.checked;
+                    });
+                  }} className="rounded border-outline-variant text-[#002046]" />
+                  <span className="font-label-md text-label-md text-on-surface font-semibold">{topic}</span>
+                  <span className="rounded bg-surface-container px-2 py-0.5 font-label-sm text-label-sm text-on-surface-variant">{qs.length}</span>
                 </div>
+                <span className="font-label-sm text-label-sm text-on-surface-variant">{qs[0]?.subject}</span>
               </div>
-            </label>
+              {qs.map((q) => (
+                <label key={q.id} className="flex items-start gap-3 px-6 py-2 hover:bg-surface-container-low cursor-pointer">
+                  <input id={`eq-${q.id}`} type="checkbox" name="questionIds[]" value={q.id} className="mt-0.5 rounded border-outline-variant text-[#002046] focus:ring-[#002046]" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-body-sm text-body-sm text-on-surface line-clamp-2">{q.text}</p>
+                    <div className="flex gap-2 mt-1">
+                      <span className="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded font-label-sm text-label-sm">{q.type === "mcq" ? "MCQ" : "Essay"}</span>
+                      <span className="font-label-sm text-label-sm text-on-surface-variant">{q.marks} marks</span>
+                      {q.classLevel && <span className="font-label-sm text-label-sm text-on-surface-variant">{q.classLevel}</span>}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
           ))}
         </div>
       </div>
@@ -493,8 +545,26 @@ function QuestionsModal({ examId, exam, allQuestions, onClose }: {
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
+  const [modalSubject, setModalSubject] = useState("");
 
-  const availableQuestions = allQuestions.filter((q) => !exam.questionIds.includes(q.id));
+  const subNames = [...new Set(allQuestions.map((q) => q.subject).filter(Boolean))].sort();
+
+  const availableQuestions = allQuestions.filter((q) => {
+    if (exam.questionIds.includes(q.id)) return false;
+    if (modalSubject && q.subject !== modalSubject) return false;
+    return true;
+  });
+
+  const modalGroups = useMemo(() => {
+    const map = new Map<string, QuestionVM[]>();
+    for (const q of availableQuestions) {
+      const key = q.topic || "Untitled";
+      const existing = map.get(key);
+      if (existing) existing.push(q);
+      else map.set(key, [q]);
+    }
+    return Array.from(map.entries());
+  }, [availableQuestions]);
 
   const handleAdd = async () => {
     if (selectedIds.length === 0) return;
@@ -512,23 +582,48 @@ function QuestionsModal({ examId, exam, allQuestions, onClose }: {
         </div>
 
         <div className="mb-4">
-          <p className="font-label-sm text-label-sm text-on-surface-variant mb-2">
-            Currently {exam.questionCount} question(s). Add more:
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="font-label-sm text-label-sm text-on-surface-variant">
+              Currently {exam.questionCount} question(s). Add more:
+            </p>
+            <select value={modalSubject} onChange={(e) => setModalSubject(e.target.value)}
+              className="border border-outline-variant rounded px-2 py-1 text-xs"
+            ><option value="">All subjects</option>{subNames.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+          </div>
           {availableQuestions.length === 0 ? (
             <p className="font-body-sm text-body-sm text-on-surface-variant">No more questions available.</p>
           ) : (
-            <div className="max-h-48 overflow-y-auto border border-outline-variant rounded divide-y text-sm">
-              {availableQuestions.map((q) => (
-                <label key={q.id} className="flex items-start gap-2 p-2 hover:bg-surface-container-low cursor-pointer">
-                  <input type="checkbox" checked={selectedIds.includes(q.id)}
-                    onChange={() => setSelectedIds((prev) => prev.includes(q.id) ? prev.filter((id) => id !== q.id) : [...prev, q.id])}
-                    className="mt-0.5 rounded border-outline-variant text-[#002046]" />
-                  <div className="flex-1 min-w-0">
-                    <p className="line-clamp-1">{q.text}</p>
-                    <span className="text-xs text-on-surface-variant">{q.type === "mcq" ? "MCQ" : "Essay"} · {q.marks} marks</span>
+            <div className="max-h-48 overflow-y-auto border border-outline-variant rounded divide-y text-xs">
+              {modalGroups.map(([topic, qs]) => (
+                <div key={topic}>
+                  <div className="flex items-center justify-between px-2 py-1.5 bg-surface-container-low sticky top-0">
+                    <div className="flex items-center gap-1">
+                      <input type="checkbox" onChange={(e) => {
+                        qs.forEach((q) => {
+                          if (!selectedIds.includes(q.id) === e.target.checked) {
+                            setSelectedIds((prev) =>
+                              e.target.checked ? [...prev, q.id] : prev.filter((id) => id !== q.id)
+                            );
+                          }
+                        });
+                      }} className="rounded border-outline-variant text-[#002046]" />
+                      <span className="font-semibold text-xs">{topic}</span>
+                      <span className="bg-surface-variant text-on-surface-variant px-1.5 py-0.5 rounded text-[10px]">{qs.length}</span>
+                    </div>
+                    <span className="text-[10px] text-on-surface-variant">{qs[0]?.subject}</span>
                   </div>
-                </label>
+                  {qs.map((q) => (
+                    <label key={q.id} className="flex items-start gap-2 px-4 py-1.5 hover:bg-surface-container-low cursor-pointer">
+                      <input type="checkbox" checked={selectedIds.includes(q.id)}
+                        onChange={() => setSelectedIds((prev) => prev.includes(q.id) ? prev.filter((id) => id !== q.id) : [...prev, q.id])}
+                        className="mt-0.5 rounded border-outline-variant text-[#002046]" />
+                      <div className="flex-1 min-w-0">
+                        <p className="line-clamp-1">{q.text}</p>
+                        <span className="text-[10px] text-on-surface-variant">{q.type === "mcq" ? "MCQ" : "Essay"} · {q.marks} marks{q.classLevel ? ` · ${q.classLevel}` : ""}</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               ))}
             </div>
           )}

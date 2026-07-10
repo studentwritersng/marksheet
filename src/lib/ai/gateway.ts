@@ -1310,7 +1310,7 @@ export async function createCompletion(
           model,
           messages: opts.messages,
           temperature: opts.temperature ?? 0.7,
-          max_tokens: opts.maxTokens ?? 1024,
+          max_tokens: opts.maxTokens ?? 4096,
         }),
         signal: controller.signal,
       });

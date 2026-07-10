@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { NavItem } from "@/lib/nav";
 
 export function MobileSidebar({
@@ -60,15 +61,7 @@ export function MobileSidebar({
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-3 py-2.5 text-blue-200 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-label-md text-label-md"
-            >
-              <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
+            <MobileNavItem key={item.label} item={item} onNavigate={() => setOpen(false)} />
           ))}
         </nav>
 
@@ -79,5 +72,59 @@ export function MobileSidebar({
         )}
       </aside>
     </>
+  );
+}
+
+function MobileNavItem({ item, onNavigate, nested }: { item: NavItem; onNavigate: () => void; nested?: boolean }) {
+  const pathname = usePathname();
+  const [expanded, setExpanded] = useState(
+    item.children?.some((c) => c.href && pathname.startsWith(c.href)) ?? false
+  );
+
+  if (item.children) {
+    return (
+      <div>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-label-md text-label-md ${
+            nested
+              ? "text-blue-300 hover:bg-white/10 hover:text-white"
+              : "text-blue-200 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+          <span className="flex-1 text-left">{item.label}</span>
+          <span className={`material-symbols-outlined text-[16px] transition-transform ${expanded ? "rotate-90" : ""}`}>
+            chevron_right
+          </span>
+        </button>
+        {expanded && (
+          <div className="ml-3 mt-0.5 space-y-0.5">
+            {item.children.map((child) => (
+              <MobileNavItem key={child.label} item={child} onNavigate={onNavigate} nested />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const isActive = pathname === item.href || (item.href && pathname.startsWith(item.href + "/"));
+
+  return (
+    <Link
+      href={item.href ?? "#"}
+      onClick={onNavigate}
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-label-md text-label-md ${
+        isActive
+          ? "bg-white/15 text-white"
+          : nested
+            ? "text-blue-300 hover:bg-white/10 hover:text-white"
+            : "text-blue-200 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+      <span>{item.label}</span>
+    </Link>
   );
 }

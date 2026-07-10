@@ -3,8 +3,9 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 export interface NavItem {
   label: string;
-  href: string;
+  href?: string;     // parent items may omit href
   icon: string;
+  children?: NavItem[];
 }
 
 export function buildNav(
@@ -39,7 +40,13 @@ export function buildNav(
       { label: "Assessment Weights", href: "/assessment-weightings", icon: "tune" },
       { label: "Exams", href: "/exams", icon: "quiz" },
       { label: "Timetable", href: "/timetable", icon: "calendar_view_week" },
-      { label: "Results", href: "/results", icon: "analytics" },
+      { label: "Results", icon: "analytics", children: [
+        { label: "Result", href: "/results", icon: "analytics" },
+        { label: "Psychomotor", href: "/results/psychomotor", icon: "psychology" },
+        { label: "Psychomotor Skills", href: "/results/psychomotor", icon: "psychology" },
+        { label: "Attendance", href: "/results/attendance", icon: "fact_check" },
+        { label: "Remarks", href: "/results/remarks", icon: "rate_review" },
+      ]},
       { label: "Broadsheet", href: "/broadsheet", icon: "table_chart" },
       { label: "Audit Log", href: "/audit-log", icon: "history" },
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },

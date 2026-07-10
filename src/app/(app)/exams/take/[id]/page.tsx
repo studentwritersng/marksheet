@@ -108,6 +108,8 @@ export default async function ExamTakePage(props: {
       durationMinutes={exam.durationMinutes}
       termName={`${exam.term.name}`}
       questions={questions}
+      studentName={`${student.firstName} ${student.lastName}`.trim() || student.admissionNumber || "Student"}
+      studentPhoto={student.passportPhoto ?? null}
     />
   );
 }
