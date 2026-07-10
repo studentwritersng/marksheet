@@ -1,15 +1,21 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { consoleLogoutAction } from "@/lib/auth/actions";
 import { ConsoleSidebar } from "./sidebar";
 
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
+  // Don't guard the login page — it would create a redirect loop
+  const hdrs = await headers();
+  const pathname = hdrs.get("x-invoke-path") ?? hdrs.get("next-url") ?? "";
+  if (pathname.includes("/console/login")) return <>{children}</>;
+
   const user = await getCurrentUser();
 
   // Not logged in → console login
   if (!user) redirect("/console/login");
 
-  // Logged in but not platform owner → kick out (they should never know this exists)
+  // Logged in but not platform owner → kick out
   if (user.role !== "platform_owner") redirect("/dashboard");
 
   return (
