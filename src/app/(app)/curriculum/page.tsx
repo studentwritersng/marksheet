@@ -15,7 +15,7 @@ export default async function CurriculumPage(props: {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
-  const classLevels = ["JSS1", "JSS2", "JSS3", "SS1", "SS2", "SS3"];
+  const classLevels = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
   const terms = ["FIRST", "SECOND", "THIRD"];
 
   const selectedClass = sp.classLevel || "JSS1";

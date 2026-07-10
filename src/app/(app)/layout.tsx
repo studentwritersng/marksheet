@@ -7,6 +7,7 @@ import { logoutAction } from "@/lib/auth/actions";
 import { NotificationBell } from "./notification-bell";
 import { prisma } from "@/lib/prisma";
 import { MobileSidebar } from "./mobile-sidebar";
+import { UserDropdown } from "./user-dropdown";
 
 export default async function AppLayout({
   children,
@@ -111,24 +112,7 @@ export default async function AppLayout({
               </button>
             </div>
             <div className="h-6 w-px bg-outline-variant mx-1" />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center font-label-md text-label-md text-on-surface-variant">
-                {user.email.charAt(0).toUpperCase()}
-              </div>
-              <div className="hidden sm:block">
-                <p className="font-label-sm text-label-sm text-on-surface leading-tight">{user.email}</p>
-                <p className="font-label-sm text-label-sm text-on-surface-variant">{roleLabel}</p>
-              </div>
-              <form action={logoutAction}>
-                <button
-                  type="submit"
-                  className="ml-2 p-1.5 rounded hover:bg-surface-container-low transition-colors text-on-surface-variant"
-                  title="Sign out"
-                >
-                  <span className="material-symbols-outlined text-[18px]">logout</span>
-                </button>
-              </form>
-            </div>
+            <UserDropdown email={user.email} roleLabel={roleLabel} initials={user.email.charAt(0).toUpperCase()} />
           </div>
         </header>
 

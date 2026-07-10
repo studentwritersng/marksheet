@@ -242,16 +242,29 @@ export async function getCurriculumTopicsAction(
   classLevel: string,
   term: string,
 ): Promise<{ id: string; topic: string; week: number }[]> {
-  const topics = await prisma.curriculumTopic.findMany({
-    where: {
-      subject: { equals: subjectName, mode: "insensitive" },
-      classLevel,
-      term,
-    },
-    orderBy: { week: "asc" },
-    select: { id: true, topic: true, week: true },
-  });
-  return topics;
+  async function query(cl: string) {
+    return prisma.curriculumTopic.findMany({
+      where: {
+        subject: { equals: subjectName, mode: "insensitive" },
+        classLevel: cl,
+        term,
+      },
+      orderBy: { week: "asc" },
+      select: { id: true, topic: true, week: true },
+    });
+  }
+
+  const topics = await query(classLevel);
+  if (topics.length > 0) return topics;
+
+  // Try alternate naming: SSS1 ↔ SS1, SSS2 ↔ SS2, SSS3 ↔ SS3
+  const alt = classLevel.replace(/^SSS(\d)$/, "SS$1").replace(/^SS(\d)$/, "SSS$1");
+  if (alt !== classLevel) {
+    const altTopics = await query(alt);
+    if (altTopics.length > 0) return altTopics;
+  }
+
+  return [];
 }
 
 /** Edit/update a lesson note (works for both draft and published). */
