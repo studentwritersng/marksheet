@@ -1,3 +1,4 @@
+"use client";
 import { useActionState, useState } from "react";
 import { verifyPaymentAction, rejectPaymentAction, generateCashCodeAction } from "./actions";
 
