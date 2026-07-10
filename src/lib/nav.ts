@@ -27,30 +27,37 @@ export function buildNav(
 
   if (admin) {
     items.push(
-      { label: "Sessions & Terms", href: "/sessions", icon: "calendar_today" },
-      { label: "Classes", href: "/classes", icon: "school" },
-      { label: "Staff", href: "/staff", icon: "badge" },
-      { label: "Subjects", href: "/subjects", icon: "book" },
-      { label: "Class–Subject Links", href: "/class-subjects", icon: "link" },
-      { label: "Students", href: "/students", icon: "group" },
-      { label: "Curriculum", href: "/curriculum", icon: "menu_book" },
-      { label: "Lesson Notes", href: "/lesson-notes", icon: "note" },
-      { label: "Question Bank", href: "/questions", icon: "quiz" },
-      { label: "Essay Grading", href: "/essay-grading", icon: "rate_review" },
-      { label: "Assessment Weights", href: "/assessment-weightings", icon: "tune" },
-      { label: "Exams", href: "/exams", icon: "quiz" },
-      { label: "Timetable", href: "/timetable", icon: "calendar_view_week" },
+      { label: "Academics", icon: "school", children: [
+        { label: "Sessions & Terms", href: "/sessions", icon: "calendar_today" },
+        { label: "Classes", href: "/classes", icon: "school" },
+        { label: "Subjects", href: "/subjects", icon: "book" },
+        { label: "Class–Subject Links", href: "/class-subjects", icon: "link" },
+        { label: "Curriculum", href: "/curriculum", icon: "menu_book" },
+      ]},
+      { label: "People", icon: "group", children: [
+        { label: "Staff", href: "/staff", icon: "badge" },
+        { label: "Students", href: "/students", icon: "group" },
+      ]},
+      { label: "Assessments", icon: "quiz", children: [
+        { label: "Lesson Notes", href: "/lesson-notes", icon: "note" },
+        { label: "Question Bank", href: "/questions", icon: "quiz" },
+        { label: "Essay Grading", href: "/essay-grading", icon: "rate_review" },
+        { label: "Assessment Weights", href: "/assessment-weightings", icon: "tune" },
+        { label: "Exams", href: "/exams", icon: "quiz" },
+        { label: "Timetable", href: "/timetable", icon: "calendar_view_week" },
+      ]},
       { label: "Results", icon: "analytics", children: [
         { label: "Result", href: "/results", icon: "analytics" },
         { label: "Psychomotor", href: "/results/psychomotor", icon: "psychology" },
-        { label: "Psychomotor Skills", href: "/results/psychomotor", icon: "psychology" },
         { label: "Attendance", href: "/results/attendance", icon: "fact_check" },
         { label: "Remarks", href: "/results/remarks", icon: "rate_review" },
+        { label: "Broadsheet", href: "/broadsheet", icon: "table_chart" },
       ]},
-      { label: "Broadsheet", href: "/broadsheet", icon: "table_chart" },
-      { label: "Audit Log", href: "/audit-log", icon: "history" },
-      { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
-      { label: "Settings", href: "/settings/school", icon: "settings" },
+      { label: "System", icon: "settings", children: [
+        { label: "Audit Log", href: "/audit-log", icon: "history" },
+        { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
+        { label: "Settings", href: "/settings/school", icon: "settings" },
+      ]},
     );
   } else if (user.role === "parent") {
     items.push(

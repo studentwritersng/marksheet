@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
+import type { Prisma } from "@prisma/client";
 
 export interface ActionState {
   error?: string;
@@ -28,17 +29,17 @@ export async function saveAffectiveRatingsAction(
       where: { studentId_termId: { studentId, termId } },
     });
     if (existing) {
-      const merged = { ...(existing.affectiveRatings as Record<string, number> ?? {}), ...scores };
+      const merged = { ...((existing.affectiveRatings ?? {}) as Record<string, number>), ...scores };
       await prisma.termResult.update({
         where: { id: existing.id },
-        data: { affectiveRatings: merged },
+        data: { affectiveRatings: merged as Prisma.InputJsonValue },
       });
     } else {
       await prisma.termResult.create({
         data: {
           studentId,
           termId,
-          affectiveRatings: scores,
+          affectiveRatings: scores as Prisma.InputJsonValue,
           status: "computed",
         },
       });
@@ -68,17 +69,17 @@ export async function saveAttendanceAction(
       where: { studentId_termId: { studentId, termId } },
     });
     if (existing) {
-      const merged = { ...(existing.attendanceSummary as Record<string, unknown> ?? {}), ...data };
+      const merged = { ...((existing.attendanceSummary ?? {}) as Record<string, unknown>), ...data };
       await prisma.termResult.update({
         where: { id: existing.id },
-        data: { attendanceSummary: merged },
+        data: { attendanceSummary: merged as Prisma.InputJsonValue },
       });
     } else {
       await prisma.termResult.create({
         data: {
           studentId,
           termId,
-          attendanceSummary: data,
+          attendanceSummary: data as Prisma.InputJsonValue,
           status: "computed",
         },
       });
