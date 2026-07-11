@@ -92,6 +92,9 @@ export function buildNav(
     }
   }
 
+  // Announcements link for all school users
+  items.push({ label: "Announcements", href: "/announcements", icon: "campaign" });
+
   // Profile link for all school users
   items.push({ label: "My Profile", href: "/settings/profile", icon: "person" });
 

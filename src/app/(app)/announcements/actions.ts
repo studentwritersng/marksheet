@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
+import { createNotification } from "@/lib/notifications/actions";
 export interface ActionState {
   error?: string;
   success?: string;
@@ -50,6 +51,24 @@ export async function createAnnouncementAction(_prev: ActionState, formData: For
       expiresAt,
     },
   });
+
+  // Send in-app notifications to targeted users when published
+  if (publishedAt && publishedAt <= new Date()) {
+    const users = await prisma.user.findMany({
+      where: { schoolId: ctx.schoolId, role: { in: rawRoles as any }, isActive: true },
+      select: { id: true, role: true },
+    });
+    await Promise.all(users.map((u) =>
+      createNotification({
+        schoolId: ctx.schoolId,
+        recipientType: u.role as "student" | "parent" | "staff",
+        recipientId: u.id,
+        eventType: "announcement",
+        title: `Announcement: ${title}`,
+        content,
+      })
+    ));
+  }
 
   revalidatePath("/announcements");
   return { success: `Announcement "${title}" created.` };

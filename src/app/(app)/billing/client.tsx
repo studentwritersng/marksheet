@@ -37,42 +37,42 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
   return (
     <div className="max-w-3xl mx-auto space-y-6 py-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Billing & License</h1>
-        <p className="text-sm text-white/40 mt-1">{schoolName}</p>
+        <h1 className="font-headline-lg text-headline-lg text-on-surface">Billing & License</h1>
+        <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">{schoolName}</p>
       </div>
 
       {license && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-2">Current License</h2>
-          <div className="flex items-center gap-3">
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5">
+          <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-2">Current License</h2>
+          <div className="flex items-center gap-3 flex-wrap">
             <span className={`rounded-full text-xs px-3 py-1 font-medium ${
-              license.status === "active" ? "bg-emerald-900/50 text-emerald-300" :
-              license.status === "grace_period" ? "bg-amber-900/50 text-amber-300" :
-              "bg-red-900/50 text-red-300"
+              license.status === "active" ? "bg-emerald-100 text-emerald-700" :
+              license.status === "grace_period" ? "bg-amber-100 text-amber-700" :
+              "bg-red-100 text-red-700"
             }`}>{license.status.replace("_", " ")}</span>
-            <span className="text-white/70 text-sm">{license.planName}</span>
+            <span className="text-on-surface text-sm font-medium">{license.planName}</span>
             {license.endDate && (
-              <span className="text-white/40 text-xs">Expires {new Date(license.endDate).toLocaleDateString()}</span>
+              <span className="text-on-surface-variant text-xs">Expires {new Date(license.endDate).toLocaleDateString()}</span>
             )}
           </div>
         </div>
       )}
 
-      <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Choose a Plan</h2>
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5">
+        <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-3">Choose a Plan</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {plans.map((p) => {
             const active = selectedPlan === p.id;
             return (
               <button key={p.id} onClick={() => { setSelectedPlan(p.id); setSelectedMethod(""); setCashCode(""); setProofBase64(""); }}
                 className={`text-left rounded-xl p-4 border transition-all ${
-                  active ? "border-emerald-500/50 bg-emerald-900/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                  active ? "border-primary bg-primary-container text-on-primary-container" : "border-outline-variant bg-surface hover:bg-surface-container-low"
                 }`}
               >
-                <p className="text-white font-semibold">{p.name}</p>
-                <p className="text-xs text-white/40 capitalize">{p.durationType}</p>
-                <div className="flex items-center gap-2 text-xs text-white/50 mt-1">
-                  {p.price != null && <span className="text-emerald-400 font-semibold">{formatPrice(p.price)}</span>}
+                <p className="font-label-md text-label-md font-semibold">{p.name}</p>
+                <p className="text-xs text-on-surface-variant capitalize">{p.durationType}</p>
+                <div className="flex items-center gap-2 text-xs text-on-surface-variant mt-1">
+                  {p.price != null && <span className="text-emerald-600 font-semibold">{formatPrice(p.price)}</span>}
                   {p.durationDays && <span>{p.durationDays} days</span>}
                 </div>
               </button>
@@ -82,31 +82,31 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
       </div>
 
       {selectedPlan && methods.length > 0 && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Payment Method</h2>
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5">
+          <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-3">Payment Method</h2>
           <div className="space-y-2">
             {methods.map((m) => {
               const active = selectedMethod === m.id;
               return (
                 <button key={m.id} onClick={() => { setSelectedMethod(m.id); setCashCode(""); setProofBase64(""); }}
                   className={`w-full text-left rounded-lg p-3 border transition-all ${
-                    active ? "border-emerald-500/50 bg-emerald-900/10" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]"
+                    active ? "border-primary bg-primary-container" : "border-outline-variant bg-surface hover:bg-surface-container-low"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-white text-sm font-medium">{m.label}</p>
-                      <p className="text-xs text-white/40 capitalize">{m.type.replace("_", " ")}</p>
+                      <p className="text-on-surface text-sm font-medium">{m.label}</p>
+                      <p className="text-xs text-on-surface-variant capitalize">{m.type.replace("_", " ")}</p>
                     </div>
-                    {active && <span className="material-symbols-outlined text-emerald-400 text-[18px]">check_circle</span>}
+                    {active && <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>}
                   </div>
                   {active && m.type === "bank_transfer" && m.details && (
-                    <div className="mt-2 pt-2 border-t border-white/5 text-xs text-white/60 space-y-1">
-                      <p>Bank: <span className="text-white/80">{m.details.bankName}</span></p>
-                      <p>Account: <span className="text-white/80">{m.details.accountNumber}</span></p>
-                      <p>Name: <span className="text-white/80">{m.details.accountName}</span></p>
+                    <div className="mt-2 pt-2 border-t border-outline-variant text-xs text-on-surface-variant space-y-1">
+                      <p>Bank: <span className="text-on-surface font-medium">{m.details.bankName}</span></p>
+                      <p>Account: <span className="text-on-surface font-medium">{m.details.accountNumber}</span></p>
+                      <p>Name: <span className="text-on-surface font-medium">{m.details.accountName}</span></p>
                       {m.details.instructions && (
-                        <div className="mt-2 pt-2 border-t border-white/5 text-white/50 whitespace-pre-wrap">
+                        <div className="mt-2 pt-2 border-t border-outline-variant text-on-surface-variant whitespace-pre-wrap">
                           {m.details.instructions}
                         </div>
                       )}
@@ -120,8 +120,8 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
       )}
 
       {selectedPlan && selectedMethod && (
-        <form action={action} className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Submit Payment</h2>
+        <form action={action} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 space-y-3">
+          <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Submit Payment</h2>
 
           <input type="hidden" name="planId" value={selectedPlan} />
           <input type="hidden" name="methodId" value={selectedMethod} />
@@ -129,70 +129,70 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
 
           {chosenMethod?.type === "cash" && (
             <div>
-              <label className="text-xs text-white/50 block mb-1">Cash Payment Code</label>
+              <label className="font-body-sm text-body-sm text-on-surface block mb-1">Cash Payment Code</label>
               <input name="cashCode" value={cashCode} onChange={(e) => setCashCode(e.target.value.toUpperCase())}
                 required placeholder="Enter the code provided by your admin (e.g. CASH-A3B7K9)"
-                className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20 font-mono tracking-widest" />
-              <p className="text-xs text-amber-400 mt-1">Enter the cash payment code you received after paying cash at the school office.</p>
+                className="w-full bg-surface border border-outline-variant rounded-lg p-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 font-mono tracking-widest" />
+              <p className="text-xs text-amber-600 mt-1">Enter the cash payment code you received after paying cash at the school office.</p>
             </div>
           )}
 
           {chosenMethod?.type === "bank_transfer" && (
             <>
               <div>
-                <label className="text-xs text-white/50 block mb-1">Payment Reference / Teller ID</label>
+                <label className="font-body-sm text-body-sm text-on-surface block mb-1">Payment Reference / Teller ID</label>
                 <input name="reference" required placeholder="Enter bank teller ID or transaction ref"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
+                  className="w-full bg-surface border border-outline-variant rounded-lg p-2 text-sm text-on-surface placeholder:text-on-surface-variant/50" />
               </div>
               <div>
-                <label className="text-xs text-white/50 block mb-1">Upload Receipt (optional)</label>
+                <label className="font-body-sm text-body-sm text-on-surface block mb-1">Upload Receipt (optional)</label>
                 <input ref={fileRef} type="file" accept="image/*" onChange={handleFile}
-                  className="w-full text-sm text-white/50 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-white/10 file:text-white/70 hover:file:bg-white/20" />
+                  className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-[#002046] file:text-white hover:file:bg-[#003366]" />
                 {proofBase64 && (
                   <img src={proofBase64} alt="Receipt preview"
-                    className="mt-2 max-h-32 rounded-lg border border-white/10 object-contain" />
+                    className="mt-2 max-h-32 rounded-lg border border-outline-variant object-contain" />
                 )}
               </div>
             </>
           )}
 
           <div>
-            <label className="text-xs text-white/50 block mb-1">Notes (optional)</label>
+            <label className="font-body-sm text-body-sm text-on-surface block mb-1">Notes (optional)</label>
             <textarea name="notes" rows={2} placeholder="Any additional info..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
+              className="w-full bg-surface border border-outline-variant rounded-lg p-2 text-sm text-on-surface placeholder:text-on-surface-variant/50" />
           </div>
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={pending}
-              className="bg-emerald-700 hover:bg-emerald-600 text-white text-sm px-5 py-2 rounded-lg disabled:opacity-60"
+              className="bg-[#002046] hover:bg-[#003366] text-white text-sm px-5 py-2 rounded-lg disabled:opacity-60 font-label-md text-label-md"
             >{pending ? "Submitting..." : chosenMethod?.type === "cash" ? "Activate with Code" : `Pay ${formatPrice(chosenPlan?.price) ?? ""}`}</button>
           </div>
-          {state.error && <p className="text-red-400 text-xs">{state.error}</p>}
-          {state.success && <p className="text-emerald-400 text-xs">{state.success}</p>}
+          {state.error && <p className="text-red-600 text-xs">{state.error}</p>}
+          {state.success && <p className="text-emerald-600 text-xs">{state.success}</p>}
         </form>
       )}
 
       {payments.length > 0 && (
-        <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/5">
-            <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Payment History</h2>
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-outline-variant">
+            <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Payment History</h2>
           </div>
-          <div className="divide-y divide-white/5">
+          <div className="divide-y divide-outline-variant">
             {payments.map((p) => {
               const colors: Record<string, string> = {
-                pending: "text-amber-400",
-                verified: "text-emerald-400",
-                failed: "text-red-400",
+                pending: "text-amber-600",
+                verified: "text-emerald-600",
+                failed: "text-red-600",
               };
               return (
                 <div key={p.id} className="px-5 py-3 flex items-center justify-between text-sm">
                   <div>
-                    <p className="text-white/70">{p.planName}</p>
-                    <p className="text-xs text-white/40">{p.methodLabel} · {new Date(p.createdAt).toLocaleDateString()}</p>
+                    <p className="text-on-surface">{p.planName}</p>
+                    <p className="text-xs text-on-surface-variant">{p.methodLabel} · {new Date(p.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-white">{formatPrice(p.amount)}</p>
-                    <p className={`text-xs capitalize ${colors[p.status] ?? "text-white/40"}`}>{p.status}</p>
+                    <p className="text-on-surface font-medium">{formatPrice(p.amount)}</p>
+                    <p className={`text-xs capitalize ${colors[p.status] ?? "text-on-surface-variant"}`}>{p.status}</p>
                   </div>
                 </div>
               );

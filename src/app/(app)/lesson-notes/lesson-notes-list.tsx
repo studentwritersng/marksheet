@@ -145,12 +145,12 @@ export function LessonNotesList({ notes }: { notes: NoteVM[] }) {
                           </ul>
                         </Section>
                       )}
-                      {n.previousKnowledge && <Section title="Previous Knowledge"><p>{n.previousKnowledge}</p></Section>}
-                      {n.introduction && <Section title="Introduction / Set Induction"><p>{n.introduction}</p></Section>}
-                      {n.content && <Section title="Content / Students' Note"><p className="whitespace-pre-wrap">{n.content}</p></Section>}
-                      {n.evaluation && <Section title="Evaluation"><p className="whitespace-pre-wrap">{n.evaluation}</p></Section>}
-                      {n.summary && <Section title="Summary / Conclusion"><p>{n.summary}</p></Section>}
-                      {n.assignment && <Section title="Assignment / Homework"><p className="whitespace-pre-wrap">{n.assignment}</p></Section>}
+                      {n.previousKnowledge && <Section title="Previous Knowledge"><MarkdownRender text={n.previousKnowledge} /></Section>}
+                      {n.introduction && <Section title="Introduction / Set Induction"><MarkdownRender text={n.introduction} /></Section>}
+                      {n.content && <Section title="Content / Students' Note"><MarkdownRender text={n.content} /></Section>}
+                      {n.evaluation && <Section title="Evaluation"><MarkdownRender text={n.evaluation} /></Section>}
+                      {n.summary && <Section title="Summary / Conclusion"><MarkdownRender text={n.summary} /></Section>}
+                      {n.assignment && <Section title="Assignment / Homework"><MarkdownRender text={n.assignment} /></Section>}
                     </>
                   )}
                 </div>
@@ -216,6 +216,29 @@ function Textarea({ label, value, onChange }: { label: string; value: string; on
       />
     </div>
   );
+}
+
+function MarkdownRender({ text }: { text: string }) {
+  const blocks = text.split(/\n\n+/);
+  return blocks.map((block, i) => {
+    if (!block.trim()) return null;
+    const heading = block.match(/^(###?)\s+(.*)/);
+    if (heading) {
+      const Tag = heading[1] === "###" ? "h3" : "h2" as any;
+      return <Tag key={i} className="font-label-md text-label-md text-on-surface font-semibold mt-3 mb-1">{renderInline(heading[2])}</Tag>;
+    }
+    return <p key={i} className="mb-1 whitespace-pre-wrap">{renderInline(block)}</p>;
+  });
+}
+
+function renderInline(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`[^`]+`)/);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("*") && part.endsWith("*") && !part.startsWith("**")) return <em key={i}>{part.slice(1, -1)}</em>;
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={i} className="bg-surface-variant text-sm px-1 rounded">{part.slice(1, -1)}</code>;
+    return part;
+  });
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
