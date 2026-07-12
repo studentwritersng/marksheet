@@ -8,6 +8,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 
 const CLASS_LEVELS = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"] as const;
+export { CLASS_LEVELS };
 
 const NERDC_SUBJECTS: Record<string, string[]> = {
   JSS1: ["English Studies", "Mathematics", "Physical and Health Education", "Christian Religious Studies", "Islamic Studies", "Nigerian History", "Social and Citizenship Studies", "Cultural and Creative Arts", "French", "Intermediate Science", "Digital Technologies", "Business Studies"],
@@ -150,4 +151,91 @@ export async function saveCurriculumAction(
 
   revalidatePath("/console/curriculum");
   return { success: `${entries.length} curriculum entries saved for ${classLevel} ${subject} ${term}.` };
+}
+
+// ---------------------------------------------------------------------------
+// Manual CRUD — for adding/editing/deleting system curriculum entries manually
+// ---------------------------------------------------------------------------
+
+export interface CrudState { error?: string; success?: string }
+
+export async function createCurriculumEntryAction(
+  _prev: CrudState,
+  formData: FormData,
+): Promise<CrudState> {
+  try { await guardOwner(); } catch { return { error: "Not authorised." }; }
+
+  const classLevel = (formData.get("classLevel") as string)?.trim();
+  const term = (formData.get("term") as string)?.trim();
+  const subject = (formData.get("subject") as string)?.trim();
+  const week = parseInt(formData.get("week") as string);
+  const topic = (formData.get("topic") as string)?.trim();
+  const subTopics = ((formData.get("subTopics") as string) || "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const objectives = ((formData.get("behaviouralObjectives") as string) || "").split("\n").map((s) => s.trim()).filter(Boolean);
+
+  if (!classLevel || !term || !subject || !week || !topic) {
+    return { error: "Class, term, subject, week, and topic are required." };
+  }
+
+  await prisma.curriculumTopic.create({
+    data: { classLevel, term, subject, week, topic, subTopics, behaviouralObjectives: objectives, isSystem: true, schoolId: null },
+  }).catch(() => {
+    // If unique constraint failed (same class/term/subject/week), update instead
+    return prisma.curriculumTopic.updateMany({
+      where: { classLevel, term, subject, week, schoolId: null, isSystem: true },
+      data: { topic, subTopics, behaviouralObjectives: objectives },
+    });
+  });
+
+  revalidatePath("/console/curriculum");
+  return { success: `"${topic}" added.` };
+}
+
+export async function updateCurriculumEntryAction(
+  _prev: CrudState,
+  formData: FormData,
+): Promise<CrudState> {
+  try { await guardOwner(); } catch { return { error: "Not authorised." }; }
+
+  const id = formData.get("id") as string;
+  const topic = (formData.get("topic") as string)?.trim();
+  const subTopics = ((formData.get("subTopics") as string) || "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const objectives = ((formData.get("behaviouralObjectives") as string) || "").split("\n").map((s) => s.trim()).filter(Boolean);
+
+  if (!id || !topic) return { error: "ID and topic are required." };
+
+  await prisma.curriculumTopic.update({
+    where: { id },
+    data: { topic, subTopics, behaviouralObjectives: objectives },
+  });
+
+  revalidatePath("/console/curriculum");
+  return { success: "Entry updated." };
+}
+
+export async function deleteCurriculumEntryAction(id: string): Promise<CrudState> {
+  try { await guardOwner(); } catch { return { error: "Not authorised." }; }
+  await prisma.curriculumTopic.delete({ where: { id } });
+  revalidatePath("/console/curriculum");
+  return { success: "Entry deleted." };
+}
+
+export interface EntryVM {
+  id: string; classLevel: string; term: string; subject: string;
+  week: number; topic: string; subTopics: string[]; behaviouralObjectives: string[];
+}
+
+export async function getSystemEntries(
+  classLevel: string, term: string, subject: string,
+): Promise<EntryVM[]> {
+  const rows = await prisma.curriculumTopic.findMany({
+    where: { classLevel, term, subject, schoolId: null, isSystem: true },
+    orderBy: { week: "asc" },
+  });
+  return rows.map((r) => ({
+    id: r.id, classLevel: r.classLevel, term: r.term, subject: r.subject,
+    week: r.week, topic: r.topic,
+    subTopics: (r.subTopics as string[]) ?? [],
+    behaviouralObjectives: (r.behaviouralObjectives as string[]) ?? [],
+  }));
 }

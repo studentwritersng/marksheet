@@ -15,8 +15,17 @@ export default async function CurriculumPage(props: {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
-  const classLevels = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
+  const defaultClassLevels = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
   const terms = ["FIRST", "SECOND", "THIRD"];
+
+  // Also include class levels the school has created
+  const existingLevels = await prisma.class.findMany({
+    where: { schoolId: user.schoolId },
+    select: { level: true },
+    distinct: ["level"],
+  });
+  const customLevels = existingLevels.map((c) => c.level).filter((l) => !defaultClassLevels.includes(l));
+  const classLevels = [...defaultClassLevels, ...customLevels];
 
   const selectedClass = sp.classLevel || "JSS1";
   const selectedTerm = sp.term || "FIRST";

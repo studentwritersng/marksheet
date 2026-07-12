@@ -27,11 +27,30 @@ export function CurriculumView({
   const [state, formAction, pending] = useActionState(upsertCurriculumTopicAction, {});
   const [editingWeek, setEditingWeek] = useState<number | null>(null);
   const [showAddNew, setShowAddNew] = useState(false);
+  const [customClassInput, setCustomClassInput] = useState("");
+  const [showCustomClass, setShowCustomClass] = useState(false);
 
   function setParam(key: string, val: string) {
     const p = new URLSearchParams(window.location.search);
     if (val) p.set(key, val); else p.delete(key);
     router.push(`/curriculum?${p.toString()}`);
+  }
+
+  function handleClassChange(val: string) {
+    if (val === "__custom__") {
+      setShowCustomClass(true);
+    } else {
+      setShowCustomClass(false);
+      setParam("classLevel", val);
+    }
+  }
+
+  function handleCustomClassSubmit() {
+    const v = customClassInput.trim();
+    if (v) {
+      setShowCustomClass(false);
+      setParam("classLevel", v);
+    }
   }
 
   return (
@@ -40,9 +59,25 @@ export function CurriculumView({
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Class</label>
-          <select value={selectedClass} onChange={(e) => setParam("classLevel", e.target.value)} className="border border-outline-variant rounded-lg px-3 py-2 font-body-sm text-body-sm bg-white">
-            {classLevels.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          {showCustomClass ? (
+            <div className="flex gap-2">
+              <input type="text" value={customClassInput} onChange={(e) => setCustomClassInput(e.target.value)}
+                placeholder="e.g. JSS1A, Primary 5..."
+                className="border border-outline-variant rounded-lg px-3 py-2 font-body-sm text-body-sm bg-white w-40"
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCustomClassSubmit())}
+              />
+              <button onClick={handleCustomClassSubmit}
+                className="bg-[#002046] text-white text-xs px-2 rounded-lg">Set</button>
+              <button onClick={() => setShowCustomClass(false)}
+                className="text-on-surface-variant text-xs">Cancel</button>
+            </div>
+          ) : (
+            <select value={selectedClass} onChange={(e) => handleClassChange(e.target.value)}
+              className="border border-outline-variant rounded-lg px-3 py-2 font-body-sm text-body-sm bg-white">
+              {classLevels.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="__custom__">+ Custom class...</option>
+            </select>
+          )}
         </div>
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Term</label>
@@ -197,6 +232,7 @@ function EditTopicForm({
             <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Class</label>
             <select name="classLevel" defaultValue={selectedClass} className="w-full border border-outline-variant rounded-lg p-2.5 font-body-md text-body-md bg-white">
               {allClassLevels.map((c) => <option key={c} value={c}>{c}</option>)}
+              {!allClassLevels.includes(selectedClass) && <option value={selectedClass}>{selectedClass}</option>}
             </select>
           </div>
           <div>
