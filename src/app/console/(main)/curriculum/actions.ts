@@ -53,16 +53,12 @@ export async function parseCurriculumAction(
     return { error: "Class, term, and subject are required." };
   }
 
-  // Read the nerdc.md file
-  const fs = await import("fs/promises");
-  const path = await import("path");
-  const nerdcPath = path.resolve(process.cwd(), "..", "nerdc.md");
-  let nerdcContent: string;
-  try {
-    nerdcContent = await fs.readFile(nerdcPath, "utf-8");
-  } catch {
-    return { error: "nerdc.md not found at project root." };
+  // Read the nerdc content from the database
+  const dbRow = await prisma.nerdcContent.findFirst({ orderBy: { createdAt: "desc" } });
+  if (!dbRow) {
+    return { error: "No NERDC syllabus uploaded. Go to Console > Upload NERDC first." };
   }
+  const nerdcContent = dbRow.content;
 
   const clMap: Record<string, string> = {
     JSS1: "JUNIOR SECONDARY ONE", JSS2: "JUNIOR SECONDARY TWO", JSS3: "JUNIOR SECONDARY THREE",

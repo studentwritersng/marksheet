@@ -14,6 +14,7 @@ const navItems: NavItem[] = [
   { label: "Schools", href: "/console/schools", icon: "domain" },
   { label: "Licenses", href: "/console/licenses", icon: "verified" },
   { label: "Curriculum", href: "/console/curriculum", icon: "book" },
+  { label: "Upload NERDC", href: "/console/nerdc-upload", icon: "upload_file" },
   { label: "Payments", href: "/console/payments", icon: "payments" },
   { label: "Payment Methods", href: "/console/payment-methods", icon: "account_balance" },
   { label: "AI Config", href: "/console/ai", icon: "settings" },

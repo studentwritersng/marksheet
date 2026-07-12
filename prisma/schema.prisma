@@ -454,6 +454,15 @@ model CurriculumTopic {
   @@map("curriculum_topics")
 }
 
+model NerdcContent {
+  id        String   @id @default(cuid())
+  content   String   // raw markdown content of nerdc.md
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("nerdc_content")
+}
+
 model LessonNote {
   id                      String   @id @default(cuid())
   schoolId                String
