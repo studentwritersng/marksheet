@@ -13,6 +13,7 @@ const navItems: NavItem[] = [
   { label: "Dashboard", href: "/console", icon: "dashboard" },
   { label: "Schools", href: "/console/schools", icon: "domain" },
   { label: "Licenses", href: "/console/licenses", icon: "verified" },
+  { label: "Curriculum", href: "/console/curriculum", icon: "book" },
   { label: "Payments", href: "/console/payments", icon: "payments" },
   { label: "Payment Methods", href: "/console/payment-methods", icon: "account_balance" },
   { label: "AI Config", href: "/console/ai", icon: "settings" },

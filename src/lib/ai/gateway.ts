@@ -17,7 +17,8 @@ export type AiTaskType =
   | "lesson_note_generation"
   | "question_generation"
   | "essay_grading"
-  | "comment_drafting";
+  | "comment_drafting"
+  | "curriculum_parsing";
 
 export interface AiMessage {
   role: "system" | "user" | "assistant";
@@ -107,6 +108,13 @@ function mockCompletion(opts: AiCompletionOptions): AiCompletionResult {
     }
     case "question_generation": {
       content = JSON.stringify(generateQuestions(last));
+      break;
+    }
+    case "curriculum_parsing": {
+      content = JSON.stringify([
+        { week: 1, topic: "Introduction to the Subject", subTopics: ["Meaning and scope", "Importance"], behaviouralObjectives: ["Define the subject", "Explain its importance"] },
+        { week: 2, topic: "Core Concepts", subTopics: ["Key terminology", "Basic principles"], behaviouralObjectives: ["Identify key concepts", "Apply basic principles"] },
+      ]);
       break;
     }
     default: {
