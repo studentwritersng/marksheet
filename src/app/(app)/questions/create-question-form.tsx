@@ -19,6 +19,10 @@ export function CreateQuestionForm({
   const [aiResult, setAiResult] = useState<ActionState>({});
   const [rubricPoints, setRubricPoints] = useState([{ description: "", mark: 0 }]);
 
+  // Essay sub-questions state
+  const [essayStem, setEssayStem] = useState("");
+  const [essayParts, setEssayParts] = useState<{ text: string; marks: number; modelAnswer: string }[]>([]);
+
   // AI multi-select state
   const [aiSubjectId, setAiSubjectId] = useState("");
   const [aiClassLevel, setAiClassLevel] = useState("SSS1");
@@ -36,6 +40,32 @@ export function CreateQuestionForm({
     updated[i] = { ...updated[i], [field]: value };
     setRubricPoints(updated);
   }
+
+  function addEssayPart() {
+    setEssayParts([...essayParts, { text: "", marks: 1, modelAnswer: "" }]);
+  }
+
+  function updateEssayPart(i: number, field: string, value: string | number) {
+    const updated = [...essayParts];
+    updated[i] = { ...updated[i], [field]: value };
+    setEssayParts(updated);
+  }
+
+  function removeEssayPart(i: number) {
+    setEssayParts(essayParts.filter((_, idx) => idx !== i));
+  }
+
+  const hasEssayParts = essayParts.length > 0;
+  const essayTotalMarks = essayParts.reduce((sum, p) => sum + (p.marks || 0), 0);
+  const combinedEssayText = hasEssayParts
+    ? (essayStem.trim() ? essayStem.trim() + "\n" : "") +
+      essayParts
+        .map((p, i) => `(${String.fromCharCode(97 + i)}) ${p.text}${p.marks ? ` [${p.marks} mark${p.marks !== 1 ? "s" : ""}]` : ""}`)
+        .join("\n")
+    : "";
+  const combinedModelAnswer = hasEssayParts
+    ? essayParts.map((p, i) => `(${String.fromCharCode(97 + i)}) ${p.modelAnswer}`).join("\n\n")
+    : "";
 
   function toggleNote(id: string) {
     const next = new Set(selectedNoteIds);
@@ -137,22 +167,133 @@ export function CreateQuestionForm({
       {tab === "essay" && (
         <form action={manualAction} className="space-y-4">
           <input type="hidden" name="type" value="essay" />
-          <SubjectMarksFields subjects={subjects} />
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <select
+                name="subjectId"
+                required
+                className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+              >
+                <option value="">Select subject…</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="w-28">
+              {hasEssayParts ? (
+                <>
+                  <input type="hidden" name="marks" value={essayTotalMarks} />
+                  <div className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-low text-center">
+                    {essayTotalMarks} marks
+                  </div>
+                </>
+              ) : (
+                <input
+                  type="number"
+                  name="marks"
+                  placeholder="Marks"
+                  defaultValue={1}
+                  min={1}
+                  className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+                />
+              )}
+            </div>
+            <div className="w-32">
+              <select
+                name="difficulty"
+                className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+              >
+                <option value="">Difficulty</option>
+                {["Easy", "Medium", "Hard"].map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <TopicClassFields />
+
+          {/* Hidden combined inputs when sub-questions exist */}
+          {hasEssayParts && (
+            <>
+              <input type="hidden" name="text" value={combinedEssayText} />
+              <input type="hidden" name="modelAnswer" value={combinedModelAnswer} />
+            </>
+          )}
+
+          {/* Main question (stem or full question) */}
           <textarea
-            name="text"
-            placeholder="Question text"
-            rows={3}
-            required
+            name={hasEssayParts ? undefined : "text"}
+            value={hasEssayParts ? essayStem : undefined}
+            onChange={hasEssayParts ? (e) => setEssayStem(e.target.value) : undefined}
+            placeholder={hasEssayParts ? "Question stem (optional, e.g. 'Define the following:')" : "Question text"}
+            rows={hasEssayParts ? 2 : 3}
+            required={!hasEssayParts}
             className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
           />
-          <textarea
-            name="modelAnswer"
-            placeholder="Model answer"
-            rows={4}
-            required
-            className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
-          />
+
+          {/* Sub-question parts */}
+          {essayParts.map((part, i) => (
+            <div key={i} className="border border-outline-variant rounded-lg p-3 space-y-2 bg-surface-container-low">
+              <div className="flex items-center justify-between">
+                <span className="font-label-md text-label-md text-on-surface font-semibold">
+                  ({String.fromCharCode(97 + i)})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeEssayPart(i)}
+                  className="font-label-sm text-label-sm text-error hover:text-on-surface"
+                >
+                  Remove
+                </button>
+              </div>
+              <textarea
+                value={part.text}
+                onChange={(e) => updateEssayPart(i, "text", e.target.value)}
+                placeholder="Sub-question text"
+                rows={2}
+                required
+                className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={part.marks}
+                  onChange={(e) => updateEssayPart(i, "marks", Number(e.target.value))}
+                  placeholder="Marks"
+                  min={0}
+                  className="w-20 border border-outline-variant rounded p-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+                />
+                <span className="font-label-sm text-label-sm text-on-surface-variant">mark{part.marks !== 1 ? "s" : ""}</span>
+              </div>
+              <textarea
+                value={part.modelAnswer}
+                onChange={(e) => updateEssayPart(i, "modelAnswer", e.target.value)}
+                placeholder="Model answer for this part"
+                rows={2}
+                required
+                className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+              />
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addEssayPart}
+            className="font-label-sm text-label-sm text-primary hover:text-on-surface"
+          >
+            + Add sub-question
+          </button>
+
+          {/* Single model answer when no parts */}
+          {!hasEssayParts && (
+            <textarea
+              name="modelAnswer"
+              placeholder="Model answer"
+              rows={4}
+              required
+              className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+            />
+          )}
           <div>
             <p className="mb-2 font-label-md text-label-md text-on-surface">Rubric points</p>
             {rubricPoints.map((rp, i) => (

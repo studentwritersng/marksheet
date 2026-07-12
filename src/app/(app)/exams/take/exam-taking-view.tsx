@@ -13,6 +13,25 @@ interface Question {
   hasModelAnswer: boolean;
 }
 
+interface SubQuestion {
+  letter: string;
+  text: string;
+  marks?: string;
+}
+
+function parseSubQuestions(text: string): { stem: string; parts: SubQuestion[] } {
+  const regex = /^\s*\(?([a-z])\)\s+(.+)/gim;
+  const matches = [...text.matchAll(regex)];
+  if (matches.length < 2) return { stem: text, parts: [] };
+  const firstIdx = matches[0].index!;
+  const stem = text.slice(0, firstIdx).trim();
+  const parts: SubQuestion[] = matches.map((m) => ({
+    letter: m[1].toLowerCase(),
+    text: m[2].trim(),
+  }));
+  return { stem, parts };
+}
+
 export function ExamTakingView({
   examId,
   studentId,
@@ -40,6 +59,7 @@ export function ExamTakingView({
 }) {
   const [attemptId, setAttemptId] = useState(existingAttemptId);
   const [answers, setAnswers] = useState<Record<string, { mcqSelectedOptionId?: string; essayResponseText?: string }>>({});
+  const [essayParts, setEssayParts] = useState<Record<string, Record<string, string>>>({});
   const [remaining, setRemaining] = useState(durationMinutes * 60);
   const [submitted, setSubmitted] = useState(false);
   const [msg, setMsg] = useState("");
@@ -76,13 +96,20 @@ export function ExamTakingView({
     if (!attemptId) return;
     clearInterval(intervalRef.current);
     setSubmitted(true);
-    const answerList = Object.entries(answers).map(([questionId, value]) => ({
-      questionId,
-      ...value,
-    }));
+    const answerList = Object.entries(answers).map(([questionId, value]) => {
+      const parts = essayParts[questionId];
+      if (parts) {
+        const combined = Object.entries(parts)
+          .filter(([, v]) => v.trim())
+          .map(([l, v]) => `(${l}) ${v}`)
+          .join("\n\n");
+        return { questionId, essayResponseText: combined || value.essayResponseText };
+      }
+      return { questionId, ...value };
+    });
     const res = await submitExamAction(attemptId, answerList);
     setMsg(res.success ?? res.error ?? "Submitted.");
-  }, [attemptId, answers]);
+  }, [attemptId, answers, essayParts]);
 
   /** Auto-submit when timer hits 0 */
   const hasAutoSubmitted = useRef(false);
@@ -94,7 +121,9 @@ export function ExamTakingView({
 
   const q = questions[currentIndex];
   const isAnswered = (id: string) =>
-    answers[id]?.mcqSelectedOptionId != null || (answers[id]?.essayResponseText?.trim().length ?? 0) > 0;
+    answers[id]?.mcqSelectedOptionId != null ||
+    (answers[id]?.essayResponseText?.trim().length ?? 0) > 0 ||
+    Object.values(essayParts[id] ?? {}).some((v) => v.trim().length > 0);
   const isSkipped = (id: string) => skipped.has(id) && !isAnswered(id);
 
   function goTo(index: number) {
@@ -245,20 +274,65 @@ export function ExamTakingView({
               </div>
             )}
 
-            {q.type === "essay" && (
-              <textarea
-                placeholder="Write your answer here…"
-                value={answers[q.id]?.essayResponseText ?? ""}
-                onChange={(e) => {
-                  setAnswers((prev) => ({ ...prev, [q.id]: { ...prev[q.id], essayResponseText: e.target.value } }));
-                  if (e.target.value.trim()) {
-                    setSkipped((prev) => { const n = new Set(prev); n.delete(q.id); return n; });
-                  }
-                }}
-                rows={5}
-                className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
-              />
-            )}
+            {q.type === "essay" && (() => {
+              const { stem, parts } = parseSubQuestions(q.text);
+              if (parts.length > 0) {
+                return (
+                  <div className="space-y-4">
+                    {stem && <p className="font-body-md text-body-md text-on-surface font-medium">{stem}</p>}
+                    {parts.map((sq) => (
+                      <div key={sq.letter}>
+                        <p className="font-body-md text-body-md text-on-surface mb-1">
+                          ({sq.letter}) {sq.text}
+                        </p>
+                        <textarea
+                          placeholder={`Answer for (${sq.letter})…`}
+                          value={essayParts[q.id]?.[sq.letter] ?? ""}
+                          onChange={(e) => {
+                            setEssayParts((prev) => ({
+                              ...prev,
+                              [q.id]: { ...(prev[q.id] ?? {}), [sq.letter]: e.target.value },
+                            }));
+                            if (e.target.value.trim()) {
+                              setSkipped((prev) => { const n = new Set(prev); n.delete(q.id); return n; });
+                            }
+                            setAnswers((prev) => ({
+                              ...prev,
+                              [q.id]: {
+                                ...prev[q.id],
+                                essayResponseText: Object.entries({
+                                  ...(essayParts[q.id] ?? {}),
+                                  [sq.letter]: e.target.value,
+                                })
+                                  .filter(([, v]) => v.trim())
+                                  .map(([l, v]) => `(${l}) ${v}`)
+                                  .join("\n\n"),
+                              },
+                            }));
+                          }}
+                          rows={3}
+                          className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return (
+                <textarea
+                  placeholder="Write your answer here…"
+                  value={answers[q.id]?.essayResponseText ?? ""}
+                  onChange={(e) => {
+                    setAnswers((prev) => ({ ...prev, [q.id]: { ...prev[q.id], essayResponseText: e.target.value } }));
+                    if (e.target.value.trim()) {
+                      setSkipped((prev) => { const n = new Set(prev); n.delete(q.id); return n; });
+                    }
+                  }}
+                  rows={5}
+                  className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+                />
+              );
+            })()}
           </div>
 
           {/* Navigation buttons */}
