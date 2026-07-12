@@ -538,24 +538,32 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
 }
 
 function DeleteConfirmModal({ examId, onClose, onDeleted }: { examId: string; onClose: () => void; onDeleted: () => void }) {
-  const [state, delAction, delPending] = useActionState(async (_prev: ActionState) => {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleDelete() {
+    setDeleting(true);
     const res = await deleteExamAction(examId);
-    if (!res.error) onDeleted();
-    return res;
-  }, {});
+    if (res.error) {
+      setError(res.error);
+      setDeleting(false);
+    } else {
+      onDeleted();
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
         <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-2">Delete exam?</h3>
         <p className="font-body-sm text-body-sm text-on-surface-variant mb-4">This action cannot be undone. All attempts and answers will be removed.</p>
-        <form action={delAction} className="flex gap-2 justify-end">
-          <button type="button" onClick={onClose}
+        <div className="flex gap-2 justify-end">
+          <button type="button" onClick={onClose} disabled={deleting}
             className="px-4 py-2 text-sm border border-outline-variant rounded hover:bg-surface-container-low">Cancel</button>
-          <button type="submit" disabled={delPending}
-            className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-60">{delPending ? "Deleting..." : "Delete"}</button>
-        </form>
-        {state.error && <p className="text-sm text-red-600 mt-2">{state.error}</p>}
+          <button type="button" onClick={handleDelete} disabled={deleting}
+            className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-60">{deleting ? "Deleting..." : "Delete"}</button>
+        </div>
+        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
       </div>
     </div>
   );
