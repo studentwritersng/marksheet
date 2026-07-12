@@ -100,6 +100,34 @@ export async function aiGenerateNoteAction(
 
   const subject = await prisma.subject.findUnique({ where: { id: subjectId } });
   const cls = await prisma.class.findUnique({ where: { id: classId } });
+  const term = await prisma.term.findUnique({ where: { id: termId } });
+
+  // Look up curriculum objectives for this subject/class/term/topic
+  let curriculumObjectives: string[] = [];
+  let curriculumTopic = "";
+  if (cls && term && subject) {
+    const termName = term.name; // "FIRST" | "SECOND" | "THIRD"
+    const curriculum = await prisma.curriculumTopic.findFirst({
+      where: {
+        classLevel: cls.level,
+        subject: subject.name,
+        term: termName,
+        topic: { contains: topic, mode: "insensitive" },
+        schoolId: null,
+        isSystem: true,
+      },
+      orderBy: { week: "asc" },
+    });
+    if (curriculum) {
+      curriculumObjectives = (curriculum.behaviouralObjectives as string[]) ?? [];
+      curriculumTopic = curriculum.topic;
+    }
+  }
+
+  const hasCurriculumObjectives = curriculumObjectives.length > 0;
+  const objectivesPrompt = hasCurriculumObjectives
+    ? `Behavioural objectives (from NERDC syllabus — AUTHORITATIVE, do not alter):\n${curriculumObjectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nThese are the official NERDC objectives. Use them exactly as given. Do not add, remove, or rephrase any objective. Every section of the lesson note must address these specific objectives.`
+    : `Behavioural objectives: (Since no NERDC curriculum entry exists for this topic, derive 3-5 appropriate objectives that follow the Nigerian syllabus standard for this class level and subject.)`;
 
   const result = await createCompletion({
     taskType: "lesson_note_generation",
@@ -181,9 +209,9 @@ Output valid JSON only, with this exact shape and no additional text before or a
         role: "user",
         content: `Subject: ${subject?.name ?? "the subject"}
 Class: ${cls?.level ?? cls?.name ?? "the class"}
-Theme / Aspect: ${topic}
+Theme / Aspect: ${curriculumTopic || topic}
 Topic: ${topic}
-Behavioural objectives (from syllabus — authoritative): (derive 3-5 appropriate objectives from the topic and class level that follow the Nigerian syllabus standard)
+${objectivesPrompt}
 Duration: 40 minutes
 Reference books: (suggest standard Nigerian curriculum-aligned texts for this subject and class)
 Instructional materials: chalkboard/whiteboard, charts, textbooks, flashcards
