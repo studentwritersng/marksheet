@@ -143,9 +143,14 @@ async function SubmittedView({
         <p className="font-body-md text-body-md text-on-surface-variant mt-2">
           {exam.subject.name} · {exam.assessmentTypeId}
         </p>
-        {totalMcq > 0 && (
+        {totalMcq > 0 && exam.status === "published" && (
           <p className="mt-4 font-headline-sm text-headline-sm text-on-surface">
             MCQ Score: {mcqCorrect}/{totalMcq}
+          </p>
+        )}
+        {totalMcq > 0 && exam.status !== "published" && (
+          <p className="mt-4 font-body-sm text-body-sm text-on-surface-variant">
+            Results will be available once the exam is published.
           </p>
         )}
         <p className="mt-2 font-body-sm text-body-sm text-on-surface-variant">

@@ -82,6 +82,7 @@ export default async function ExamsPage() {
         contentId="exams-content"
         exams={exams.map((e) => ({
           id: e.id,
+          status: e.status,
           subjectName: e.subject.name,
           className: e.classes.map((ec) => ec.class.name).join(", "),
           classNames: e.classes.map((ec) => ec.class.name).join(", "),

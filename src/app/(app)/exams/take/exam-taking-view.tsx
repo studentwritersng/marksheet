@@ -62,6 +62,7 @@ export function ExamTakingView({
   const [essayParts, setEssayParts] = useState<Record<string, Record<string, string>>>({});
   const [remaining, setRemaining] = useState(durationMinutes * 60);
   const [submitted, setSubmitted] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [msg, setMsg] = useState("");
   const [starting, setStarting] = useState(!existingAttemptId);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -215,7 +216,7 @@ export function ExamTakingView({
             {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
           </div>
           <button
-            onClick={handleSubmit}
+            onClick={() => setConfirming(true)}
             className="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container transition-colors"
           >
             Submit
@@ -417,12 +418,38 @@ export function ExamTakingView({
       {/* Bottom submit */}
       <div className="text-center">
         <button
-          onClick={handleSubmit}
+          onClick={() => setConfirming(true)}
           className="bg-primary text-on-primary font-label-md text-label-md py-3 px-8 rounded hover:bg-primary-container transition-colors"
         >
           Submit All Answers
         </button>
       </div>
+
+      {/* Confirmation dialog */}
+      {confirming && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirming(false)}>
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface mb-2">Submit Exam?</h3>
+            <p className="font-body-md text-body-md text-on-surface-variant mb-6">
+              You have answered {Object.keys(answers).length} of {questions.length} questions. Unanswered questions will be marked as skipped. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirming(false)}
+                className="font-label-md text-label-md text-on-surface-variant px-4 py-2 rounded border border-outline-variant hover:bg-surface-container-low transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setConfirming(false); handleSubmit(); }}
+                className="bg-primary text-on-primary font-label-md text-label-md px-4 py-2 rounded hover:bg-primary-container transition-colors"
+              >
+                Yes, Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

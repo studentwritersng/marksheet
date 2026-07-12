@@ -4,12 +4,13 @@ import { useState, useActionState, useMemo } from "react";
 import {
   createExamAction, updateExamAction, deleteExamAction,
   addQuestionsToExamAction, removeQuestionFromExamAction,
+  toggleExamStatusAction,
 } from "@/lib/exams/actions";
 import type { ActionState } from "@/lib/exams/actions";
 import { ExportButtons } from "@/components/export-buttons";
 
 interface ExamVM {
-  id: string; subjectName: string; className: string; classNames: string;
+  id: string; status: string; subjectName: string; className: string; classNames: string;
   termName: string; assessmentTypeId: string; durationMinutes: number;
   questionCount: number; attemptCount: number; submittedCount: number;
   questionIds: string[];
@@ -38,6 +39,7 @@ export function ExamsList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addingQuestionsTo, setAddingQuestionsTo] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const [subjectFilter, setSubjectFilter] = useState("");
   const [classFilter, setClassFilter] = useState("");
@@ -102,6 +104,7 @@ export function ExamsList({
               <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Duration</th>
               <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Questions</th>
               <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Submitted</th>
+              <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Status</th>
               <th className="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider"></th>
             </tr>
           </thead>
@@ -109,7 +112,7 @@ export function ExamsList({
             {filteredExams.map((exam) => (
               <tr key={exam.id} className="hover:bg-surface-container-low transition-colors">
                 {editingId === exam.id ? (
-                  <td colSpan={7} className="p-4">
+                  <td colSpan={8} className="p-4">
                     <EditExamForm
                       exam={exam} action={editAction} pending={editPending} state={editState}
                       subjects={subjects} classes={classes} terms={terms}
@@ -131,6 +134,24 @@ export function ExamsList({
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
+                        <span className={`font-label-sm text-label-sm px-2 py-0.5 rounded ${exam.status === "published" ? "bg-success-container text-on-success-container" : "bg-surface-variant text-on-surface-variant"}`}>
+                          {exam.status}
+                        </span>
+                        <button
+                          onClick={async () => {
+                            setTogglingId(exam.id);
+                            await toggleExamStatusAction(exam.id);
+                            setTogglingId(null);
+                          }}
+                          disabled={togglingId === exam.id}
+                          className="text-primary font-label-sm text-label-sm hover:underline disabled:opacity-60"
+                        >
+                          {togglingId === exam.id ? "…" : exam.status === "draft" ? "Publish" : "Draft"}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
                         <button onClick={() => setEditingId(exam.id)}
                           className="text-primary font-label-sm text-label-sm hover:underline">Edit</button>
                         <button onClick={() => setAddingQuestionsTo(exam.id)}
@@ -144,7 +165,7 @@ export function ExamsList({
               </tr>
             ))}
             {filteredExams.length === 0 && (
-              <tr><td colSpan={7} className="py-8 text-center font-body-sm text-body-sm text-on-surface-variant">No exams found.</td></tr>
+              <tr><td colSpan={8} className="py-8 text-center font-body-sm text-body-sm text-on-surface-variant">No exams found.</td></tr>
             )}
           </tbody>
         </table>

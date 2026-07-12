@@ -609,6 +609,11 @@ enum ExamAttemptType {
   resit
 }
 
+enum ExamStatus {
+  draft
+  published
+}
+
 model Exam {
   id                String  @id @default(cuid())
   schoolId          String
@@ -618,6 +623,7 @@ model Exam {
   assessmentTypeId  String
   durationMinutes   Int
   shuffleEnabled    Boolean @default(true)
+  status            ExamStatus @default(draft)
   attemptType       ExamAttemptType @default(original)
   originalExamId    String?
   // Per-exam sub-assessment weight distribution, e.g. [{ subAssessmentTypeId: "xxx", weightPercentage: 20 }]

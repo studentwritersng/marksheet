@@ -27,6 +27,7 @@ export default async function MyExamsPage() {
     where: {
       schoolId: user.schoolId!,
       termId: session.terms[0].id,
+      status: "published",
       classes: { some: { classId: student.currentClassId } },
     },
     include: {

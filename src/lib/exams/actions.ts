@@ -44,6 +44,7 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
       assessmentTypeId,
       durationMinutes,
       shuffleEnabled: true,
+      status: "draft",
       subAssessmentWeights,
       classes: {
         create: classIds.map((cId) => ({ classId: cId })),
@@ -125,6 +126,26 @@ export async function deleteExamAction(examId: string): Promise<ActionState> {
   return { success: "Exam deleted." };
 }
 
+export async function toggleExamStatusAction(examId: string): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
+  if (!exam) return { error: "Exam not found." };
+
+  const newStatus = exam.status === "draft" ? "published" : "draft";
+  await prisma.exam.update({ where: { id: examId }, data: { status: newStatus } });
+
+  revalidatePath("/exams");
+  return { success: `Exam ${newStatus}.` };
+}
+
+export async function isExamPublishedAction(examId: string): Promise<boolean> {
+  const exam = await prisma.exam.findUnique({ where: { id: examId }, select: { status: true } });
+  return exam?.status === "published";
+}
+
 export async function addQuestionsToExamAction(examId: string, questionIds: string[]): Promise<ActionState> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
@@ -201,6 +222,9 @@ export async function submitExamAction(attemptId: string, answers: { questionId:
 }
 
 export async function startExamAction(examId: string, studentId: string): Promise<ActionState & { attemptId?: string }> {
+  const exam = await prisma.exam.findUnique({ where: { id: examId }, select: { status: true } });
+  if (!exam || exam.status !== "published") return { error: "This exam is not available yet." };
+
   const existing = await prisma.examAttempt.findFirst({
     where: { examId, studentId, status: "in_progress" },
   });
