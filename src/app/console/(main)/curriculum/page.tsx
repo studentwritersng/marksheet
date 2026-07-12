@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ImportCurriculumClient } from "./client";
 import { ManualCurriculumClient } from "./manual-client";
-import { getSubjectsByClass, getSystemEntries, CLASS_LEVELS } from "./actions";
+import { getSubjectsByClass, getSystemEntries } from "./actions";
 
 export default async function ConsoleCurriculumPage(props: {
   searchParams: Promise<{ tab?: string; class?: string; term?: string; subject?: string }>;
@@ -11,7 +11,7 @@ export default async function ConsoleCurriculumPage(props: {
   if (!user || user.role !== "platform_owner") redirect("/console/login");
 
   const sp = await props.searchParams;
-  const subjectsByClass = getSubjectsByClass();
+  const subjectsByClass = await getSubjectsByClass();
   const tab = sp.tab || "import";
   const selClass = sp.class || "JSS1";
   const selTerm = sp.term || "FIRST";
@@ -39,7 +39,7 @@ export default async function ConsoleCurriculumPage(props: {
       ) : (
         <ManualCurriculumClient
           subjectsByClass={subjectsByClass}
-          classLevels={[...CLASS_LEVELS]}
+          classLevels={["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"]}
           initialClass={selClass}
           initialTerm={selTerm}
           initialSubject={selSubject}

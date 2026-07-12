@@ -4,11 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { createCompletion } from "@/lib/ai/gateway";
 import { revalidatePath } from "next/cache";
-import { readFileSync } from "fs";
-import { resolve } from "path";
 
 const CLASS_LEVELS = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"] as const;
-export { CLASS_LEVELS };
 
 const NERDC_SUBJECTS: Record<string, string[]> = {
   JSS1: ["English Studies", "Mathematics", "Physical and Health Education", "Christian Religious Studies", "Islamic Studies", "Nigerian History", "Social and Citizenship Studies", "Cultural and Creative Arts", "French", "Intermediate Science", "Digital Technologies", "Business Studies"],
@@ -19,9 +16,7 @@ const NERDC_SUBJECTS: Record<string, string[]> = {
   SSS3: ["English Language", "General Mathematics", "Citizenship and Heritage Studies", "Digital Technologies", "Biology", "Chemistry", "Physics", "Agriculture", "Further Mathematics", "Foods & Nutrition", "Geography", "Technical Drawing", "Nigerian History", "Government", "Christian Religious Studies", "Visual Arts", "Literature in English", "Catering Craft", "Accounting", "Commerce", "Marketing", "Economics"],
 };
 
-export function getSubjectsByClass(): Record<string, string[]> {
-  const nerdcPath = resolve(process.cwd(), "..", "nerdc.md");
-  try { readFileSync(nerdcPath, "utf-8"); } catch { return {}; }
+export async function getSubjectsByClass(): Promise<Record<string, string[]>> {
   return NERDC_SUBJECTS;
 }
 
