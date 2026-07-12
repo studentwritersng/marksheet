@@ -95,7 +95,10 @@ ${nerdcContent.slice(0, 25000)}`;
       maxTokens: 8000,
     });
 
-    const raw = result.content.trim();
+    let raw = result.content.trim();
+    // Strip markdown code fences if the AI wraps the JSON
+    const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (fenceMatch) raw = fenceMatch[1].trim();
     const json = JSON.parse(raw) as ParseResult[];
 
     if (!Array.isArray(json) || json.length === 0) {
