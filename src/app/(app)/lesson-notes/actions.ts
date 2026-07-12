@@ -125,9 +125,10 @@ export async function aiGenerateNoteAction(
   }
 
   const hasCurriculumObjectives = curriculumObjectives.length > 0;
-  const objectivesPrompt = hasCurriculumObjectives
-    ? `Behavioural objectives (from NERDC syllabus — AUTHORITATIVE, do not alter):\n${curriculumObjectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nThese are the official NERDC objectives. Use them exactly as given. Do not add, remove, or rephrase any objective. Every section of the lesson note must address these specific objectives.`
-    : `Behavioural objectives: (Since no NERDC curriculum entry exists for this topic, derive 3-5 appropriate objectives that follow the Nigerian syllabus standard for this class level and subject.)`;
+  if (!hasCurriculumObjectives) {
+    return { error: `No curriculum entry found for "${topic}" in ${subject?.name} (${cls?.level}) ${term?.name}. Add it to the curriculum first in Console > Curriculum > Manual Entry.` };
+  }
+  const objectivesPrompt = `Behavioural objectives (from NERDC syllabus — AUTHORITATIVE, do not alter):\n${curriculumObjectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nThese are the official NERDC objectives. Use them exactly as given. Do not add, remove, or rephrase any objective. Every section of the lesson note must address these specific objectives.`;
 
   const result = await createCompletion({
     taskType: "lesson_note_generation",
