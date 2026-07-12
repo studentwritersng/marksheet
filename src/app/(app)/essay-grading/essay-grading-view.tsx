@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { gradeEssayAnswersAction, reviewEssayScoreAction } from "@/lib/exams/essay-grading";
+import { gradeEssayAnswersAction, reviewEssayScoreAction, bulkAcceptScoresAction } from "@/lib/exams/essay-grading";
 
 interface ExamSummary {
   id: string;
@@ -23,6 +23,7 @@ export function EssayGradingView({
   const [answers, setAnswers] = useState<any[]>([]);
   const [grading, startGrading] = useTransition();
   const [reviewing, startReviewing] = useTransition();
+  const [bulking, startBulking] = useTransition();
   const [msg, setMsg] = useState("");
 
   async function loadAnswers(examId: string) {
@@ -51,6 +52,15 @@ export function EssayGradingView({
     });
   }
 
+  async function handleBulkAccept() {
+    setMsg("");
+    startBulking(async () => {
+      const res = await bulkAcceptScoresAction(selectedExamId);
+      setMsg(res.success ?? res.error ?? "");
+      if (res.success) loadAnswers(selectedExamId);
+    });
+  }
+
   return (
     <div className="space-y-6">
       {/* Controls */}
@@ -69,6 +79,13 @@ export function EssayGradingView({
           className="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60"
         >
           {grading ? "Grading…" : `Grade with AI (${pendingCount} pending)`}
+        </button>
+        <button
+          onClick={handleBulkAccept}
+          disabled={!selectedExamId || bulking || answers.filter((a) => a.gradingStatus === "ai_complete").length === 0}
+          className="bg-secondary-container text-on-secondary-container font-label-md text-label-md py-2 px-4 rounded hover:opacity-90 disabled:opacity-60"
+        >
+          {bulking ? "Accepting…" : "Accept All AI Scores"}
         </button>
       </div>
 
@@ -117,16 +134,40 @@ export function EssayGradingView({
             </div>
 
             {a.aiSuggestedScore != null && (
-              <div className="mb-3 flex items-center gap-4">
-                <div className="bg-surface-container rounded-lg p-3 flex items-center gap-2">
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">AI Score:</span>
-                  <span className="font-headline-md text-headline-md text-primary">{a.aiSuggestedScore}</span>
-                  <span className="font-body-sm text-body-sm text-on-surface-variant">/ {a.maxMarks}</span>
+              <div className="mb-3 flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="bg-surface-container rounded-lg p-3 flex items-center gap-2">
+                    <span className="font-label-sm text-label-sm text-on-surface-variant">AI Score:</span>
+                    <span className="font-headline-md text-headline-md text-primary">{a.aiSuggestedScore}</span>
+                    <span className="font-body-sm text-body-sm text-on-surface-variant">/ {a.maxMarks}</span>
+                  </div>
+                  {a.aiReasoning && (
+                    <div className="flex-1">
+                      <p className="font-label-sm text-label-sm text-on-surface-variant mb-1">AI Reasoning</p>
+                      <p className="font-body-sm text-body-sm text-on-surface-variant">{a.aiReasoning}</p>
+                    </div>
+                  )}
                 </div>
-                {a.aiReasoning && (
-                  <div className="flex-1">
-                    <p className="font-label-sm text-label-sm text-on-surface-variant mb-1">AI Reasoning</p>
-                    <p className="font-body-sm text-body-sm text-on-surface-variant">{a.aiReasoning}</p>
+                {a.rubricPointResults && Array.isArray(a.rubricPointResults) && a.rubricPointResults.length > 0 && (
+                  <div className="bg-surface-container-low rounded-lg p-3">
+                    <p className="font-label-sm text-label-sm text-on-surface-variant mb-2">Rubric Breakdown</p>
+                    <div className="space-y-2">
+                      {a.rubricPointResults.map((rp: any, idx: number) => (
+                        <div key={idx} className="flex items-start gap-3 text-sm">
+                          <span className={`shrink-0 w-20 text-center rounded px-1 py-0.5 text-xs font-medium ${
+                            rp.status === "met" ? "bg-success-container text-on-success-container" :
+                            rp.status === "partially_met" ? "bg-secondary-container text-on-secondary-container" :
+                            "bg-error-container text-on-error-container"
+                          }`}>
+                            {rp.marks_awarded}/{rp.max_marks_for_point}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-body-sm text-body-sm text-on-surface">{rp.rubric_point}</p>
+                            {rp.evidence && <p className="font-body-xs text-body-xs text-on-surface-variant mt-0.5 italic">"{rp.evidence}"</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -167,7 +208,7 @@ function ReviewForm({
   onReview: (id: string, score: number) => void;
   reviewing: boolean;
 }) {
-  const [score, setScore] = useState(aiScore);
+  const [score, setScore] = useState(aiScore ?? 0);
   return (
     <div className="flex items-center gap-3 pt-3 border-t border-outline-variant">
       <label className="font-label-sm text-label-sm text-on-surface-variant">Override score:</label>

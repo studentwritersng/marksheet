@@ -25,7 +25,7 @@ export async function AnnouncementBanner({
   const regular = announcements.filter((a) => !a.isSticky);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 sticky top-16 z-10">
       {sticky.length > 0 && (
         <div className="bg-primary-fixed border border-primary/30 rounded-lg overflow-hidden">
           <div className="overflow-hidden whitespace-nowrap py-2">

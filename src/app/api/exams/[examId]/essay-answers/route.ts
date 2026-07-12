@@ -32,6 +32,7 @@ export async function GET(
       essayResponseText: a.essayResponseText,
       aiSuggestedScore: a.aiSuggestedScore,
       aiReasoning: a.aiReasoning,
+      rubricPointResults: a.rubricPointMatches,
       finalScore: a.finalScore,
       gradingStatus: a.gradingStatus,
       maxMarks: a.question.marks,

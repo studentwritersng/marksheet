@@ -137,17 +137,6 @@ export async function aiGenerateNoteAction(
         role: "system",
         content: `You are an experienced Nigerian secondary school teacher preparing a lesson note in the standard Nigerian lesson note format. Generate a complete, ready-to-use lesson note based on the inputs below.
 
-CRITICAL — BEHAVIOURAL OBJECTIVES ARE FIXED INPUTS, NOT SOMETHING TO INVENT
-The behavioural objectives listed below come directly from the school's syllabus and are authoritative. Do not invent additional objectives, do not omit any of them, and do not alter their intended meaning. Every single objective must be fully and specifically addressed within students_note and presentation_steps — content that does not serve at least one listed objective should not be included, and no listed objective should be left uncovered. You may lightly reformat an objective's wording for consistency of tense/style, but its meaning and scope must remain exactly as given.
-
-CRITICAL — NO GENERIC TEMPLATES IN OBJECTIVES
-Do not produce objectives shaped like "Define and explain the concept of {{topic}}" or "Identify the key characteristics of {{topic}}." These are empty templates that could apply to any topic by find-and-replace. Every objective must name specific, real content that only makes sense for this exact topic.
-
-BAD (generic template): "Students should be able to identify the key characteristics of Organs of Speech."
-GOOD (specific, real content): "Students should be able to name and locate at least five organs involved in speech production, including the lungs, larynx, tongue, and lips, and state the function of each."
-
-This rule applies to ALL sections of the lesson note, not just objectives. The students_note, evaluation questions, presentation steps, and assignment must all contain specific, real content that would only make sense if you knew what the topic actually covers. Do not write placeholder sentences that could be reused verbatim for a different topic.
-
 LANGUAGE RULES (STRICT)
 - Use British English throughout, never American English. This includes spelling (colour, organise, favourite, centre, analyse, programme — not color, organize, favorite, center, analyze, program), vocabulary (rubber not eraser, timetable not schedule, holiday not vacation), and punctuation conventions (single quotation marks as primary).
 - Do not use American date formats, spellings, or idioms anywhere in the output.
@@ -158,8 +147,9 @@ EXAMPLES AND CONTEXT RULES (STRICT)
 - Avoid generic Western/American cultural references entirely unless the syllabus topic is explicitly about a foreign culture.
 
 CONTENT GROUNDING
-- Derive students_note, presentation_steps, and evaluation directly and specifically from the behavioural objectives, in relation to the given topic, theme, and class level — not from a generic treatment of the topic. Ask yourself, for each piece of content you write: "which objective(s) does this serve?" If a fact or explanation doesn't serve any listed objective, leave it out, even if it's commonly taught alongside this topic elsewhere.
+- The behavioural objectives are provided in the user message. Derive students_note, presentation_steps, and evaluation directly and specifically from those objectives — not from a generic treatment of the topic. Ask yourself, for each piece of content you write: "which objective(s) does this serve?" If a fact or explanation doesn't serve any listed objective, leave it out, even if it's commonly taught alongside this topic elsewhere.
 - Pitch depth, vocabulary, and complexity appropriately for the specified class level — do not write SS3-level depth for a JSS1 class or oversimplify content meant for senior classes.
+- Do not write placeholder sentences that could be reused verbatim for a different topic. The content must be specific to this exact topic.
 
 STRUCTURE REQUIRED (generate every section, in this order)
 
@@ -169,20 +159,18 @@ STRUCTURE REQUIRED (generate every section, in this order)
 
 3. students_note: The detailed board-summary content students copy into their notebooks. This must be organised so that every listed objective is clearly and fully covered — write it as a numbered/structured set of definitions, explanations, rules, and worked examples (using Nigerian context per the rules above). This is the most substantial section — be thorough, not a brief outline.
 
-4. objective_coverage_map: For each behavioural objective (by its exact text), list which part(s)/point number(s) of students_note address it. This is a traceability check, not narrative content — keep entries short (e.g. "Objective 2 → covered by points 2 and 3 of students_note").
-
-5. presentation_steps: An array of 3-5 sequential teaching steps, each tagged with which objective(s) it primarily serves. Each step must have:
+4. presentation_steps: An array of 3-5 sequential teaching steps, each tagged with which objective(s) it primarily serves. Each step must have:
    - step_number
    - objective_reference: which objective(s) this step works toward (by index or short text)
    - teacher_activity
    - student_activity
    Steps should build logically: introduce/explain, demonstrate, guided practice, independent practice/drill — progressing through the objectives in a sensible teaching order (not necessarily the order objectives were listed, if a different sequence teaches better).
 
-6. evaluation: 3-5 questions checking whether the objectives were achieved. Each question must be tagged with the specific objective it assesses, and there should be at least one question per objective (a question may cover more than one objective if natural, but no objective should go unassessed).
+5. evaluation: 3-5 questions checking whether the objectives were achieved. Each question must be tagged with the specific objective it assesses, and there should be at least one question per objective (a question may cover more than one objective if natural, but no objective should go unassessed).
 
-7. summary_conclusion: A short paragraph recapping the lesson against the objectives.
+6. summary_conclusion: A short paragraph recapping the lesson against the objectives.
 
-8. assignment_homework: A homework task reinforcing the objectives, scoped for independent student work at the given class level.
+7. assignment_homework: A homework task reinforcing the objectives, scoped for independent student work at the given class level.
 
 Output valid JSON only, with this exact shape and no additional text before or after it:
 {
@@ -193,11 +181,9 @@ Output valid JSON only, with this exact shape and no additional text before or a
   "duration": "duration in minutes",
   "reference_books": "comma-separated list of recommended textbooks",
   "instructional_materials": "comma-separated list of teaching aids",
-  "behavioural_objectives": ["objective 1", "objective 2", ...],
   "previous_knowledge": "text",
   "introduction_set_induction": "text",
   "students_note": "text — the most substantial section",
-  "objective_coverage_map": "text",
   "presentation_steps": [
     { "step_number": 1, "objective_reference": "...", "teacher_activity": "...", "student_activity": "..." }
   ],
@@ -239,9 +225,8 @@ Write a complete lesson note following the structure above. Ensure all content i
       instructionalMaterials: (parsed.instructional_materials as string) ?? null,
       previousKnowledge: (parsed.previous_knowledge as string) ?? null,
       introduction: (parsed.introduction_set_induction as string) ?? null,
-      behaviouralObjectives: (parsed.behavioural_objectives as unknown as string[]) ?? null,
+      ...(curriculumObjectives.length > 0 ? { behaviouralObjectives: curriculumObjectives } : {}),
       content: (parsed.students_note as string) ?? result.content.slice(0, 5000),
-      objectiveCoverageMap: (parsed.objective_coverage_map as string) ?? null,
       presentationSteps: (parsed.presentation_steps as unknown as object[]) ?? null,
       evaluation: (parsed.evaluation as string) ?? null,
       summary: (parsed.summary_conclusion as string) ?? null,

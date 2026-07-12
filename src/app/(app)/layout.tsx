@@ -5,6 +5,7 @@ import { buildNav } from "@/lib/nav";
 import { logoutAction } from "@/lib/auth/actions";
 import { NotificationBell } from "./notification-bell";
 import { prisma } from "@/lib/prisma";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 import { MobileSidebar } from "./mobile-sidebar";
 import { SidebarNav } from "./sidebar-nav";
 import { UserDropdown } from "./user-dropdown";
@@ -106,6 +107,9 @@ export default async function AppLayout({
             <UserDropdown email={user.email} roleLabel={roleLabel} initials={user.email.charAt(0).toUpperCase()} />
           </div>
         </header>
+
+        {/* Announcement banners */}
+        {user.schoolId && <AnnouncementBanner schoolId={user.schoolId} userRole={user.role} />}
 
         {/* Main canvas */}
         <main className="flex-1 overflow-y-auto p-margin-mobile md:p-margin-desktop">

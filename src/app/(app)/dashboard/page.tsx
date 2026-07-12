@@ -3,7 +3,6 @@ import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { AnnouncementBanner } from "@/components/announcement-banner";
 import { SchoolLicenseBanner } from "@/components/school-license-banner";
 
 function greeting() {
@@ -39,7 +38,6 @@ export default async function DashboardPage() {
             <p className="font-body-md text-body-md text-on-surface-variant mt-1">Super Admin — platform-level management</p>
           </div>
         </div>
-        {user.schoolId && <AnnouncementBanner schoolId={user.schoolId} userRole={user.role} />}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <StatCard label="Schools" value={schools} icon="domain" gradient="from-[#1e3a5f] to-[#002046]" />
           <StatCard label="AI Provider Configs" value={configs} icon="settings" gradient="from-[#1e3a5f] to-[#002046]" />
@@ -68,7 +66,7 @@ export default async function DashboardPage() {
   if (user.role === "student") {
     const myStudent = await prisma.student.findUnique({
       where: { userId: user.userId },
-      select: { id: true, firstName: true, lastName: true, currentClass: { select: { name: true } } },
+      select: { id: true, firstName: true, lastName: true, passportPhoto: true, currentClass: { select: { name: true } } },
     });
     const termResultCount = myStudent
       ? await prisma.termResult.count({ where: { studentId: myStudent.id } })
@@ -78,8 +76,8 @@ export default async function DashboardPage() {
     return (
       <section className="flex flex-col gap-stack-lg">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#002046] flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0">
-            {initial}
+          <div className="w-12 h-12 rounded-full bg-[#002046] flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0 overflow-hidden">
+            {myStudent?.passportPhoto ? <img src={myStudent.passportPhoto} alt="" className="w-full h-full object-cover" /> : initial}
           </div>
           <div>
             <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
@@ -92,7 +90,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <AnnouncementBanner schoolId={schoolId} userRole={user.role} />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard label="Term Results" value={termResultCount} icon="analytics" gradient="from-emerald-500 to-emerald-700" />
           <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5 hover:shadow-md transition-shadow col-span-1 sm:col-span-2">
@@ -138,7 +135,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <AnnouncementBanner schoolId={schoolId} userRole={user.role} />
       <SchoolLicenseBanner schoolId={schoolId} />
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
