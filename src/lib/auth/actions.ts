@@ -18,6 +18,13 @@ export async function loginAction(
   _prev: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
+  const schoolId = String(formData.get("schoolId") ?? "").trim();
+  const loginMode = String(formData.get("loginMode") ?? "staff");
+
+  if (loginMode === "student") {
+    return handleStudentLogin(schoolId, formData);
+  }
+
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
 
@@ -25,7 +32,10 @@ export async function loginAction(
     return { error: "Email and password are required." };
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = schoolId
+    ? await prisma.user.findFirst({ where: { email, schoolId } })
+    : await prisma.user.findUnique({ where: { email } });
+
   if (!user || !user.isActive) {
     return { error: "Invalid credentials." };
   }
@@ -56,6 +66,80 @@ export async function loginAction(
   if (user.mustChangePassword) {
     redirect("/change-password");
   }
+
+  redirect("/dashboard");
+}
+
+async function handleStudentLogin(
+  schoolId: string,
+  formData: FormData,
+): Promise<LoginState> {
+  const admissionNumber = String(formData.get("admissionNumber") ?? "").trim().toUpperCase();
+  const dateOfBirth = String(formData.get("dateOfBirth") ?? "").trim();
+
+  if (!admissionNumber || !dateOfBirth) {
+    return { error: "Admission number and date of birth are required." };
+  }
+
+  if (!schoolId) {
+    return { error: "School not specified." };
+  }
+
+  const student = await prisma.student.findFirst({
+    where: { schoolId, admissionNumber },
+  });
+
+  if (!student) {
+    return { error: "Invalid admission number or date of birth." };
+  }
+
+  if (!student.dateOfBirth) {
+    return { error: "No date of birth on record. Contact your school." };
+  }
+
+  const dobStr = student.dateOfBirth.toISOString().slice(0, 10);
+  if (dobStr !== dateOfBirth) {
+    return { error: "Invalid admission number or date of birth." };
+  }
+
+  let user = student.userId
+    ? await prisma.user.findUnique({ where: { id: student.userId } })
+    : null;
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        schoolId,
+        email: `student-${student.id}@marksheet.local`,
+        passwordHash: await bcrypt.hash(dateOfBirth, 10),
+        role: "student",
+        isActive: true,
+        student: { connect: { id: student.id } },
+      },
+    });
+  }
+
+  if (!user.isActive) {
+    return { error: "Account is inactive. Contact your school." };
+  }
+
+  const token = createSessionToken({
+    userId: user.id,
+    role: "student",
+    schoolId,
+    staffId: null,
+    email: user.email,
+    mustChangePassword: false,
+  });
+
+  const store = await cookies();
+  store.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: SESSION_MAX_AGE,
+  });
 
   redirect("/dashboard");
 }
