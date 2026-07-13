@@ -88,10 +88,29 @@ ${nerdcContent.slice(0, 25000)}`;
     });
 
     let raw = result.content.trim();
-    // Strip markdown code fences if the AI wraps the JSON
-    const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-    if (fenceMatch) raw = fenceMatch[1].trim();
-    const json = JSON.parse(raw) as ParseResult[];
+
+    // Strategy 1: try direct JSON parse
+    let json: ParseResult[];
+    try {
+      json = JSON.parse(raw) as ParseResult[];
+    } catch {
+      // Strategy 2: extract from markdown code fences
+      const fenceMatch = raw.match(/```(?:json)?\s*\r?\n?([\s\S]*?)```/);
+      if (fenceMatch) {
+        raw = fenceMatch[1].trim();
+        json = JSON.parse(raw) as ParseResult[];
+      } else {
+        // Strategy 3: extract everything between the first [ and last ]
+        const bracketStart = raw.indexOf('[');
+        const bracketEnd = raw.lastIndexOf(']');
+        if (bracketStart !== -1 && bracketEnd > bracketStart) {
+          raw = raw.slice(bracketStart, bracketEnd + 1);
+          json = JSON.parse(raw) as ParseResult[];
+        } else {
+          throw new Error("No JSON array found in AI response");
+        }
+      }
+    }
 
     if (!Array.isArray(json) || json.length === 0) {
       return { error: "AI returned empty or invalid data. Try again." };
