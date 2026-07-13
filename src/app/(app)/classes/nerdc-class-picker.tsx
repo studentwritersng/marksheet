@@ -17,6 +17,13 @@ export function NerdcClassPicker({ sessionId }: { sessionId: string }) {
     }
   }, [open, allLevels.length]);
 
+  useEffect(() => {
+    if (state.success && open) {
+      setOpen(false);
+      setSelected(new Set());
+    }
+  }, [state.success, open]);
+
   function toggle(level: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -26,14 +33,9 @@ export function NerdcClassPicker({ sessionId }: { sessionId: string }) {
     });
   }
 
-  function handleSubmit(fd: FormData) {
-    fd.set("levels", JSON.stringify([...selected]));
-    fd.set("sessionId", sessionId);
-    action(fd);
-    if (!state.error) {
-      setOpen(false);
-      setSelected(new Set());
-    }
+  function close() {
+    setOpen(false);
+    setSelected(new Set());
   }
 
   return (
@@ -51,7 +53,7 @@ export function NerdcClassPicker({ sessionId }: { sessionId: string }) {
           <div className="bg-surface-container-lowest rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-outline-variant">
               <h2 className="font-headline-sm text-headline-sm text-on-surface">Create Classes from NERDC</h2>
-              <button onClick={() => { setOpen(false); setSelected(new Set()); }}
+              <button onClick={close}
                 className="text-on-surface-variant hover:text-on-surface">
                 <span className="material-symbols-outlined">close</span>
               </button>
@@ -77,7 +79,9 @@ export function NerdcClassPicker({ sessionId }: { sessionId: string }) {
               )}
             </div>
 
-            <form action={handleSubmit} className="p-4 border-t border-outline-variant flex items-center gap-3">
+            <form action={action} className="p-4 border-t border-outline-variant flex items-center gap-3">
+              <input type="hidden" name="levels" value={JSON.stringify([...selected])} />
+              <input type="hidden" name="sessionId" value={sessionId} />
               <button
                 type="submit"
                 disabled={pending || selected.size === 0}
@@ -87,7 +91,7 @@ export function NerdcClassPicker({ sessionId }: { sessionId: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => { setOpen(false); setSelected(new Set()); }}
+                onClick={close}
                 className="font-label-md text-label-md text-on-surface-variant hover:text-on-surface"
               >
                 Cancel
