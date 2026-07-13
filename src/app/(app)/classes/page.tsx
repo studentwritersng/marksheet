@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { CreateClassForm } from "./create-class-form";
+import { NerdcClassPicker } from "./nerdc-class-picker";
 import { ClassRow } from "./class-row";
 import Link from "next/link";
 import { ExportButtons } from "@/components/export-buttons";
@@ -64,8 +65,12 @@ export default async function ClassesPage() {
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-3">
         <CreateClassForm sessionId={currentSession?.id ?? ""} />
+        <div className="flex items-center gap-2 pl-1">
+          <span className="text-sm text-on-surface-variant">Or create from NERDC class levels:</span>
+          <NerdcClassPicker sessionId={currentSession?.id ?? ""} />
+        </div>
       </div>
 
       <div id="classes-content" className="mt-8 space-y-6">

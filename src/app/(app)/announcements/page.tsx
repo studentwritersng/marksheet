@@ -38,7 +38,7 @@ export default async function AnnouncementsPage() {
                 <h3 className="font-label-md text-label-md text-on-surface font-semibold">{a.title}</h3>
                 {a.isSticky && <span className="rounded-full bg-primary-container text-on-primary-container px-2 py-0.5 text-[11px] font-medium">Sticky</span>}
               </div>
-              <p className="font-body-sm text-body-sm text-on-surface-variant">{a.content}</p>
+              <div className="font-body-sm text-body-sm text-on-surface-variant [&_a]:text-primary [&_a]:underline" dangerouslySetInnerHTML={{ __html: a.content }} />
             </div>
           ))}
           {announcements.length === 0 && (

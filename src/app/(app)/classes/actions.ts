@@ -11,6 +11,52 @@ export interface ActionState {
   success?: string;
 }
 
+export async function getNerdcLevelsAction(): Promise<string[]> {
+  const rows = await prisma.curriculumTopic.findMany({
+    where: { isSystem: true },
+    select: { classLevel: true },
+    distinct: ["classLevel"],
+    orderBy: { classLevel: "asc" },
+  });
+  return rows.map((r) => r.classLevel).filter(Boolean);
+}
+
+export async function bulkCreateClassesAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const levelsRaw = formData.get("levels") as string;
+  const sessionId = formData.get("sessionId") as string;
+  if (!levelsRaw || !sessionId) return { error: "Missing levels or session." };
+  const levels: string[] = JSON.parse(levelsRaw);
+
+  // Verify session belongs to this school
+  const session = await prisma.session.findFirst({
+    where: { id: sessionId, schoolId: ctx.schoolId },
+  });
+  if (!session) return { error: "Invalid session." };
+
+  let created = 0;
+  for (const level of levels) {
+    const name = level;
+    const existing = await prisma.class.findFirst({
+      where: { sessionId, level, section: "", department: "" },
+    });
+    if (existing) continue;
+    await prisma.class.create({
+      data: { schoolId: ctx.schoolId, sessionId, name, level, section: "", department: "" },
+    });
+    created++;
+  }
+
+  revalidatePath("/classes");
+  return { success: `${created} class level(s) created from NERDC.` };
+}
+
 export async function createClassAction(
   _prev: ActionState,
   formData: FormData,

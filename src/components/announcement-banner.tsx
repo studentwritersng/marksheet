@@ -24,6 +24,10 @@ export async function AnnouncementBanner({
   const sticky = announcements.filter((a) => a.isSticky);
   const regular = announcements.filter((a) => !a.isSticky);
 
+  function stripHtml(html: string) {
+    return html.replace(/<[^>]*>/g, "");
+  }
+
   return (
     <div className="space-y-2 sticky top-16 z-10">
       {sticky.length > 0 && (
@@ -32,12 +36,12 @@ export async function AnnouncementBanner({
             <div className="inline-flex gap-12" style={{ animation: "marquee 30s linear infinite" }}>
               {sticky.map((a) => (
                 <span key={a.id} className="font-label-md text-label-md text-on-primary-fixed mx-4 shrink-0">
-                  <strong>{a.title}:</strong> {a.content}
+                  <strong>{a.title}:</strong> {stripHtml(a.content)}
                 </span>
               ))}
               {sticky.map((a) => (
                 <span key={`dup-${a.id}`} className="font-label-md text-label-md text-on-primary-fixed mx-4 shrink-0">
-                  <strong>{a.title}:</strong> {a.content}
+                  <strong>{a.title}:</strong> {stripHtml(a.content)}
                 </span>
               ))}
             </div>
@@ -48,7 +52,7 @@ export async function AnnouncementBanner({
       {regular.map((a) => (
         <div key={a.id} className="bg-surface-container-lowest border border-outline-variant rounded-lg p-3">
           <p className="font-label-md text-label-md text-on-surface font-semibold">{a.title}</p>
-          <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">{a.content}</p>
+          <div className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 [&_a]:text-primary [&_a]:underline" dangerouslySetInnerHTML={{ __html: a.content }} />
         </div>
       ))}
     </div>

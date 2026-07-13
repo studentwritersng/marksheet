@@ -2,6 +2,7 @@
 
 import { useState, useActionState } from "react";
 import { createAnnouncementAction, deleteAnnouncementAction } from "./actions";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import type { Announcement } from "@prisma/client";
 
 export function AnnouncementsList({ announcements: initial }: { announcements: Announcement[] }) {
@@ -45,7 +46,7 @@ export function AnnouncementsList({ announcements: initial }: { announcements: A
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>{st.text}</span>
                     {a.isSticky && <span className="rounded-full bg-primary-container text-on-primary-container px-2 py-0.5 text-[11px] font-medium">Sticky</span>}
                   </div>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{a.content}</p>
+                  <div className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 [&_a]:text-primary [&_a]:underline" dangerouslySetInnerHTML={{ __html: a.content }} />
                   <div className="flex items-center gap-3 mt-2 text-[11px] text-on-surface-variant">
                     <span>Targets: {(a.targetRoles as string[]).join(", ")}</span>
                     {a.publishedAt && <span>Published: {a.publishedAt.toLocaleDateString()}</span>}
@@ -83,8 +84,7 @@ function CreateAnnouncementForm({ action, pending, state }: {
 
       <div>
         <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Content</label>
-        <textarea name="content" required rows={4}
-          className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md" />
+        <RichTextEditor name="content" required rows={4} placeholder="Write your announcement..." />
       </div>
 
       <div>

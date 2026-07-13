@@ -58,6 +58,7 @@ export function buildNav(
       ]},
       { label: "System", icon: "settings", children: [
         { label: "Announcements", href: "/announcements", icon: "campaign" },
+        { label: "Support Tickets", href: "/tickets", icon: "support" },
         { label: "Audit Log", href: "/audit-log", icon: "history" },
         { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
         { label: "Settings", href: "/settings/school", icon: "settings" },

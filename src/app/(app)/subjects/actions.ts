@@ -40,6 +40,46 @@ export async function createSubjectAction(
   return { success: `"${name}" created.` };
 }
 
+export async function getNerdcSubjectsAction(): Promise<string[]> {
+  const rows = await prisma.curriculumTopic.findMany({
+    where: { isSystem: true },
+    select: { subject: true },
+    distinct: ["subject"],
+    orderBy: { subject: "asc" },
+  });
+  return rows.map((r) => r.subject as string).filter(Boolean);
+}
+
+export async function bulkCreateSubjectsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const namesRaw = formData.get("subjectNames") as string;
+  if (!namesRaw) return { error: "No subjects selected." };
+  const names: string[] = JSON.parse(namesRaw);
+
+  const existing = await prisma.subject.findMany({
+    where: { schoolId: ctx.schoolId, name: { in: names } },
+    select: { name: true },
+  });
+  const existingSet = new Set(existing.map((s) => s.name));
+  const toCreate = names.filter((n) => !existingSet.has(n));
+
+  if (toCreate.length === 0) return { error: "All selected subjects already exist." };
+
+  await prisma.subject.createMany({
+    data: toCreate.map((name) => ({ schoolId: ctx.schoolId, name })),
+    skipDuplicates: true,
+  });
+
+  revalidatePath("/subjects");
+  return { success: `${toCreate.length} subject(s) imported from NERDC.` };
+}
+
 export async function deleteSubjectAction(subjectId: string): Promise<ActionState> {
   let ctx;
   try {
