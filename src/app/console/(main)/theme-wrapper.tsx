@@ -48,8 +48,11 @@ export function ConsoleThemeWrapper({
   logoutAction: () => void;
 }) {
   const [theme, setTheme] = useState<Theme>("dark");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => { setSidebarOpen(false); }, [pathname]);
 
   useEffect(() => {
     const saved = localStorage.getItem("console-theme") as Theme;
@@ -84,9 +87,16 @@ export function ConsoleThemeWrapper({
           theme === "dark" ? "bg-[#070a13] text-slate-100" : "bg-[#f8fafc] text-slate-900"
         }`}
       >
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        )}
+
         {/* Sidebar */}
         <aside
-          className={`w-64 shrink-0 border-r flex flex-col transition-colors duration-300 ${
+          className={`${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-64 border-r flex flex-col transition-all duration-300 ${
             theme === "dark"
               ? "bg-[#0b0f19] border-white/5 text-slate-300"
               : "bg-slate-900 border-slate-800 text-slate-200"
@@ -159,20 +169,25 @@ export function ConsoleThemeWrapper({
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
           <header
-            className={`h-16 shrink-0 border-b flex items-center justify-between px-8 transition-colors duration-300 ${
+            className={`h-16 shrink-0 border-b flex items-center justify-between px-4 lg:px-8 transition-colors duration-300 ${
               theme === "dark" ? "bg-[#0b0f19] border-white/5" : "bg-white border-slate-200 shadow-sm"
             }`}
           >
-            <span
-              className={`font-semibold tracking-wide text-xs uppercase ${
-                theme === "dark" ? "text-slate-400" : "text-slate-500"
-              }`}
-            >
-              Control Center &middot;{" "}
-              <span className="text-indigo-500 font-bold">{pathname.split("/").pop() || "Dashboard"}</span>
-            </span>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined text-[22px]">menu</span>
+              </button>
+              <span
+                className={`font-semibold tracking-wide text-xs uppercase ${
+                  theme === "dark" ? "text-slate-400" : "text-slate-500"
+                }`}
+              >
+                Control Center &middot;{" "}
+                <span className="text-indigo-500 font-bold">{pathname.split("/").pop() || "Dashboard"}</span>
+              </span>
+            </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 lg:gap-6">
               {/* Theme Toggle Button */}
               <button
                 onClick={toggleTheme}
@@ -207,7 +222,7 @@ export function ConsoleThemeWrapper({
           </header>
 
           {/* Main canvas */}
-          <main className="flex-1 overflow-y-auto p-8">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 lg:p-8">{children}</main>
         </div>
       </div>
     </ThemeContext.Provider>

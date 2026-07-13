@@ -29,7 +29,7 @@ export async function AnnouncementBanner({
   }
 
   return (
-    <div className="space-y-2 sticky top-16 z-10">
+    <div className="space-y-2 sticky top-16 z-[1]">
       {sticky.length > 0 && (
         <div className="bg-primary-fixed border border-primary/30 rounded-lg overflow-hidden">
           <div className="overflow-hidden whitespace-nowrap py-2">
