@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
+import { getAllUniqueSubjects } from "@/lib/nerdc-subjects";
 
 export interface ActionState {
   error?: string;
@@ -41,13 +42,15 @@ export async function createSubjectAction(
 }
 
 export async function getNerdcSubjectsAction(): Promise<string[]> {
-  const rows = await prisma.curriculumTopic.findMany({
+  const dbRows = await prisma.curriculumTopic.findMany({
     where: { isSystem: true },
     select: { subject: true },
     distinct: ["subject"],
-    orderBy: { subject: "asc" },
   });
-  return rows.map((r) => r.subject as string).filter(Boolean);
+  const dbSubjects = new Set(dbRows.map((r) => r.subject as string).filter(Boolean));
+  const allSubjects = getAllUniqueSubjects();
+  const merged = new Set([...allSubjects, ...dbSubjects]);
+  return [...merged].sort((a, b) => a.localeCompare(b));
 }
 
 export async function bulkCreateSubjectsAction(

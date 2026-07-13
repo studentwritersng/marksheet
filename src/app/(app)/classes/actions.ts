@@ -6,6 +6,8 @@ import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 
+const LEVEL_ORDER = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
+
 export interface ActionState {
   error?: string;
   success?: string;
@@ -16,9 +18,10 @@ export async function getNerdcLevelsAction(): Promise<string[]> {
     where: { isSystem: true },
     select: { classLevel: true },
     distinct: ["classLevel"],
-    orderBy: { classLevel: "asc" },
   });
-  return rows.map((r) => r.classLevel).filter(Boolean);
+  const dbLevels = new Set(rows.map((r) => r.classLevel).filter(Boolean));
+  const allLevels = [...new Set([...LEVEL_ORDER, ...dbLevels])];
+  return allLevels;
 }
 
 export async function bulkCreateClassesAction(
