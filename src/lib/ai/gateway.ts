@@ -6,8 +6,9 @@
  * comment drafting) MUST call through this service. No module may instantiate a
  * provider SDK or hardcode a base URL / model name.
  *
- * Switching dev -> OpenRouter is configuration-only (see .env):
- *   AI_BASE_URL, AI_API_KEY, AI_DEFAULT_MODEL, AI_MOCK
+ * Resolution order:
+ *   1. Active provider from the AiProviderConfig table (configured in Console → AI Config)
+ *   2. Environment variables (AI_BASE_URL, AI_API_KEY, AI_DEFAULT_MODEL, AI_MOCK)
  *
  * The provider is assumed to expose an OpenAI-compatible
  * /chat/completions interface, which OpenRouter and most modern providers do.
@@ -67,6 +68,26 @@ function loadConfig(): GatewayConfig {
     defaultModel: process.env.AI_DEFAULT_MODEL ?? "gpt-4o-mini",
     mock: (process.env.AI_MOCK ?? "false").toLowerCase() === "true",
   };
+}
+
+async function loadBestConfig(): Promise<GatewayConfig> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const dbProvider = await prisma.aiProviderConfig.findFirst({
+      where: { isActive: true },
+    });
+    if (dbProvider?.baseUrl && dbProvider?.apiKeyEncrypted && dbProvider?.defaultModelName) {
+      return {
+        baseUrl: dbProvider.baseUrl,
+        apiKey: dbProvider.apiKeyEncrypted,
+        defaultModel: dbProvider.defaultModelName,
+        mock: false,
+      };
+    }
+  } catch {
+    // DB unavailable — fall through to env
+  }
+  return loadConfig();
 }
 
 const MAX_RETRIES = 3;
@@ -1286,7 +1307,8 @@ function essayGeneric(cls: string, _topic: string, _subject: string, i: number, 
 export async function createCompletion(
   opts: AiCompletionOptions,
 ): Promise<AiCompletionResult> {
-  const cfg = loadConfig();
+  const envCfg = loadConfig();
+  const cfg = envCfg.mock ? envCfg : await loadBestConfig();
 
   if (cfg.mock) {
     return mockCompletion(opts);
@@ -1294,7 +1316,7 @@ export async function createCompletion(
 
   if (!cfg.baseUrl || !cfg.apiKey) {
     throw new AiGatewayError(
-      "AI provider is not configured (missing AI_BASE_URL or AI_API_KEY).",
+      "AI provider is not configured. Go to Console → AI Config to set one up, or configure AI_BASE_URL/AI_API_KEY in .env.",
     );
   }
 
