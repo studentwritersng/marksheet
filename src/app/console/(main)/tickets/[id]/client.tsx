@@ -64,19 +64,16 @@ export function ConsoleTicketDetailClient({
       <div className="bg-white/5 border border-white/10 rounded-lg p-5 mb-6">
         <div className="flex items-start justify-between gap-4 mb-3">
           <h1 className="text-lg text-white font-semibold">{ticket.title}</h1>
-          <div className="flex gap-2 shrink-0">
-            {["open", "in_progress", "resolved", "closed"].map((s) => (
-              <button
-                key={s}
-                onClick={() => handleStatusChange(s)}
-                className={`text-[11px] px-2 py-1 rounded-full font-medium ${
-                  ticket.status === s ? STATUS_COLORS[s] : "bg-white/5 text-white/30"
-                }`}
-              >
-                {s.replace("_", " ")}
-              </button>
-            ))}
-          </div>
+          <select
+            value={ticket.status}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className="text-sm bg-white/5 border border-white/10 rounded p-1.5 text-white"
+          >
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+          </select>
         </div>
 
         <div className="flex items-center gap-3 text-[11px] text-white/40 mb-4">

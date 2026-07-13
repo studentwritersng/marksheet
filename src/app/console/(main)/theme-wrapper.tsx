@@ -34,6 +34,7 @@ const navItems: NavItem[] = [
   { label: "Payments", href: "/console/payments", icon: "payments" },
   { label: "Payment Methods", href: "/console/payment-methods", icon: "account_balance" },
   { label: "AI Config", href: "/console/ai", icon: "settings" },
+  { label: "Tickets", href: "/console/tickets", icon: "support" },
   { label: "Audit Log", href: "/console/audit", icon: "history" },
 ];
 

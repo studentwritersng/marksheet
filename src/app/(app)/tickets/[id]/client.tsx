@@ -54,19 +54,16 @@ export function TicketDetailClient({ ticket, messages }: { ticket: TicketVM; mes
       <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 mb-6">
         <div className="flex items-start justify-between gap-4 mb-3">
           <h1 className="font-headline-md text-headline-md text-on-surface font-semibold">{ticket.title}</h1>
-          <div className="flex gap-2 shrink-0">
-            {["open", "in_progress", "resolved", "closed"].map((s) => (
-              <button
-                key={s}
-                onClick={() => handleStatusChange(s)}
-                className={`text-[11px] px-2 py-1 rounded-full font-medium ${
-                  ticket.status === s ? STATUS_COLORS[s] : "bg-surface-variant text-on-surface-variant"
-                }`}
-              >
-                {s.replace("_", " ")}
-              </button>
-            ))}
-          </div>
+          <select
+            value={ticket.status}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className="text-sm border border-outline-variant rounded p-1.5 bg-surface-container-lowest"
+          >
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+          </select>
         </div>
 
         <div className="flex items-center gap-3 text-[11px] text-on-surface-variant mb-4">
