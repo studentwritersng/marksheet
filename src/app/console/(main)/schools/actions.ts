@@ -71,6 +71,16 @@ export async function createSchoolAction(
         staffId: staff.id,
       },
     });
+
+    // Create school_admin assignment so the user gets full admin access
+    await prisma.assignment.create({
+      data: {
+        schoolId: school.id,
+        staffId: staff.id,
+        assignmentType: "school_admin",
+        isTemporary: false,
+      },
+    });
   }
 
   await recordAudit({
