@@ -33,25 +33,30 @@ export async function bulkCreateClassesAction(
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const levelsRaw = formData.get("levels") as string;
-  const sessionId = formData.get("sessionId") as string;
-  if (!levelsRaw || !sessionId) return { error: "Missing levels or session." };
+  if (!levelsRaw) return { error: "Missing levels." };
   const levels: string[] = JSON.parse(levelsRaw);
 
-  // Verify session belongs to this school
-  const session = await prisma.session.findFirst({
-    where: { id: sessionId, schoolId: ctx.schoolId },
+  // Find or create a current/default session for the school
+  let session = await prisma.session.findFirst({
+    where: { schoolId: ctx.schoolId, isCurrent: true },
   });
-  if (!session) return { error: "Invalid session." };
+  if (!session) {
+    const year = new Date().getFullYear();
+    const label = `${year}/${year + 1}`;
+    session = await prisma.session.create({
+      data: { schoolId: ctx.schoolId, label, isCurrent: true, status: "active" },
+    });
+  }
 
   let created = 0;
   for (const level of levels) {
     const name = level;
     const existing = await prisma.class.findFirst({
-      where: { sessionId, level, section: "", department: "" },
+      where: { sessionId: session.id, level, section: "", department: "" },
     });
     if (existing) continue;
     await prisma.class.create({
-      data: { schoolId: ctx.schoolId, sessionId, name, level, section: "", department: "" },
+      data: { schoolId: ctx.schoolId, sessionId: session.id, name, level, section: "", department: "" },
     });
     created++;
   }

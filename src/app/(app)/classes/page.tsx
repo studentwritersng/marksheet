@@ -69,7 +69,7 @@ export default async function ClassesPage() {
         <CreateClassForm sessionId={currentSession?.id ?? ""} />
         <div className="flex items-center gap-2 pl-1">
           <span className="text-sm text-on-surface-variant">Or create from NERDC class levels:</span>
-          <NerdcClassPicker sessionId={currentSession?.id ?? ""} />
+          <NerdcClassPicker />
         </div>
       </div>
 

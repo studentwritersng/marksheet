@@ -5,7 +5,7 @@ import { getNerdcLevelsAction, bulkCreateClassesAction, type ActionState } from 
 
 const init: ActionState = {};
 
-export function NerdcClassPicker({ sessionId }: { sessionId: string }) {
+export function NerdcClassPicker() {
   const [open, setOpen] = useState(false);
   const [allLevels, setAllLevels] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -81,7 +81,6 @@ export function NerdcClassPicker({ sessionId }: { sessionId: string }) {
 
             <form action={action} className="p-4 border-t border-outline-variant flex items-center gap-3">
               <input type="hidden" name="levels" value={JSON.stringify([...selected])} />
-              <input type="hidden" name="sessionId" value={sessionId} />
               <button
                 type="submit"
                 disabled={pending || selected.size === 0}
