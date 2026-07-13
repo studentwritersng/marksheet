@@ -36,6 +36,8 @@ interface DashboardProps {
   totalStudents: number;
   totalStaff: number;
   totalRevenue: number;
+  openTicketsCount: number;
+  totalTicketsCount: number;
 }
 
 export function ConsoleDashboardClient({
@@ -48,6 +50,8 @@ export function ConsoleDashboardClient({
   totalStudents,
   totalStaff,
   totalRevenue,
+  openTicketsCount,
+  totalTicketsCount,
 }: DashboardProps) {
   const { theme } = useTheme();
   const [searchTerm, setSearchTerm] = useState("");
@@ -116,7 +120,7 @@ export function ConsoleDashboardClient({
       </div>
 
       {/* Primary stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <PremiumStatCard
           label="Total Schools"
           value={schools.length}
@@ -162,6 +166,16 @@ export function ConsoleDashboardClient({
           trendPositive={true}
           icon="payments"
           color="from-amber-500 to-orange-600"
+          theme={theme}
+        />
+        <PremiumStatCard
+          label="Open Tickets"
+          value={openTicketsCount}
+          subtitle={`${totalTicketsCount} total`}
+          trend={openTicketsCount > 0 ? `${openTicketsCount} need attention` : "All clear"}
+          trendPositive={openTicketsCount === 0}
+          icon="support"
+          color="from-rose-500 to-pink-600"
           theme={theme}
         />
       </div>

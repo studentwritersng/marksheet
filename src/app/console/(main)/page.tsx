@@ -21,6 +21,8 @@ export default async function ConsoleDashboardPage() {
     payments,
     totalStudents,
     totalStaff,
+    openTicketsCount,
+    totalTicketsCount,
   ] = await Promise.all([
     prisma.school.findMany({
       orderBy: { name: "asc" },
@@ -61,6 +63,8 @@ export default async function ConsoleDashboardPage() {
     }),
     prisma.student.count(),
     prisma.staff.count(),
+    prisma.ticket.count({ where: { status: { in: ["open", "in_progress"] } } }),
+    prisma.ticket.count(),
   ]);
 
   // Convert decimal to plain number to prevent Next.js serialization issues
@@ -95,6 +99,8 @@ export default async function ConsoleDashboardPage() {
       totalStudents={totalStudents}
       totalStaff={totalStaff}
       totalRevenue={totalRevenue}
+      openTicketsCount={openTicketsCount}
+      totalTicketsCount={totalTicketsCount}
     />
   );
 }

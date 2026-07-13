@@ -15,6 +15,39 @@ async function guardUser() {
   return user;
 }
 
+async function notifyPlatformOwner(title: string, content: string, schoolName?: string) {
+  const owners = await prisma.user.findMany({
+    where: { role: "platform_owner", isActive: true },
+    select: { id: true },
+  });
+  const prefix = schoolName ? `[${schoolName}] ` : "";
+  await Promise.all(owners.map((o) =>
+    prisma.notification.create({
+      data: {
+        recipientType: "staff",
+        recipientId: o.id,
+        channel: "in_app",
+        eventType: "ticket",
+        title: `${prefix}${title}`,
+        content,
+      },
+    })
+  ));
+}
+
+async function notifyUser(userId: string, title: string, content: string) {
+  await prisma.notification.create({
+    data: {
+      recipientType: "staff",
+      recipientId: userId,
+      channel: "in_app",
+      eventType: "ticket",
+      title,
+      content,
+    },
+  });
+}
+
 export async function createTicketAction(
   _prev: ActionState,
   formData: FormData,
@@ -43,6 +76,17 @@ export async function createTicketAction(
     },
   });
 
+  // Fetch school name for the notification
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { name: true },
+  });
+  await notifyPlatformOwner(
+    `New Ticket: ${title}`,
+    `Priority: ${priority}${category ? ` | Category: ${category}` : ""}`,
+    school?.name,
+  );
+
   revalidatePath("/tickets");
   return { success: "Ticket created." };
 }
@@ -62,7 +106,7 @@ export async function replyToTicketAction(
   // Verify access to the ticket
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    select: { schoolId: true },
+    select: { schoolId: true, title: true, createdById: true },
   });
   if (!ticket) return { error: "Ticket not found." };
   if (user.role !== "platform_owner" && ticket.schoolId !== user.schoolId) {
@@ -73,12 +117,27 @@ export async function replyToTicketAction(
     data: { ticketId, userId: user.userId, content },
   });
 
-  // If ticket was closed or resolved, reopen when a new message is added
-  if (true) {
-    await prisma.ticket.update({
-      where: { id: ticketId },
-      data: { status: "in_progress" },
+  // Reopen ticket when a new message is added
+  await prisma.ticket.update({
+    where: { id: ticketId },
+    data: { status: "in_progress" },
+  });
+
+  // Notify the other party
+  if (user.role === "platform_owner") {
+    // Platform owner replied — notify the ticket creator
+    await notifyUser(ticket.createdById, `Reply: ${ticket.title}`, content);
+  } else {
+    // School user replied — notify platform owners
+    const school = await prisma.school.findUnique({
+      where: { id: ticket.schoolId },
+      select: { name: true },
     });
+    await notifyPlatformOwner(
+      `Reply: ${ticket.title}`,
+      content,
+      school?.name,
+    );
   }
 
   revalidatePath(`/tickets/${ticketId}`);
@@ -95,7 +154,7 @@ export async function updateTicketStatusAction(
 
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    select: { schoolId: true },
+    select: { schoolId: true, title: true, createdById: true },
   });
   if (!ticket) return { error: "Ticket not found." };
   if (user.role !== "platform_owner" && ticket.schoolId !== user.schoolId) {
@@ -106,6 +165,15 @@ export async function updateTicketStatusAction(
     where: { id: ticketId },
     data: { status },
   });
+
+  // Notify ticket creator when platform owner changes status
+  if (user.role === "platform_owner") {
+    await notifyUser(
+      ticket.createdById,
+      `Ticket ${status.replace("_", " ")}: ${ticket.title}`,
+      `Status changed to ${status.replace("_", " ")}.`,
+    );
+  }
 
   revalidatePath(`/tickets/${ticketId}`);
   revalidatePath(`/console/tickets/${ticketId}`);
