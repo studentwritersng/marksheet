@@ -2,6 +2,39 @@
 import { useActionState, useState } from "react";
 import { createPaymentMethodAction, togglePaymentMethodAction, deletePaymentMethodAction } from "./actions";
 interface PMVM { id: string; type: string; label: string; isActive: boolean; details: Record<string, string> | null; }
+
+function PaymentMethodCard({ m }: { m: PMVM }) {
+  const [togState, togAction, togPending] = useActionState(async () => togglePaymentMethodAction(m.id, !m.isActive), {});
+  const [delState, delAction, delPending] = useActionState(async () => deletePaymentMethodAction(m.id), {});
+  const tLabels: Record<string, string> = { bank_transfer: "Bank Transfer", cash: "Cash", online: "Online Payment" };
+  return (
+    <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <p className="text-white font-semibold text-sm">{m.label}</p>
+          <p className="text-white/40 text-xs">{tLabels[m.type] ?? m.type}</p>
+        </div>
+        {m.isActive ? <span className="text-[10px] text-emerald-400 bg-emerald-900/30 rounded-full px-2 py-0.5">Active</span> : <span className="text-[10px] text-gray-400 bg-gray-800/30 rounded-full px-2 py-0.5">Inactive</span>}
+      </div>
+      {m.details && (
+        <div className="text-xs text-white/50 space-y-0.5 mb-3 bg-white/[0.02] rounded-lg p-2">
+          {Object.entries(m.details).filter(([k]) => k !== "instructions").map(([k, v]) => (
+            <div key={k} className="flex gap-2"><span className="capitalize text-white/30">{k.replace(/([A-Z])/g, " $1").trim()}:</span><span className="text-white/70">{v}</span></div>
+          ))}
+          {m.details.instructions && <div className="mt-1.5 pt-1.5 border-t border-white/5"><span className="text-white/30 block mb-0.5">Instructions:</span><span className="text-white/60 whitespace-pre-wrap">{m.details.instructions}</span></div>}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <form action={togAction}><button type="submit" disabled={togPending} className="text-[10px] text-white/40 hover:text-white/70 underline">{m.isActive ? "Deactivate" : "Activate"}</button></form>
+        {!m.isActive && <form action={delAction}><button type="submit" disabled={delPending} className="text-[10px] text-red-400 hover:text-red-300 underline">Delete</button></form>}
+      </div>
+      {togState.success && <p className="text-emerald-400 text-[10px] mt-1">{togState.success}</p>}
+      {togState.error && <p className="text-red-400 text-[10px] mt-1">{togState.error}</p>}
+      {delState.success && <p className="text-emerald-400 text-[10px] mt-1">{delState.success}</p>}
+    </div>
+  );
+}
+
 export function PaymentMethodsClient({ methods }: { methods: PMVM[] }) {
   const [showForm, setShowForm] = useState(false);
   const [state, action, pending] = useActionState(createPaymentMethodAction, {});
@@ -71,37 +104,7 @@ export function PaymentMethodsClient({ methods }: { methods: PMVM[] }) {
         </form>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {methods.map((m) => {
-          const [togState, togAction, togPending] = useActionState(async () => togglePaymentMethodAction(m.id, !m.isActive), {});
-          const [delState, delAction, delPending] = useActionState(async () => deletePaymentMethodAction(m.id), {});
-          const tLabels: Record<string, string> = { bank_transfer: "Bank Transfer", cash: "Cash", online: "Online Payment" };
-          return (
-            <div key={m.id} className="bg-white/[0.03] border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-white font-semibold text-sm">{m.label}</p>
-                  <p className="text-white/40 text-xs">{tLabels[m.type] ?? m.type}</p>
-                </div>
-                {m.isActive ? <span className="text-[10px] text-emerald-400 bg-emerald-900/30 rounded-full px-2 py-0.5">Active</span> : <span className="text-[10px] text-gray-400 bg-gray-800/30 rounded-full px-2 py-0.5">Inactive</span>}
-              </div>
-              {m.details && (
-                <div className="text-xs text-white/50 space-y-0.5 mb-3 bg-white/[0.02] rounded-lg p-2">
-                  {Object.entries(m.details).filter(([k]) => k !== "instructions").map(([k, v]) => (
-                    <div key={k} className="flex gap-2"><span className="capitalize text-white/30">{k.replace(/([A-Z])/g, " $1").trim()}:</span><span className="text-white/70">{v}</span></div>
-                  ))}
-                  {m.details.instructions && <div className="mt-1.5 pt-1.5 border-t border-white/5"><span className="text-white/30 block mb-0.5">Instructions:</span><span className="text-white/60 whitespace-pre-wrap">{m.details.instructions}</span></div>}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <form action={togAction}><button type="submit" disabled={togPending} className="text-[10px] text-white/40 hover:text-white/70 underline">{m.isActive ? "Deactivate" : "Activate"}</button></form>
-                {!m.isActive && <form action={delAction}><button type="submit" disabled={delPending} className="text-[10px] text-red-400 hover:text-red-300 underline">Delete</button></form>}
-              </div>
-              {togState.success && <p className="text-emerald-400 text-[10px] mt-1">{togState.success}</p>}
-              {togState.error && <p className="text-red-400 text-[10px] mt-1">{togState.error}</p>}
-              {delState.success && <p className="text-emerald-400 text-[10px] mt-1">{delState.success}</p>}
-            </div>
-          );
-        })}
+        {methods.map((m) => <PaymentMethodCard key={m.id} m={m} />)}
         {methods.length === 0 && <p className="text-white/30 text-sm col-span-full py-8 text-center">No payment methods configured.</p>}
       </div>
     </div>
