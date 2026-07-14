@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { redirect } from "next/navigation";
+import { CallLogFilter } from "./filter";
 
 export default async function ConsoleAiCallLogPage(props: {
   searchParams: Promise<{ taskType?: string; page?: string }>;
@@ -35,19 +36,7 @@ export default async function ConsoleAiCallLogPage(props: {
         <p className="text-sm text-white/40 mt-1">Usage and error logs for all AI calls routed through the AI Gateway.</p>
       </div>
 
-      {/* Filter + stats */}
-      <div className="flex items-center gap-4">
-        <form method="GET" className="flex items-center gap-3">
-          <select name="taskType" defaultValue={taskFilter} onChange={(e) => e.target.form?.submit()}
-            className="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-white">
-            <option value="">All task types</option>
-            {taskTypes.map((t) => (
-              <option key={t.taskType} value={t.taskType}>{t.taskType.replace(/_/g, " ")} ({t._count})</option>
-            ))}
-          </select>
-          {taskFilter && <a href="/console/ai/call-log" className="text-xs text-white/40 hover:text-white/70">Clear</a>}
-        </form>
-      </div>
+      <CallLogFilter taskTypes={taskTypes.map((t) => ({ type: t.taskType, count: t._count }))} currentTaskFilter={taskFilter} />
 
       <div className="grid grid-cols-3 gap-4 max-w-lg">
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
