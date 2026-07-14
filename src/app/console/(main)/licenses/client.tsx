@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { createPlanAction, togglePlanActiveAction, deletePlanAction, setLicenseStatusAction } from "./actions";
+import { createPlanAction, updatePlanAction, togglePlanActiveAction, deletePlanAction, setLicenseStatusAction } from "./actions";
 
 interface PlanVM { id: string; name: string; durationType: string; price?: number | null; durationDays?: number | null; isActive: boolean; }
 interface LicenseVM {
@@ -100,8 +100,46 @@ export function LicensesClient({ plans, licenses }: { plans: PlanVM[]; licenses:
 }
 
 function PlanCard({ plan }: { plan: PlanVM }) {
+  const [editing, setEditing] = useState(false);
+  const [editState, editAction, editPending] = useActionState(updatePlanAction, {});
   const [togState, togAction, togPending] = useActionState(async () => togglePlanActiveAction(plan.id, !plan.isActive), {});
   const [delState, delAction, delPending] = useActionState(async () => deletePlanAction(plan.id), {});
+
+  if (editing) {
+    return (
+      <form action={editAction} className="bg-white/[0.03] rounded-lg p-4 border border-white/5 space-y-2">
+        <input type="hidden" name="planId" value={plan.id} />
+        <div>
+          <label className="text-[10px] text-white/50 block mb-0.5">Name</label>
+          <input name="name" defaultValue={plan.name} required className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+        </div>
+        <div>
+          <label className="text-[10px] text-white/50 block mb-0.5">Duration Type</label>
+          <select name="durationType" defaultValue={plan.durationType} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white">
+            <option value="monthly">Monthly</option>
+            <option value="termly">Termly</option>
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] text-white/50 block mb-0.5">Price</label>
+            <input name="price" type="number" step="0.01" min="0" defaultValue={plan.price ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+          </div>
+          <div>
+            <label className="text-[10px] text-white/50 block mb-0.5">Days</label>
+            <input name="durationDays" type="number" min="1" defaultValue={plan.durationDays ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" disabled={editPending} className="text-[10px] text-emerald-400 hover:text-emerald-300 underline">Save</button>
+          <button type="button" onClick={() => setEditing(false)} className="text-[10px] text-white/40 hover:text-white/70 underline">Cancel</button>
+        </div>
+        {editState.success && <p className="text-emerald-400 text-[10px]">{editState.success}</p>}
+        {editState.error && <p className="text-red-400 text-[10px]">{editState.error}</p>}
+      </form>
+    );
+  }
+
   return (
     <div className="bg-white/[0.03] rounded-lg px-4 py-3 border border-white/5">
       <div className="flex items-center justify-between mb-1">
@@ -111,6 +149,7 @@ function PlanCard({ plan }: { plan: PlanVM }) {
       <p className="text-white/40 text-xs capitalize mb-1">{plan.durationType}</p>
       {plan.price != null && <p className="text-xs text-white/50">{formatPrice(plan.price)}{plan.durationDays ? " · " + plan.durationDays + " days" : ""}</p>}
       <div className="flex gap-2 mt-2">
+        <button onClick={() => setEditing(true)} className="text-[10px] text-white/40 hover:text-white/70 underline">Edit</button>
         <form action={togAction}><button type="submit" disabled={togPending} className="text-[10px] text-white/40 hover:text-white/70 underline">{plan.isActive ? "Deactivate" : "Activate"}</button></form>
         {!plan.isActive && <form action={delAction}><button type="submit" disabled={delPending} className="text-[10px] text-red-400 hover:text-red-300 underline">Delete</button></form>}
       </div>

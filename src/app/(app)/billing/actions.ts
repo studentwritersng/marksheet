@@ -3,13 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 
 export interface BillingActionResult { error?: string; success?: string; planId?: string; }
 
 export async function submitPaymentAction(_prev: BillingActionResult, formData: FormData): Promise<BillingActionResult> {
   const user = await getCurrentUser();
   if (!user || !user.schoolId) return { error: "Not authorised." };
-  if (user.role !== "super_admin" && user.role !== "platform_owner") return { error: "Only school admins can pay." };
+  const perms = await resolvePermissions(user);
+  if (!canManageSchool(perms)) return { error: "Only school admins can pay." };
 
   const planId = formData.get("planId") as string;
   const methodId = formData.get("methodId") as string;

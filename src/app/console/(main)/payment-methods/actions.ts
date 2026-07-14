@@ -43,6 +43,39 @@ export async function createPaymentMethodAction(_prev: PMActionResult, formData:
   return { success: `"${label}" added.` };
 }
 
+export async function updatePaymentMethodAction(_prev: PMActionResult, formData: FormData): Promise<PMActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const id = formData.get("methodId") as string;
+  const type = formData.get("type") as string;
+  const label = (formData.get("label") as string)?.trim();
+  if (!id || !type || !label) return { error: "Type and label are required." };
+  if (!["bank_transfer", "cash", "online"].includes(type)) return { error: "Invalid type." };
+
+  let details: Record<string, string> | null = null;
+  if (type === "bank_transfer") {
+    const bankName = (formData.get("bankName") as string)?.trim();
+    const accountNumber = (formData.get("accountNumber") as string)?.trim();
+    const accountName = (formData.get("accountName") as string)?.trim();
+    const instructions = (formData.get("instructions") as string)?.trim();
+    if (!bankName || !accountNumber || !accountName) return { error: "All bank details are required." };
+    details = { bankName, accountNumber, accountName };
+    if (instructions) details.instructions = instructions;
+  } else if (type === "online") {
+    const provider = (formData.get("provider") as string)?.trim();
+    const publicKey = (formData.get("publicKey") as string)?.trim();
+    if (!provider || !publicKey) return { error: "Provider and public key are required." };
+    details = { provider, publicKey };
+  }
+
+  try {
+    await prisma.paymentMethod.update({ where: { id }, data: { type: type as any, label, details: details ?? undefined } });
+  } catch {
+    return { error: "Failed to update payment method." };
+  }
+  revalidatePath("/console/payment-methods");
+  return { success: `"${label}" updated.` };
+}
+
 export async function togglePaymentMethodAction(id: string, isActive: boolean): Promise<PMActionResult> {
   try { await guard(); } catch { return { error: "Not authorised." }; }
   await prisma.paymentMethod.update({ where: { id }, data: { isActive } });

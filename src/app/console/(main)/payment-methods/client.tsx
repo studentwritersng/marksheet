@@ -1,12 +1,76 @@
 "use client";
 import { useActionState, useState } from "react";
-import { createPaymentMethodAction, togglePaymentMethodAction, deletePaymentMethodAction } from "./actions";
+import { createPaymentMethodAction, updatePaymentMethodAction, togglePaymentMethodAction, deletePaymentMethodAction } from "./actions";
 interface PMVM { id: string; type: string; label: string; isActive: boolean; details: Record<string, string> | null; }
 
 function PaymentMethodCard({ m }: { m: PMVM }) {
+  const [editing, setEditing] = useState(false);
+  const [editState, editAction, editPending] = useActionState(updatePaymentMethodAction, {});
+  const [editType, setEditType] = useState(m.type);
   const [togState, togAction, togPending] = useActionState(async () => togglePaymentMethodAction(m.id, !m.isActive), {});
   const [delState, delAction, delPending] = useActionState(async () => deletePaymentMethodAction(m.id), {});
   const tLabels: Record<string, string> = { bank_transfer: "Bank Transfer", cash: "Cash", online: "Online Payment" };
+
+  if (editing) {
+    return (
+      <form action={editAction} className="bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-2">
+        <input type="hidden" name="methodId" value={m.id} />
+        <div>
+          <label className="text-[10px] text-white/50 block mb-0.5">Type</label>
+          <select name="type" value={editType} onChange={(e) => setEditType(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white">
+            <option value="bank_transfer">Bank Transfer</option>
+            <option value="cash">Cash</option>
+            <option value="online">Online Payment</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-white/50 block mb-0.5">Label</label>
+          <input name="label" defaultValue={m.label} required className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+        </div>
+        {editType === "bank_transfer" && (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[10px] text-white/50 block mb-0.5">Bank Name</label>
+                <input name="bankName" defaultValue={m.details?.bankName ?? ""} required className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-0.5">Account No</label>
+                <input name="accountNumber" defaultValue={m.details?.accountNumber ?? ""} required className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-0.5">Account Name</label>
+                <input name="accountName" defaultValue={m.details?.accountName ?? ""} required className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] text-white/50 block mb-0.5">Instructions</label>
+              <textarea name="instructions" rows={2} defaultValue={m.details?.instructions ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+            </div>
+          </>
+        )}
+        {editType === "online" && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] text-white/50 block mb-0.5">Provider</label>
+              <input name="provider" defaultValue={m.details?.provider ?? ""} required className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+            </div>
+            <div>
+              <label className="text-[10px] text-white/50 block mb-0.5">Public Key</label>
+              <input name="publicKey" defaultValue={m.details?.publicKey ?? ""} required className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+            </div>
+          </div>
+        )}
+        <div className="flex gap-2">
+          <button type="submit" disabled={editPending} className="text-[10px] text-emerald-400 hover:text-emerald-300 underline">Save</button>
+          <button type="button" onClick={() => setEditing(false)} className="text-[10px] text-white/40 hover:text-white/70 underline">Cancel</button>
+        </div>
+        {editState.success && <p className="text-emerald-400 text-[10px]">{editState.success}</p>}
+        {editState.error && <p className="text-red-400 text-[10px]">{editState.error}</p>}
+      </form>
+    );
+  }
+
   return (
     <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
@@ -25,6 +89,7 @@ function PaymentMethodCard({ m }: { m: PMVM }) {
         </div>
       )}
       <div className="flex gap-2">
+        <button onClick={() => setEditing(true)} className="text-[10px] text-white/40 hover:text-white/70 underline">Edit</button>
         <form action={togAction}><button type="submit" disabled={togPending} className="text-[10px] text-white/40 hover:text-white/70 underline">{m.isActive ? "Deactivate" : "Activate"}</button></form>
         {!m.isActive && <form action={delAction}><button type="submit" disabled={delPending} className="text-[10px] text-red-400 hover:text-red-300 underline">Delete</button></form>}
       </div>
