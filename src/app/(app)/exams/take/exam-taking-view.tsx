@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { startExamAction, submitExamAction } from "@/lib/exams/actions";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { startExamAction, submitExamAction, autoSaveExamAction } from "@/lib/exams/actions";
 
 interface McqOption { id: string; optionText: string }
 interface Question {
@@ -11,12 +11,20 @@ interface Question {
   marks: number;
   mcqOptions: McqOption[];
   hasModelAnswer: boolean;
+  questionGroupId?: string | null;
+  stimulus?: { id: string; type: string; content: string } | null;
+  groupInternallyShufflable?: boolean;
+}
+
+interface AttemptData {
+  shuffledQuestionIds: unknown;
+  shuffledOptionOrder: unknown;
+  endsAt: string | null;
 }
 
 interface SubQuestion {
   letter: string;
   text: string;
-  marks?: string;
 }
 
 function parseSubQuestions(text: string): { stem: string; parts: SubQuestion[] } {
@@ -36,38 +44,172 @@ export function ExamTakingView({
   examId,
   studentId,
   attemptId: existingAttemptId,
+  attemptData,
   subjectName,
   className,
   assessmentTypeId,
   durationMinutes,
   termName,
-  questions,
+  questions: rawQuestions,
+  savedAnswers: initialSavedAnswers,
   studentName,
   studentPhoto,
 }: {
   examId: string;
   studentId: string;
   attemptId?: string;
+  attemptData: AttemptData | null;
   subjectName: string;
   className: string;
   assessmentTypeId: string;
   durationMinutes: number;
   termName: string;
   questions: Question[];
+  savedAnswers: { questionId: string; mcqSelectedOptionId?: string; essayResponseText?: string }[];
   studentName: string;
   studentPhoto: string | null;
 }) {
+  // Apply shuffling: reorder questions and options based on stored attempt data
+  const orderedQuestions = useMemo(() => {
+    if (attemptData?.shuffledQuestionIds && Array.isArray(attemptData.shuffledQuestionIds)) {
+      const idOrder = attemptData.shuffledQuestionIds as string[];
+      const qMap = new Map(rawQuestions.map((q) => [q.id, q]));
+      const ordered = idOrder.map((id) => qMap.get(id)).filter(Boolean) as Question[];
+      if (ordered.length === rawQuestions.length) return ordered;
+    }
+    return rawQuestions;
+  }, [rawQuestions, attemptData?.shuffledQuestionIds]);
+
+  // Shuffled option order lookup
+  const shuffledOptions = useMemo(() => {
+    if (attemptData?.shuffledOptionOrder && typeof attemptData.shuffledOptionOrder === "object") {
+      return attemptData.shuffledOptionOrder as Record<string, string[]>;
+    }
+    return null;
+  }, [attemptData?.shuffledOptionOrder]);
+
   const [attemptId, setAttemptId] = useState(existingAttemptId);
-  const [answers, setAnswers] = useState<Record<string, { mcqSelectedOptionId?: string; essayResponseText?: string }>>({});
+  const [answers, setAnswers] = useState<Record<string, { mcqSelectedOptionId?: string; essayResponseText?: string }>>(
+    () => {
+      const initial: Record<string, { mcqSelectedOptionId?: string; essayResponseText?: string }> = {};
+      for (const a of initialSavedAnswers) {
+        initial[a.questionId] = { mcqSelectedOptionId: a.mcqSelectedOptionId, essayResponseText: a.essayResponseText };
+      }
+      return initial;
+    },
+  );
   const [essayParts, setEssayParts] = useState<Record<string, Record<string, string>>>({});
-  const [remaining, setRemaining] = useState(durationMinutes * 60);
+  const [remaining, setRemaining] = useState(() => {
+    if (attemptData?.endsAt) {
+      const diff = Math.floor((new Date(attemptData.endsAt).getTime() - Date.now()) / 1000);
+      return Math.max(0, diff);
+    }
+    return durationMinutes * 60;
+  });
   const [submitted, setSubmitted] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [msg, setMsg] = useState("");
   const [starting, setStarting] = useState(!existingAttemptId);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const autoSaveIntervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const answersRef = useRef(answers);
+  const essayPartsRef = useRef(essayParts);
+  const attemptIdRef = useRef(attemptId);
+
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { essayPartsRef.current = essayParts; }, [essayParts]);
+  useEffect(() => { attemptIdRef.current = attemptId; }, [attemptId]);
+
+  // --- Kiosk mode ---
+  useEffect(() => {
+    if (starting || submitted) return;
+
+    // Enter fullscreen
+    if (document.documentElement.requestFullscreen && !fullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setFullscreen(true);
+    }
+
+    // Prevent back navigation
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+    };
+    window.addEventListener("popstate", handlePopState);
+
+    // Warn on close / refresh
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Prevent copy/paste
+    const handleCopy = (e: ClipboardEvent) => { if (e.target instanceof HTMLTextAreaElement) return; e.preventDefault(); };
+    const handlePaste = (e: ClipboardEvent) => { e.preventDefault(); };
+    const handleContextMenu = (e: MouseEvent) => { e.preventDefault(); };
+    document.addEventListener("copy", handleCopy);
+    document.addEventListener("paste", handlePaste);
+    document.addEventListener("contextmenu", handleContextMenu);
+
+    // Exit fullscreen on submit
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("copy", handleCopy);
+      document.removeEventListener("paste", handlePaste);
+      document.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, [starting, submitted, fullscreen]);
+
+  // --- Timer (server-synced if endsAt exists) ---
+  useEffect(() => {
+    if (starting || !attemptId) return;
+
+    // If server-side endsAt, sync periodically
+    if (attemptData?.endsAt) {
+      const tick = () => {
+        const diff = Math.floor((new Date(attemptData.endsAt!).getTime() - Date.now()) / 1000);
+        setRemaining(Math.max(0, diff));
+      };
+      tick();
+      intervalRef.current = setInterval(tick, 1000);
+    } else {
+      intervalRef.current = setInterval(() => {
+        setRemaining((prev) => {
+          if (prev <= 1) { clearInterval(intervalRef.current); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => clearInterval(intervalRef.current);
+  }, [starting, attemptId, attemptData?.endsAt]);
+
+  // --- Auto-save every 30 seconds ---
+  useEffect(() => {
+    if (starting || submitted || !attemptId) return;
+
+    autoSaveIntervalRef.current = setInterval(async () => {
+      const aId = attemptIdRef.current;
+      if (!aId) return;
+      const currentAnswers = answersRef.current;
+      const currentParts = essayPartsRef.current;
+      setAutoSaving(true);
+
+      const answerList = buildAnswerList(currentAnswers, currentParts);
+      if (answerList.length === 0) { setAutoSaving(false); return; }
+
+      await autoSaveExamAction(aId, answerList);
+      setAutoSaving(false);
+    }, 30_000);
+
+    return () => clearInterval(autoSaveIntervalRef.current);
+  }, [starting, submitted, attemptId]);
 
   const startExam = useCallback(async () => {
     const res = await startExamAction(examId, studentId);
@@ -79,28 +221,14 @@ export function ExamTakingView({
     }
   }, [examId, studentId]);
 
-  useEffect(() => {
-    if (starting || !attemptId) return;
-    intervalRef.current = setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(intervalRef.current);
-  }, [starting, attemptId]);
-
-  const handleSubmit = useCallback(async () => {
-    if (!attemptId) return;
-    clearInterval(intervalRef.current);
-    setSubmitted(true);
-    const answerList = Object.entries(answers).map(([questionId, value]) => {
-      const parts = essayParts[questionId];
-      if (parts) {
-        const combined = Object.entries(parts)
+  function buildAnswerList(
+    ans: Record<string, { mcqSelectedOptionId?: string; essayResponseText?: string }>,
+    parts: Record<string, Record<string, string>>,
+  ) {
+    return Object.entries(ans).map(([questionId, value]) => {
+      const p = parts[questionId];
+      if (p) {
+        const combined = Object.entries(p)
           .filter(([, v]) => v.trim())
           .map(([l, v]) => `(${l}) ${v}`)
           .join("\n\n");
@@ -108,11 +236,18 @@ export function ExamTakingView({
       }
       return { questionId, ...value };
     });
+  }
+
+  const handleSubmit = useCallback(async () => {
+    if (!attemptId) return;
+    clearInterval(intervalRef.current);
+    clearInterval(autoSaveIntervalRef.current);
+    setSubmitted(true);
+    const answerList = buildAnswerList(answers, essayParts);
     const res = await submitExamAction(attemptId, answerList);
     setMsg(res.success ?? res.error ?? "Submitted.");
   }, [attemptId, answers, essayParts]);
 
-  /** Auto-submit when timer hits 0 */
   const hasAutoSubmitted = useRef(false);
   useEffect(() => {
     if (remaining > 0 || submitted || hasAutoSubmitted.current || !attemptId) return;
@@ -120,7 +255,10 @@ export function ExamTakingView({
     handleSubmit();
   }, [remaining, submitted, attemptId, handleSubmit]);
 
+  const questions = orderedQuestions;
   const q = questions[currentIndex];
+  if (!q && !submitted) return null;
+
   const isAnswered = (id: string) =>
     answers[id]?.mcqSelectedOptionId != null ||
     (answers[id]?.essayResponseText?.trim().length ?? 0) > 0 ||
@@ -128,7 +266,7 @@ export function ExamTakingView({
   const isSkipped = (id: string) => skipped.has(id) && !isAnswered(id);
 
   function goTo(index: number) {
-    if (!skipped.has(questions[currentIndex].id) && !isAnswered(questions[currentIndex].id)) {
+    if (!skipped.has(questions[currentIndex]?.id) && !isAnswered(questions[currentIndex]?.id)) {
       setSkipped((prev) => new Set(prev).add(questions[currentIndex].id));
     }
     setCurrentIndex(index);
@@ -150,6 +288,15 @@ export function ExamTakingView({
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
   const initials = studentName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+
+  // Get options in shuffled order
+  function getOptions(questionId: string, options: McqOption[]): McqOption[] {
+    if (!shuffledOptions) return options;
+    const order = shuffledOptions[questionId];
+    if (!order) return options;
+    const optMap = new Map(options.map((o) => [o.id, o]));
+    return order.map((id) => optMap.get(id)).filter(Boolean) as McqOption[];
+  }
 
   if (starting) {
     return (
@@ -196,7 +343,7 @@ export function ExamTakingView({
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      {/* Header bar — student info, timer, submit */}
+      {/* Header bar */}
       <div className="flex items-center justify-between bg-surface-container-lowest border border-outline-variant rounded-lg p-3 sticky top-0 z-10">
         <div className="flex items-center gap-3 min-w-0">
           {studentPhoto ? (
@@ -212,7 +359,12 @@ export function ExamTakingView({
           </div>
         </div>
         <div className="flex items-center gap-4 shrink-0">
-          <div className={`font-headline-sm text-headline-sm ${remaining < 300 ? "text-error" : "text-primary"}`}>
+          {autoSaving && (
+            <span className="text-[11px] text-on-surface-variant animate-pulse">Saving...</span>
+          )}
+          <div
+            className={`font-headline-sm text-headline-sm font-mono tabular-nums ${remaining < 300 ? "text-error" : "text-primary"} ${remaining < 60 ? "animate-pulse" : ""}`}
+          >
             {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
           </div>
           <button
@@ -227,6 +379,17 @@ export function ExamTakingView({
       <div className="flex gap-4">
         {/* Main question area */}
         <div className="flex-1 min-w-0">
+          {q.stimulus && (
+            <div className="bg-surface-container-low border border-outline-variant rounded-lg p-5 mb-4 sticky top-[72px] z-[5]">
+              <p className="font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">
+                {q.stimulus.type === "passage" ? "Read the passage below:" : "Stimulus"}
+              </p>
+              <div className="font-body-md text-body-md text-on-surface whitespace-pre-wrap">
+                {q.stimulus.content}
+              </div>
+            </div>
+          )}
+
           <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5">
             <div className="flex items-start justify-between gap-4 mb-1">
               <p className="font-label-sm text-label-sm text-on-surface-variant">
@@ -234,13 +397,13 @@ export function ExamTakingView({
               </p>
               <span className="font-label-sm text-label-sm text-on-surface-variant shrink-0">{q.marks} mark{q.marks > 1 ? "s" : ""}</span>
             </div>
-            <p className="font-body-md text-body-md text-on-surface font-medium mt-3 mb-4">
+            <p className="font-body-md text-body-md text-on-surface font-medium mt-3 mb-4 whitespace-pre-wrap">
               {q.text}
             </p>
 
             {q.type === "mcq" && (
               <div className="space-y-2">
-                {q.mcqOptions.map((opt) => (
+                {getOptions(q.id, q.mcqOptions).map((opt) => (
                   <label
                     key={opt.id}
                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${

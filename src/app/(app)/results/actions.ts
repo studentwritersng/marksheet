@@ -66,31 +66,47 @@ export async function finalizeTermResultsAction(
   }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
+  const { getSchoolFeeGateConfig, getStudentFeeStatus } = await import("@/lib/fees/gate");
+  const feeGate = await getSchoolFeeGateConfig(ctx.schoolId);
+
   const termResults = await prisma.termResult.findMany({
     where: { termId, student: { schoolId: ctx.schoolId } },
-    select: { id: true, student: { select: { userId: true, firstName: true, lastName: true } } },
+    select: { id: true, studentId: true, student: { select: { userId: true, firstName: true, lastName: true } } },
   });
 
   if (termResults.length === 0) return { error: "No computed results to finalize." };
 
   await prisma.$transaction(async (tx) => {
-    await tx.termResult.updateMany({
-      where: { termId, student: { schoolId: ctx.schoolId } },
-      data: { status: "finalised", finalizedAt: new Date() },
-    });
-
     for (const tr of termResults) {
-      const existing = await tx.verificationCode.findFirst({
-        where: { termResultId: tr.id },
+      let finalStatus = "finalised";
+      let skipCode = false;
+
+      if (feeGate.gateResults) {
+        const feeStatus = await getStudentFeeStatus(tr.studentId, termId);
+        if (feeStatus === "not_cleared") {
+          finalStatus = "withheld";
+          skipCode = true;
+        }
+      }
+
+      await tx.termResult.update({
+        where: { id: tr.id },
+        data: { status: finalStatus, finalizedAt: new Date() },
       });
-      if (!existing) {
-        await tx.verificationCode.create({
-          data: {
-            termResultId: tr.id,
-            code: generateVerificationCode(),
-            status: "active",
-          },
+
+      if (!skipCode) {
+        const existing = await tx.verificationCode.findFirst({
+          where: { termResultId: tr.id },
         });
+        if (!existing) {
+          await tx.verificationCode.create({
+            data: {
+              termResultId: tr.id,
+              code: generateVerificationCode(),
+              status: "active",
+            },
+          });
+        }
       }
     }
   });

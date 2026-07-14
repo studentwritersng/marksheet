@@ -35,10 +35,12 @@ export async function updateSchoolSettingsAction(
   const email = String(formData.get("email") ?? "").trim() || null;
   const motto = String(formData.get("motto") ?? "").trim() || null;
   const maintenanceMode = formData.get("maintenanceMode") === "on";
+  const feeGateExams = formData.get("feeGateExams") === "on";
+  const feeGateResults = formData.get("feeGateResults") === "on";
 
   await prisma.school.update({
     where: { id: ctx.schoolId },
-    data: { name, shortcode, address, logo, signature, stamp, phone, email, motto, maintenanceMode },
+    data: { name, shortcode, address, logo, signature, stamp, phone, email, motto, maintenanceMode, feeGateExams, feeGateResults },
   });
 
   await recordAudit({

@@ -69,11 +69,26 @@ export function CreateStudentForm({ classes }: { classes: ClassOption[] }) {
         <input name="guardianName" placeholder="Full name" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
         <input name="guardianPhone" placeholder="Phone" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
         <input name="guardianEmail" placeholder="Guardian email (optional)" type="email" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
+        <hr className="border-outline-variant" />
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input type="checkbox" name="dataConsent" value="true" required className="mt-1 rounded border-outline-variant text-primary focus:ring-primary" />
+          <span className="font-body-sm text-body-sm text-on-surface-variant">
+            I confirm that the guardian/parent has consented to the collection and processing of this student&apos;s personal data for academic record-keeping, result publication, and communication purposes, in accordance with the Nigeria Data Protection Regulation (NDPR).
+          </span>
+        </label>
         <button type="submit" disabled={pending} className="w-full bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60">
           {pending ? "Saving…" : "Register"}
         </button>
         {state.error && <p className="text-sm text-red-600">{state.error}</p>}
         {state.success && <p className="text-sm text-green-600">{state.success}</p>}
+        {state.parentCredentials && (
+          <div className="mt-3 p-3 bg-primary/10 border border-primary/30 rounded text-sm">
+            <p className="font-semibold">Parent Portal Credentials:</p>
+            <p>Email: {state.parentCredentials.email}</p>
+            <p>Password: {state.parentCredentials.password}</p>
+            <p className="text-on-surface-variant mt-1">Share these with the parent so they can log in.</p>
+          </div>
+        )}
       </div>
     </form>
   );

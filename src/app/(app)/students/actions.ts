@@ -12,6 +12,7 @@ export interface ActionState {
   error?: string;
   success?: string;
   generatedPassword?: string;
+  parentCredentials?: { email: string; password: string };
 }
 
 /** Pad a number to at least 5 digits */
@@ -51,6 +52,7 @@ export async function createStudentAction(
   const guardianEmail = String(formData.get("guardianEmail") ?? "").trim().toLowerCase() || null;
   const guardianRelation = String(formData.get("guardianRelation") ?? "").trim() || "father";
   const passportPhoto = String(formData.get("passportPhoto") ?? "").trim() || null;
+  const dataConsent = formData.get("dataConsent") === "true";
 
   if (!firstName || !lastName) {
     return { error: "First name and last name are required." };
@@ -90,7 +92,7 @@ export async function createStudentAction(
     },
   });
 
-  await prisma.student.create({
+  const student = await prisma.student.create({
     data: {
       schoolId: ctx.schoolId,
       admissionNumber,
@@ -109,6 +111,59 @@ export async function createStudentAction(
         : undefined,
     },
   });
+
+  // Create parent User account if guardian email is provided
+  let parentCreds: { email: string; password: string } | undefined;
+  if (guardianEmail && guardianName) {
+    const guardianRecord = await prisma.guardian.findFirst({
+      where: { studentId: student.id, email: guardianEmail },
+      select: { id: true },
+    });
+
+    if (guardianRecord) {
+      const parentPasswordRaw = (guardianPhone ?? "").replace(/\D/g, "").slice(0, 8) || Math.random().toString(36).slice(2, 10);
+      const parentHash = await bcrypt.hash(parentPasswordRaw, 10);
+
+      const existingParent = await prisma.user.findFirst({
+        where: { email: guardianEmail, role: "parent", schoolId: ctx.schoolId },
+      });
+
+      if (!existingParent) {
+        await prisma.user.create({
+          data: {
+            email: guardianEmail,
+            passwordHash: parentHash,
+            role: "parent",
+            schoolId: ctx.schoolId,
+            isActive: true,
+          },
+        });
+      }
+
+      const parentUser = await prisma.user.findFirstOrThrow({
+        where: { email: guardianEmail, role: "parent", schoolId: ctx.schoolId },
+      });
+
+      await prisma.guardian.update({
+        where: { id: guardianRecord.id },
+        data: { parentUserId: parentUser.id },
+      });
+
+      parentCreds = { email: guardianEmail, password: parentPasswordRaw };
+    }
+  }
+
+  // Capture data processing consent (PRD 11 §3.4)
+  if (dataConsent) {
+    await prisma.consentRecord.create({
+      data: {
+        studentId: student.id,
+        consentType: "data_processing",
+        consentMethod: "registration_form",
+        schoolId: ctx.schoolId,
+      },
+    }).catch(() => { /* non-critical */ });
+  }
 
   await recordAudit({
     schoolId: ctx.schoolId,
@@ -129,6 +184,7 @@ export async function createStudentAction(
   return {
     success: `${firstName} ${lastName} (${admissionNumber}) registered. Login: ${email}`,
     generatedPassword: sendResult.ok ? undefined : passwordRaw,
+    ...(parentCreds ? { parentCredentials: parentCreds } : {}),
   };
 }
 

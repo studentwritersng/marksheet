@@ -1304,6 +1304,71 @@ function essayGeneric(cls: string, _topic: string, _subject: string, i: number, 
  * Core entry point. Callers pass task type + messages; the gateway handles
  * provider selection, retries, timeout, and (later) logging to AI Call Log.
  */
+/**
+ * Fire-and-forget log an AI call to the AiCallLog table.
+ * Errors are swallowed so logging never breaks the calling flow.
+ */
+async function logAiCall(opts: {
+  taskType: string;
+  schoolId?: string | null;
+  providerConfigId?: string | null;
+  modelName: string;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  status: string;
+  errorDetail?: string | null;
+  latencyMs?: number | null;
+}): Promise<void> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.aiCallLog.create({ data: {
+      taskType: opts.taskType,
+      schoolId: opts.schoolId ?? null,
+      providerConfigId: opts.providerConfigId ?? null,
+      modelName: opts.modelName,
+      promptTokens: opts.promptTokens ?? null,
+      completionTokens: opts.completionTokens ?? null,
+      status: opts.status,
+      errorDetail: opts.errorDetail ?? null,
+      latencyMs: opts.latencyMs ?? null,
+    } });
+  } catch {
+    // silently ignore logging errors
+  }
+}
+
+/**
+ * Resolve the effective provider config ID for a given task type.
+ * Returns { providerConfigId, model, temperature, maxTokens }.
+ */
+async function resolveTaskProfile(
+  taskType: AiTaskType,
+  modelOverride?: string,
+): Promise<{ providerConfigId: string | null; model: string; temperature: number; maxTokens: number }> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const activeProvider = await prisma.aiProviderConfig.findFirst({
+      where: { isActive: true },
+    });
+    if (!activeProvider) {
+      return { providerConfigId: null, model: modelOverride ?? loadConfig().defaultModel, temperature: 0.7, maxTokens: 4096 };
+    }
+
+    const profile = await prisma.aiTaskProfile.findUnique({
+      where: { taskType_providerConfigId: { taskType, providerConfigId: activeProvider.id } },
+    });
+
+    return {
+      providerConfigId: activeProvider.id,
+      model: modelOverride ?? profile?.modelNameOverride ?? activeProvider.defaultModelName,
+      temperature: profile?.temperature ?? 0.7,
+      maxTokens: profile?.maxTokens ?? 4096,
+    };
+  } catch {
+    return { providerConfigId: null, model: modelOverride ?? loadConfig().defaultModel, temperature: 0.7, maxTokens: 4096 };
+  }
+}
+
 export async function createCompletion(
   opts: AiCompletionOptions,
 ): Promise<AiCompletionResult> {
@@ -1311,7 +1376,16 @@ export async function createCompletion(
   const cfg = envCfg.mock ? envCfg : await loadBestConfig();
 
   if (cfg.mock) {
-    return mockCompletion(opts);
+    const result = mockCompletion(opts);
+    await logAiCall({
+      taskType: opts.taskType,
+      schoolId: opts.schoolId,
+      providerConfigId: null,
+      modelName: result.model,
+      status: "success",
+      latencyMs: result.latencyMs,
+    });
+    return result;
   }
 
   if (!cfg.baseUrl || !cfg.apiKey) {
@@ -1320,7 +1394,10 @@ export async function createCompletion(
     );
   }
 
-  const model = opts.model ?? cfg.defaultModel;
+  const taskProfile = await resolveTaskProfile(opts.taskType, opts.model);
+  const model = taskProfile.model;
+  const temperature = opts.temperature ?? taskProfile.temperature;
+  const maxTokens = opts.maxTokens ?? taskProfile.maxTokens;
   const url = `${cfg.baseUrl.replace(/\/$/, "")}/chat/completions`;
 
   let lastError: unknown;
@@ -1339,15 +1416,14 @@ export async function createCompletion(
         body: JSON.stringify({
           model,
           messages: opts.messages,
-          temperature: opts.temperature ?? 0.7,
-          max_tokens: opts.maxTokens ?? 4096,
+          temperature,
+          max_tokens: maxTokens,
         }),
         signal: controller.signal,
       });
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        // Retry transient 5xx / 429; fail fast on 4xx (bad key, bad model).
         if (res.status >= 500 || res.status === 429) {
           lastError = new AiGatewayError(
             `Provider returned ${res.status}`,
@@ -1355,10 +1431,17 @@ export async function createCompletion(
           );
           throw lastError;
         }
-        throw new AiGatewayError(
-          `Provider rejected request (${res.status}): ${text}`,
-          text,
-        );
+        const errMsg = `Provider rejected request (${res.status}): ${text}`;
+        await logAiCall({
+          taskType: opts.taskType,
+          schoolId: opts.schoolId,
+          providerConfigId: taskProfile.providerConfigId,
+          modelName: model,
+          status: "error",
+          errorDetail: errMsg,
+          latencyMs: Date.now() - startedAt,
+        });
+        throw new AiGatewayError(errMsg, text);
       }
 
       const json = (await res.json()) as {
@@ -1367,17 +1450,31 @@ export async function createCompletion(
       };
 
       const content = json.choices?.[0]?.message?.content ?? "";
+      const latencyMs = Date.now() - startedAt;
+      const promptTokens = json.usage?.prompt_tokens ?? null;
+      const completionTokens = json.usage?.completion_tokens ?? null;
+
+      await logAiCall({
+        taskType: opts.taskType,
+        schoolId: opts.schoolId,
+        providerConfigId: taskProfile.providerConfigId,
+        modelName: model,
+        promptTokens,
+        completionTokens,
+        status: "success",
+        latencyMs,
+      });
+
       return {
         content,
         model,
-        promptTokens: json.usage?.prompt_tokens ?? null,
-        completionTokens: json.usage?.completion_tokens ?? null,
-        latencyMs: Date.now() - startedAt,
+        promptTokens,
+        completionTokens,
+        latencyMs,
         mocked: false,
       };
     } catch (err) {
       lastError = err;
-      // Do not retry a definitive client rejection.
       if (
         err instanceof AiGatewayError &&
         err.message.startsWith("Provider rejected request")
@@ -1393,8 +1490,70 @@ export async function createCompletion(
     }
   }
 
+  // Failed after retries
+  await logAiCall({
+    taskType: opts.taskType,
+    schoolId: opts.schoolId,
+    providerConfigId: taskProfile.providerConfigId,
+    modelName: model,
+    status: "error",
+    errorDetail: "AI provider unavailable after retries.",
+    latencyMs: null,
+  });
+
   throw new AiGatewayError(
     "AI provider unavailable after retries.",
     lastError,
   );
+}
+
+/**
+ * Test connection to an AI provider endpoint.
+ * Sends a minimal chat request and reports success/failure.
+ */
+export async function testAiConnection(
+  baseUrl: string,
+  apiKey: string,
+  modelName: string,
+): Promise<{ success: boolean; message: string }> {
+  if (!baseUrl || !apiKey || !modelName) {
+    return { success: false, message: "Base URL, API key, and model name are required." };
+  }
+
+  const url = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const startedAt = Date.now();
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [{ role: "user", content: "Respond with exactly the word: ok" }],
+        max_tokens: 10,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { success: false, message: `Provider returned ${res.status}: ${text.slice(0, 500)}` };
+    }
+
+    const json = await res.json();
+    const content = json?.choices?.[0]?.message?.content ?? "";
+    return {
+      success: true,
+      message: `Connected successfully (${Date.now() - startedAt}ms). Response: "${content.slice(0, 100)}"`,
+    };
+  } catch (err: any) {
+    return { success: false, message: err?.message ?? "Connection failed." };
+  } finally {
+    clearTimeout(timeout);
+  }
 }

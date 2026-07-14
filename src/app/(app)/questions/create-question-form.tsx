@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { createQuestionAction, aiGenerateQuestionsMultiAction, getLessonNotesBySubjectAction, type ActionState } from "./actions";
+import { createQuestionAction, createQuestionGroupAction, aiGenerateQuestionsMultiAction, getLessonNotesBySubjectAction, type ActionState } from "./actions";
 
 const init: ActionState = {};
 
@@ -10,11 +10,12 @@ export function CreateQuestionForm({
 }: {
   subjects: { id: string; name: string }[];
 }) {
-  const [tab, setTab] = useState<"mcq" | "essay" | "ai">("mcq");
+  const [tab, setTab] = useState<"mcq" | "essay" | "ai" | "group">("mcq");
   const [manualState, manualAction, manualPending] = useActionState(
     createQuestionAction,
     init,
   );
+  const [groupState, groupAction, groupPending] = useActionState(createQuestionGroupAction, init);
   const [aiPending, startAi] = useTransition();
   const [aiResult, setAiResult] = useState<ActionState>({});
   const [rubricPoints, setRubricPoints] = useState([{ description: "", mark: 0 }]);
@@ -102,7 +103,7 @@ export function CreateQuestionForm({
   return (
     <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5">
       <div className="mb-4 flex border-b border-outline-variant font-body-sm text-body-sm">
-        {(["mcq", "essay", "ai"] as const).map((t) => (
+        {(["mcq", "essay", "ai", "group"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -112,7 +113,7 @@ export function CreateQuestionForm({
                 : "text-on-surface-variant"
             }`}
           >
-            {t === "mcq" ? "MCQ" : t === "essay" ? "Essay" : "AI Generate"}
+            {t === "mcq" ? "MCQ" : t === "essay" ? "Essay" : t === "ai" ? "AI Generate" : "Question Group"}
           </button>
         ))}
       </div>
@@ -121,6 +122,7 @@ export function CreateQuestionForm({
       {tab === "mcq" && (
         <form action={manualAction} className="space-y-4">
           <input type="hidden" name="type" value="mcq" />
+          <QuestionGroupSelector subjects={subjects} />
           <SubjectMarksFields subjects={subjects} />
           <TopicClassFields />
           <textarea
@@ -167,6 +169,7 @@ export function CreateQuestionForm({
       {tab === "essay" && (
         <form action={manualAction} className="space-y-4">
           <input type="hidden" name="type" value="essay" />
+          <QuestionGroupSelector subjects={subjects} />
           <div className="flex gap-3">
             <div className="flex-1">
               <select
@@ -454,6 +457,98 @@ export function CreateQuestionForm({
           <ResultMessages state={aiResult} />
         </form>
       )}
+
+      {/* Question Group creation tab */}
+      {tab === "group" && (
+        <form action={groupAction} className="space-y-4">
+          <p className="font-body-sm text-body-sm text-on-surface-variant">
+            Create a question group with a shared stimulus (passage, image, table, etc.). After creation, add child questions that reference this group.
+          </p>
+          <div>
+            <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
+            <select name="subjectId" required className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary">
+              <option value="">Select subject…</option>
+              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block font-label-md text-label-md text-on-surface">Stimulus Type</label>
+            <select name="stimulusType" className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary">
+              <option value="passage">Passage</option>
+              <option value="image">Image</option>
+              <option value="table">Table</option>
+              <option value="chart">Chart</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block font-label-md text-label-md text-on-surface">Stimulus Content</label>
+            <textarea name="stimulusContent" required rows={6} placeholder="Paste or type the passage, description, or stimulus text here…"
+              className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
+          </div>
+          <label className="flex items-center gap-2 font-body-md text-body-md text-on-surface">
+            <input type="checkbox" name="internallyShufflable" value="true" className="text-primary" />
+            Allow questions in this group to be shuffled internally (otherwise they stay in order)
+          </label>
+          <button type="submit" disabled={groupPending}
+            className="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60"
+          >
+            {groupPending ? "Creating…" : "Create Question Group"}
+          </button>
+          {groupState.success && (
+            <div className="text-sm text-green-700 bg-green-100 px-3 py-2 rounded space-y-1">
+              <p>{groupState.success}</p>
+              <p className="font-mono text-xs">Group ID: {(groupState as any).groupId}</p>
+              <p className="text-xs">Use this ID in the Group selector when creating questions.</p>
+            </div>
+          )}
+          {groupState.error && <p className="text-sm text-error bg-error-container px-3 py-2 rounded">{groupState.error}</p>}
+        </form>
+      )}
+    </div>
+  );
+}
+
+function QuestionGroupSelector({ subjects }: { subjects: { id: string; name: string }[] }) {
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [groups, setGroups] = useState<{ id: string; stimulusId: string | null }[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function loadGroups(subjectId: string) {
+    setSelectedSubject(subjectId);
+    if (!subjectId) { setGroups([]); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/question-groups?subjectId=${subjectId}`);
+      const data = await res.json();
+      setGroups(data.groups ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Question Group (optional — attach to a stimulus set)</label>
+      <div className="flex gap-2">
+        <select
+          value={selectedSubject}
+          onChange={(e) => loadGroups(e.target.value)}
+          className="flex-1 border border-outline-variant rounded p-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary"
+        >
+          <option value="">Select subject to load groups</option>
+          {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select name="questionGroupId" className="flex-1 border border-outline-variant rounded p-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary">
+          <option value="">No group</option>
+          {loading && <option disabled>Loading…</option>}
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              Group {g.id.slice(0, 8)}… {g.stimulusId ? "(has stimulus)" : ""}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }

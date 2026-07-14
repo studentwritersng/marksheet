@@ -66,6 +66,34 @@ export async function deleteAiProviderAction(id: string): Promise<AiActionResult
   return { success: `AI provider deleted.` };
 }
 
+export async function upsertTaskProfileAction(_prev: AiActionResult, formData: FormData): Promise<AiActionResult> {
+  const user = await guard();
+  if (!user) return { error: "Not authorised." };
+
+  const providerConfigId = String(formData.get("providerConfigId") ?? "");
+  const taskType = String(formData.get("taskType") ?? "");
+  const modelNameOverride = String(formData.get("modelNameOverride") ?? "").trim() || null;
+  const temperature = parseFloat(String(formData.get("temperature") ?? "0.7"));
+  const maxTokens = parseInt(String(formData.get("maxTokens") ?? "4096"));
+  const systemPromptTemplate = String(formData.get("systemPromptTemplate") ?? "").trim() || null;
+
+  if (!providerConfigId || !taskType) return { error: "Provider and task type are required." };
+
+  await prisma.aiTaskProfile.upsert({
+    where: { taskType_providerConfigId: { taskType, providerConfigId } },
+    update: { modelNameOverride, temperature, maxTokens, systemPromptTemplate },
+    create: { providerConfigId, taskType, modelNameOverride, temperature, maxTokens, systemPromptTemplate },
+  });
+
+  await recordAudit({
+    actorId: user.userId, action: "upsert", entityType: "ai_task_profile",
+    afterValue: { taskType, providerConfigId, modelNameOverride } as never,
+  });
+
+  revalidatePath("/console/ai");
+  return { success: `Task profile for "${taskType}" saved.` };
+}
+
 export async function testAiConnectionAction(_prev: AiActionResult, formData: FormData): Promise<AiActionResult> {
   const user = await guard();
   if (!user) return { error: "Not authorised." };

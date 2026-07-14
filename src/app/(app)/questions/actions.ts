@@ -40,6 +40,7 @@ export async function createQuestionAction(
   const optionC = String(formData.get("optionC") ?? "").trim();
   const optionD = String(formData.get("optionD") ?? "").trim();
   const correctAnswer = String(formData.get("correctAnswer") ?? "").trim();
+  const questionGroupId = String(formData.get("questionGroupId") ?? "").trim() || null;
 
   if (!subjectId || !text) return { error: "Subject and question text are required." };
   if (type === "mcq" && !correctAnswer) return { error: "Select the correct answer for MCQ." };
@@ -67,6 +68,7 @@ export async function createQuestionAction(
       source: "manual",
       status: "pending_review",
       createdBy: ctx.user.userId,
+      ...(questionGroupId ? { questionGroupId } : {}),
       ...(type === "essay"
         ? {
             essaySpec: {
@@ -841,6 +843,157 @@ export async function deleteQuestionAction(questionId: string): Promise<ActionSt
 
   revalidatePath("/questions");
   return { success: "Question deleted." };
+}
+
+export async function csvImportQuestionsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState & { imported?: number; errors?: string[] }> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised.", imported: 0 }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message, imported: 0 }; }
+
+  const subjectId = String(formData.get("subjectId") ?? "");
+  const csvContent = String(formData.get("csvContent") ?? "");
+  if (!subjectId || !csvContent) return { error: "Subject and CSV content are required.", imported: 0 };
+
+  const { parseQuestionCsv } = await import("@/lib/csv/question-import");
+  const { rows, summary } = parseQuestionCsv(csvContent);
+
+  if (summary.invalid > 0) {
+    const errList = rows.filter((r) => !r.valid).flatMap((r) => r.errors.map((e) => `Row ${r.row}: ${e}`));
+    return { error: `${summary.invalid} row(s) have errors.`, errors: errList, imported: 0 };
+  }
+
+  if (rows.length === 0) return { error: "No valid question rows found.", imported: 0 };
+
+  // Track group titles → group id mappings
+  const groupMap = new Map<string, string>();
+
+  let imported = 0;
+  for (const row of rows) {
+    let questionGroupId: string | undefined;
+
+    if (row.groupTitle) {
+      if (!groupMap.has(row.groupTitle)) {
+        let stimulusId: string | undefined;
+        if (row.stimulusContent) {
+          const stimulus = await prisma.stimulus.create({
+            data: {
+              type: row.stimulusType || "passage",
+              content: row.stimulusContent,
+              subjectId,
+            },
+          });
+          stimulusId = stimulus.id;
+        }
+        const group = await prisma.questionGroup.create({
+          data: {
+            subjectId,
+            stimulusId,
+            internallyShufflable: false,
+          },
+        });
+        groupMap.set(row.groupTitle, group.id);
+      }
+      questionGroupId = groupMap.get(row.groupTitle);
+    }
+
+    const commonData = {
+      schoolId: ctx.schoolId,
+      subjectId,
+      classLevel: row.classLevel,
+      topic: row.topic,
+      difficulty: row.difficulty,
+      source: "csv_import" as const,
+      status: "pending_review" as const,
+      createdBy: ctx.user.userId,
+      questionGroupId,
+    };
+
+    if (row.type === "mcq") {
+      const options = [
+        { optionText: row.optionA || "", isCorrect: row.correctAnswer === "A" },
+        { optionText: row.optionB || "", isCorrect: row.correctAnswer === "B" },
+        { optionText: row.optionC || "", isCorrect: row.correctAnswer === "C" },
+        { optionText: row.optionD || "", isCorrect: row.correctAnswer === "D" },
+      ].filter((o) => o.optionText);
+
+      await prisma.question.create({
+        data: {
+          ...commonData,
+          type: "mcq",
+          text: row.text,
+          marks: row.marks,
+          mcqOptions: { create: options },
+        },
+      });
+    } else {
+      let rubricPoints: { description: string; mark: number }[] = [];
+      if (row.rubricPoints) {
+        try { rubricPoints = JSON.parse(row.rubricPoints); } catch { rubricPoints = [{ description: "General correctness", mark: row.marks }]; }
+      } else {
+        rubricPoints = [{ description: "General correctness", mark: row.marks }];
+      }
+
+      await prisma.question.create({
+        data: {
+          ...commonData,
+          type: "essay",
+          text: row.text,
+          marks: row.marks,
+          essaySpec: { create: { modelAnswer: row.modelAnswer || "", rubricPoints } },
+        },
+      });
+    }
+    imported++;
+  }
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "create", entityType: "question",
+    afterValue: { source: "csv_import", count: imported } as never,
+  });
+
+  revalidatePath("/questions");
+  return { success: `${imported} question(s) imported from CSV.`, imported };
+}
+
+export async function createQuestionGroupAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState & { groupId?: string }> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const subjectId = String(formData.get("subjectId") ?? "");
+  const stimulusContent = String(formData.get("stimulusContent") ?? "").trim();
+  const stimulusType = String(formData.get("stimulusType") ?? "passage");
+  const internallyShufflable = formData.get("internallyShufflable") === "true";
+
+  if (!subjectId) return { error: "Subject is required." };
+  if (!stimulusContent) return { error: "Stimulus content is required." };
+
+  const stimulus = await prisma.stimulus.create({
+    data: { type: stimulusType, content: stimulusContent, subjectId },
+  });
+
+  const group = await prisma.questionGroup.create({
+    data: {
+      subjectId,
+      stimulusId: stimulus.id,
+      internallyShufflable,
+    },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "create", entityType: "questionGroup",
+    afterValue: { groupId: group.id, subjectId } as never,
+  });
+
+  return { success: "Question group created. Add questions to it.", groupId: group.id };
 }
 
 /**

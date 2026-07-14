@@ -59,6 +59,19 @@ export default async function ExamTakePage(props: {
     );
   }
 
+  // Fee gate check (PRD 12 §3.2) — exam access blocked
+  const { checkExamFeeGate } = await import("@/lib/fees/gate");
+  const feeBlock = await checkExamFeeGate(user.schoolId, student.id, exam.termId);
+  if (feeBlock) {
+    return (
+      <div className="flex flex-col gap-stack-lg">
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 text-center">
+          <p className="font-body-md text-body-md text-on-surface-variant">{feeBlock}</p>
+        </div>
+      </div>
+    );
+  }
+
   // Department check: if the exam's subject is restricted to a department,
   // the student's class must have that department.
   const classSubjectLink = await prisma.classSubject.findUnique({
@@ -88,26 +101,55 @@ export default async function ExamTakePage(props: {
     return <SubmittedView exam={exam} attempt={existingAttempt} />;
   }
 
-  const questions = exam.examQuestions.map((eq) => ({
-    id: eq.question.id,
-    text: eq.question.text,
-    type: eq.question.type,
-    marks: eq.question.marks,
-    mcqOptions: eq.question.mcqOptions,
-    hasModelAnswer: !!eq.question.essaySpec,
-  }));
+  // Group questions for stimulus rendering
+  const groupIds = [...new Set(exam.examQuestions.map((eq) => eq.question.questionGroupId).filter(Boolean))];
+  const groups = groupIds.length > 0
+    ? await prisma.questionGroup.findMany({
+        where: { id: { in: groupIds as string[] } },
+        include: { stimulus: true },
+      })
+    : [];
+
+  const groupMap = new Map(groups.map((g) => [g.id, g]));
+
+  // Build question data with group context
+  const questions = exam.examQuestions.map((eq) => {
+    const q = eq.question;
+    const group = q.questionGroupId ? groupMap.get(q.questionGroupId) : undefined;
+    return {
+      id: q.id,
+      text: q.text,
+      type: q.type,
+      marks: q.marks,
+      mcqOptions: q.mcqOptions,
+      hasModelAnswer: !!q.essaySpec,
+      questionGroupId: q.questionGroupId,
+      stimulus: group?.stimulus ?? null,
+      groupInternallyShufflable: group?.internallyShufflable ?? false,
+    };
+  });
 
   return (
     <ExamTakingView
       examId={exam.id}
       studentId={student.id}
       attemptId={existingAttempt?.id}
+      attemptData={existingAttempt ? {
+        shuffledQuestionIds: existingAttempt.shuffledQuestionIds,
+        shuffledOptionOrder: existingAttempt.shuffledOptionOrder,
+        endsAt: existingAttempt.endsAt?.toISOString() ?? null,
+      } : null}
       subjectName={exam.subject.name}
       className={exam.class?.name ?? ""}
       assessmentTypeId={exam.assessmentTypeId}
       durationMinutes={exam.durationMinutes}
       termName={`${exam.term.name}`}
       questions={questions}
+      savedAnswers={existingAttempt?.answers.map((a) => ({
+        questionId: a.questionId,
+        mcqSelectedOptionId: a.mcqSelectedOptionId ?? undefined,
+        essayResponseText: a.essayResponseText ?? undefined,
+      })) ?? []}
       studentName={`${student.firstName} ${student.lastName}`.trim() || student.admissionNumber || "Student"}
       studentPhoto={student.passportPhoto ?? null}
     />

@@ -116,7 +116,7 @@ export async function commitStudentCsvAction(
       data: { email, passwordHash, role: "student", schoolId: ctx.schoolId, isActive: true },
     });
 
-    await prisma.student.create({
+    const student = await prisma.student.create({
       data: {
         schoolId: ctx.schoolId,
         admissionNumber,
@@ -135,6 +135,45 @@ export async function commitStudentCsvAction(
           : undefined,
       },
     });
+
+    // Create parent User if guardian email is provided
+    if (r.guardianEmail && r.guardianName) {
+      const guardianRecord = await prisma.guardian.findFirst({
+        where: { studentId: student.id, email: r.guardianEmail },
+        select: { id: true },
+      });
+
+      if (guardianRecord) {
+        const parentPasswordRaw = (r.guardianPhone ?? "").replace(/\D/g, "").slice(0, 8) || Math.random().toString(36).slice(2, 10);
+        const parentHash = await bcrypt.hash(parentPasswordRaw, 10);
+
+        const existingParent = await prisma.user.findFirst({
+          where: { email: r.guardianEmail, role: "parent", schoolId: ctx.schoolId },
+        });
+
+        if (!existingParent) {
+          await prisma.user.create({
+            data: {
+              email: r.guardianEmail,
+              passwordHash: parentHash,
+              role: "parent",
+              schoolId: ctx.schoolId,
+              isActive: true,
+            },
+          });
+        }
+
+        const parentUser = await prisma.user.findFirstOrThrow({
+          where: { email: r.guardianEmail, role: "parent", schoolId: ctx.schoolId },
+        });
+
+        await prisma.guardian.update({
+          where: { id: guardianRecord.id },
+          data: { parentUserId: parentUser.id },
+        });
+      }
+    }
+
     created++;
   }
 

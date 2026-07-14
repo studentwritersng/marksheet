@@ -4,6 +4,7 @@ import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { QuestionList } from "./question-list";
 import { CreateQuestionForm } from "./create-question-form";
+import { QuestionCsvImport } from "./question-csv-import";
 
 export default async function QuestionsPage() {
   const user = await getCurrentUser();
@@ -40,8 +41,12 @@ export default async function QuestionsPage() {
         Questions grouped by topic. Filter by class, subject, and type to find what you need.
       </p>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-6">
         <CreateQuestionForm
+          subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
+        />
+
+        <QuestionCsvImport
           subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
         />
       </div>

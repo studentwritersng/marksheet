@@ -30,6 +30,8 @@ export default async function SchoolSettingsPage() {
               name: school.name,
               shortcode: school.shortcode ?? "",
               maintenanceMode: school.maintenanceMode,
+              feeGateExams: school.feeGateExams,
+              feeGateResults: school.feeGateResults,
               address: school.address ?? "",
               logo: school.logo ?? "",
               signature: school.signature ?? "",

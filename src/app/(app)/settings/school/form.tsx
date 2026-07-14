@@ -7,7 +7,7 @@ import { ImageUploader } from "@/components/image-uploader";
 export function SchoolSettingsForm({
   school,
 }: {
-  school: { name: string; address: string; logo: string; phone: string; email: string; motto: string; signature: string; stamp: string; shortcode: string; maintenanceMode: boolean };
+  school: { name: string; address: string; logo: string; phone: string; email: string; motto: string; signature: string; stamp: string; shortcode: string; maintenanceMode: boolean; feeGateExams: boolean; feeGateResults: boolean };
 }) {
   const [state, action, pending] = useActionState(updateSchoolSettingsAction, {});
   const [logoUrl, setLogoUrl] = useState(school.logo);
@@ -57,6 +57,32 @@ export function SchoolSettingsForm({
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="maintenanceMode" defaultChecked={school.maintenanceMode} className="sr-only peer" />
+            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+          </label>
+        </div>
+      </div>
+
+      {/* Fee Gating (PRD 12) */}
+      <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-4">
+        <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Fee Status Gating</h3>
+        <p className="font-body-sm text-body-sm text-on-surface-variant">Configure what happens when a student&apos;s fee status is not cleared. The platform does not process payments — this simply gates access based on a status flag set by a bursar/admin.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-label-md text-label-md text-on-surface font-medium">Block Exam Access</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">Students with unpaid fees cannot start exams.</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="feeGateExams" defaultChecked={school.feeGateExams} className="sr-only peer" />
+            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+          </label>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-label-md text-label-md text-on-surface font-medium">Block Result Release</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">Results are computed but marked as withheld until fee status is cleared.</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="feeGateResults" defaultChecked={school.feeGateResults} className="sr-only peer" />
             <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
           </label>
         </div>

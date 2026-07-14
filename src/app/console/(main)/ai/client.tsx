@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { upsertAiProviderAction, deleteAiProviderAction, testAiConnectionAction } from "./actions";
+import { upsertAiProviderAction, deleteAiProviderAction, testAiConnectionAction, upsertTaskProfileAction } from "./actions";
 
 interface ProviderVM {
   id: string; label: string; baseUrl: string; hasKey: boolean;
@@ -40,6 +40,16 @@ export function AiConfigClient({ providers: initial }: { providers: ProviderVM[]
         />
       )}
 
+      {/* Task Profiles section */}
+      {providers.filter(p => p.isActive).map((p) => (
+        <TaskProfileSection key={p.id} providerId={p.id} />
+      ))}
+
+      {/* AI Call Log link */}
+      <a href="/console/ai/call-log" className="block text-xs text-blue-400 hover:text-blue-300 transition-colors">
+        View AI Call Log →
+      </a>
+
       {/* Provider cards */}
       <div className="grid grid-cols-1 gap-3">
         {providers.map((p) => (
@@ -72,6 +82,78 @@ export function AiConfigClient({ providers: initial }: { providers: ProviderVM[]
           <p className="text-white/30 text-sm py-12 text-center">No AI providers configured yet.</p>
         )}
       </div>
+    </div>
+  );
+}
+
+const TASK_TYPES = [
+  { value: "lesson_note_generation", label: "Lesson Note Generation" },
+  { value: "question_generation", label: "Question Generation" },
+  { value: "essay_grading", label: "Essay Grading" },
+  { value: "comment_drafting", label: "Comment Drafting" },
+];
+
+function TaskProfileSection({ providerId }: { providerId: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [selectedType, setSelectedType] = useState("");
+
+  const [state, action, pending] = useActionState(upsertTaskProfileAction, {});
+
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+      <button onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-xs text-white/50 uppercase tracking-wider hover:text-white/70 transition-colors">
+        <span className="material-symbols-outlined text-[16px]">{expanded ? "expand_less" : "expand_more"}</span>
+        Task Profiles (per-model overrides per task type)
+      </button>
+
+      {expanded && (
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-white/50 block mb-1">Task Type</label>
+            <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white">
+              <option value="">Select task type…</option>
+              {TASK_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+
+          {selectedType && (
+            <form action={action} className="space-y-3">
+              <input type="hidden" name="providerConfigId" value={providerId} />
+              <input type="hidden" name="taskType" value={selectedType} />
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] text-white/40 block mb-0.5">Model Override</label>
+                  <input name="modelNameOverride" placeholder="Leave blank for default"
+                    className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/40 block mb-0.5">Temperature</label>
+                  <input name="temperature" type="number" step="0.1" min="0" max="2" defaultValue={0.7}
+                    className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/40 block mb-0.5">Max Tokens</label>
+                  <input name="maxTokens" type="number" min="1" defaultValue={4096}
+                    className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-white/40 block mb-0.5">System Prompt Override</label>
+                <textarea name="systemPromptTemplate" rows={3} placeholder="Override system prompt for this task…"
+                  className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white font-mono" />
+              </div>
+              {state.error && <p className="text-red-400 text-xs">{state.error}</p>}
+              {state.success && <p className="text-emerald-400 text-xs">{state.success}</p>}
+              <button type="submit" disabled={pending}
+                className="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-60">
+                {pending ? "Saving…" : "Save Task Profile"}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
     </div>
   );
 }

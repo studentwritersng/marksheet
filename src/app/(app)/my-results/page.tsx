@@ -48,6 +48,13 @@ export default async function MyResultsPage() {
                   {tr.status}
                 </span>
               </div>
+              {tr.status === "withheld" ? (
+                <div className="bg-surface-container rounded p-3 text-center">
+                  <p className="font-body-md text-body-md text-on-surface-variant">
+                    Results are currently withheld. Please see the school office for more information.
+                  </p>
+                </div>
+              ) : (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                 <div className="bg-surface-container rounded p-3">
                   <div className="font-label-sm text-label-sm text-on-surface-variant">Average</div>
@@ -66,6 +73,7 @@ export default async function MyResultsPage() {
                   <div className="font-headline-sm text-headline-sm text-on-surface mt-1 capitalize">{tr.status}</div>
                 </div>
               </div>
+              )}
             </div>
           ))}
         </div>

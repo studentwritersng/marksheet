@@ -25,6 +25,10 @@ export async function loginAction(
     return handleStudentLogin(schoolId, formData);
   }
 
+  if (loginMode === "parent") {
+    return handleParentLogin(schoolId, formData);
+  }
+
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
 
@@ -142,6 +146,61 @@ async function handleStudentLogin(
   });
 
   redirect("/dashboard");
+}
+
+async function handleParentLogin(
+  schoolId: string,
+  formData: FormData,
+): Promise<LoginState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) {
+    return { error: "Email and password are required." };
+  }
+
+  // Authenticate against User table with role: "parent"
+  const user = await prisma.user.findFirst({
+    where: { email, role: "parent", schoolId: schoolId || undefined },
+  });
+
+  if (!user || !user.isActive) {
+    return { error: "Invalid credentials. Use the email and password provided by the school." };
+  }
+
+  const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!ok) {
+    return { error: "Invalid credentials." };
+  }
+
+  // Verify this parent is linked to at least one guardian/student
+  const guardianLink = await prisma.guardian.findFirst({
+    where: { parentUserId: user.id },
+    select: { id: true },
+  });
+  if (!guardianLink) {
+    return { error: "No wards linked to this account. Contact the school." };
+  }
+
+  const token = createSessionToken({
+    userId: user.id,
+    role: "parent",
+    schoolId,
+    staffId: null,
+    email: user.email,
+    mustChangePassword: false,
+  });
+
+  const store = await cookies();
+  store.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: SESSION_MAX_AGE,
+  });
+
+  redirect("/parent");
 }
 
 export async function logoutAction(): Promise<void> {

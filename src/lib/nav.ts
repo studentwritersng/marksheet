@@ -17,7 +17,6 @@ export function buildNav(
   if (user.role === "super_admin" || user.role === "platform_owner") {
     items.push(
       { label: "Schools", href: "/schools", icon: "domain" },
-      { label: "AI Provider", href: "/settings/ai", icon: "settings" },
       { label: "Audit Log", href: "/audit-log", icon: "history" },
     );
     return items;
@@ -33,6 +32,7 @@ export function buildNav(
         { label: "Subjects", href: "/subjects", icon: "book" },
         { label: "Class–Subject Links", href: "/class-subjects", icon: "link" },
         { label: "Curriculum", href: "/curriculum", icon: "menu_book" },
+        { label: "Syllabi", href: "/syllabus", icon: "import_contacts" },
       ]},
       { label: "People", icon: "group", children: [
         { label: "Staff", href: "/staff", icon: "badge" },

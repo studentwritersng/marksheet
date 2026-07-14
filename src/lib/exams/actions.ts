@@ -173,12 +173,121 @@ export async function removeQuestionFromExamAction(examId: string, questionId: s
   return { success: "Question removed." };
 }
 
-export async function submitExamAction(attemptId: string, answers: { questionId: string; mcqSelectedOptionId?: string; essayResponseText?: string }[]): Promise<ActionState> {
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+export async function startExamAction(examId: string, studentId: string): Promise<ActionState & { attemptId?: string }> {
+  const exam = await prisma.exam.findUnique({
+    where: { id: examId },
+    select: { status: true, shuffleEnabled: true, durationMinutes: true, schoolId: true, termId: true },
+  });
+  if (!exam || exam.status !== "published") return { error: "This exam is not available yet." };
+
+  // Fee gate check (PRD 12 §3.2)
+  const { checkExamFeeGate } = await import("@/lib/fees/gate");
+  const feeBlock = await checkExamFeeGate(exam.schoolId, studentId, exam.termId);
+  if (feeBlock) return { error: feeBlock };
+
+  const existing = await prisma.examAttempt.findFirst({
+    where: { examId, studentId, status: "in_progress" },
+  });
+  if (existing) return { attemptId: existing.id };
+
+  let shuffledQuestionIds: string[] | null = null;
+  let shuffledOptionOrder: Record<string, string[]> | null = null;
+
+  if (exam.shuffleEnabled) {
+    const examQuestions = await prisma.examQuestion.findMany({
+      where: { examId },
+      include: {
+        question: {
+          include: {
+            mcqOptions: { select: { id: true } },
+            group: { select: { id: true, internallyShufflable: true } },
+          },
+        },
+      },
+      orderBy: { questionId: "asc" },
+    });
+
+    // Group questions by questionGroupId for group-aware shuffling
+    const groups = new Map<string, string[]>();
+    const standalone: string[] = [];
+
+    for (const eq of examQuestions) {
+      const gid = eq.question.questionGroupId;
+      if (gid) {
+        const list = groups.get(gid) || [];
+        list.push(eq.questionId);
+        groups.set(gid, list);
+      } else {
+        standalone.push(eq.questionId);
+      }
+    }
+
+    // Each group or standalone question is one shuffle item
+    const items: string[][] = standalone.map((id) => [id]);
+    for (const [, ids] of groups) items.push(ids);
+
+    // Shuffle items
+    const shuffledItems = shuffleArray(items);
+    shuffledQuestionIds = shuffledItems.flat();
+
+    // Shuffle MCQ options per question
+    const optOrder: Record<string, string[]> = {};
+    for (const eq of examQuestions) {
+      if (eq.question.mcqOptions.length > 0) {
+        optOrder[eq.questionId] = shuffleArray(eq.question.mcqOptions.map((o) => o.id));
+      }
+    }
+    shuffledOptionOrder = optOrder;
+  }
+
+  const endsAt = new Date(Date.now() + exam.durationMinutes * 60_000);
+
+  const attempt = await prisma.examAttempt.create({
+    data: {
+      examId,
+      studentId,
+      endsAt,
+      shuffledQuestionIds: shuffledQuestionIds ?? undefined,
+      shuffledOptionOrder: shuffledOptionOrder ?? undefined,
+    },
+  });
+  return { attemptId: attempt.id };
+}
+
+export async function submitExamAction(attemptId: string, answers: { questionId: string; mcqSelectedOptionId?: string; essayResponseText?: string }[]): Promise<ActionState & { mcqScore?: number; maxMcqScore?: number }> {
   const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
-    include: { exam: { include: { examQuestions: { include: { question: { include: { mcqOptions: true } } } } } } },
+    include: {
+      exam: {
+        include: {
+          examQuestions: {
+            include: {
+              question: {
+                include: { mcqOptions: { select: { id: true, isCorrect: true } } },
+              },
+            },
+          },
+        },
+      },
+    },
   });
   if (!attempt || attempt.status !== "in_progress") return { error: "Invalid attempt." };
+
+  // Check server-side timer
+  const now = new Date();
+  const isOverdue = attempt.endsAt && now > attempt.endsAt;
+
+  // Delete any existing saved answers for this attempt (from auto-saves)
+  await prisma.studentAnswer.deleteMany({ where: { attemptId } });
 
   let totalScore = 0;
   let maxScore = 0;
@@ -214,26 +323,71 @@ export async function submitExamAction(attemptId: string, answers: { questionId:
 
   await prisma.examAttempt.update({
     where: { id: attemptId },
-    data: { status: "submitted", submittedAt: new Date() },
+    data: { status: "submitted", submittedAt: now },
   });
 
   revalidatePath(`/exams/take/${attempt.examId}`);
-  return { success: `Exam submitted. MCQ score: ${totalScore}/${maxScore}` };
+  return {
+    success: isOverdue
+      ? `Auto-submitted. MCQ score: ${totalScore}/${maxScore}`
+      : `Exam submitted. MCQ score: ${totalScore}/${maxScore}`,
+    mcqScore: totalScore,
+    maxMcqScore: maxScore,
+  };
 }
 
-export async function startExamAction(examId: string, studentId: string): Promise<ActionState & { attemptId?: string }> {
-  const exam = await prisma.exam.findUnique({ where: { id: examId }, select: { status: true } });
-  if (!exam || exam.status !== "published") return { error: "This exam is not available yet." };
-
-  const existing = await prisma.examAttempt.findFirst({
-    where: { examId, studentId, status: "in_progress" },
+export async function autoSaveExamAction(
+  attemptId: string,
+  answers: { questionId: string; mcqSelectedOptionId?: string; essayResponseText?: string }[],
+): Promise<ActionState> {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    select: { id: true, status: true, endsAt: true },
   });
-  if (existing) return { attemptId: existing.id };
+  if (!attempt || attempt.status !== "in_progress") return { error: "Invalid attempt." };
 
-  const attempt = await prisma.examAttempt.create({
-    data: { examId, studentId },
-  });
-  return { attemptId: attempt.id };
+  // Check if timer expired
+  if (attempt.endsAt && new Date() > attempt.endsAt) {
+    return { error: "Time is up. Please submit your exam." };
+  }
+
+  // Delete existing saved answers and re-insert (simpler than upsert per row)
+  await prisma.studentAnswer.deleteMany({ where: { attemptId } });
+
+  for (const answer of answers) {
+    const question = await prisma.question.findUnique({
+      where: { id: answer.questionId },
+      select: { id: true, type: true },
+    });
+    if (!question) continue;
+
+    let gradedScore: number | null = null;
+    let gradingStatus = "ai_pending";
+
+    if (question.type === "mcq" && answer.mcqSelectedOptionId) {
+      const opt = await prisma.mcqOption.findUnique({
+        where: { id: answer.mcqSelectedOptionId },
+        select: { isCorrect: true, questionId: true },
+      });
+      if (opt && opt.questionId === answer.questionId) {
+        gradedScore = opt.isCorrect ? 1 : 0;
+        gradingStatus = "teacher_reviewed";
+      }
+    }
+
+    await prisma.studentAnswer.create({
+      data: {
+        attemptId,
+        questionId: answer.questionId,
+        mcqSelectedOptionId: answer.mcqSelectedOptionId ?? null,
+        essayResponseText: answer.essayResponseText ?? null,
+        gradedScore,
+        gradingStatus,
+      },
+    });
+  }
+
+  return { success: "Saved." };
 }
 
 export async function assignResitAction(examId: string, studentIds: string[]): Promise<ActionState> {
