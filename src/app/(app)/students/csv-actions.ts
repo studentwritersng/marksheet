@@ -7,6 +7,7 @@ import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { parseStudentCsv, type StagedRow } from "@/lib/csv/student-import";
 import bcrypt from "bcryptjs";
+import { sendEmail } from "@/lib/email/send";
 
 /** Pad a number to at least 5 digits */
 function padSeq(n: number): string {
@@ -136,6 +137,13 @@ export async function commitStudentCsvAction(
       },
     });
 
+    // Send student credentials via email
+    await sendEmail({
+      to: email,
+      subject: "Your Marksheet Portal Credentials",
+      text: `Hello ${r.firstName},\n\nYour student portal account has been created.\n\nEmail: ${email}\nPassword: ${passwordRaw}\n\nLogin at: https://marksheet.ums.edu.ng/login\n\nRegards,\nSchool Admin`,
+    });
+
     // Create parent User if guardian email is provided
     if (r.guardianEmail && r.guardianName) {
       const guardianRecord = await prisma.guardian.findFirst({
@@ -170,6 +178,13 @@ export async function commitStudentCsvAction(
         await prisma.guardian.update({
           where: { id: guardianRecord.id },
           data: { parentUserId: parentUser.id },
+        });
+
+        // Send parent credentials via email
+        await sendEmail({
+          to: r.guardianEmail,
+          subject: `Your Parent Portal Credentials – ${(await prisma.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } }))?.name ?? "School"}`,
+          text: `Hello ${r.guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${r.guardianEmail}\nPassword: ${parentPasswordRaw}\n\nLogin at: https://marksheet.ums.edu.ng/login\n\nRegards,\nSchool Admin`,
         });
       }
     }

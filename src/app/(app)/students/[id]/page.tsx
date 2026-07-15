@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
+import { StudentActions } from "./student-actions";
 
 export default async function StudentProfilePage({
   params,
@@ -180,6 +181,15 @@ export default async function StudentProfilePage({
             </div>
           )}
         </div>
+      </div>
+
+      <div className="mt-8 border-t border-outline-variant pt-6">
+        <h2 className="mb-3 font-label-md text-label-md text-on-surface">Admin Actions</h2>
+        <StudentActions
+          studentId={student.id}
+          hasUser={!!student.user}
+          status={student.status}
+        />
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ async function guardOwner() {
 
 export interface ParseResult {
   week: number;
+  weekSuffix?: string;
   topic: string;
   subTopics: string[];
   behaviouralObjectives: string[];
@@ -146,6 +147,7 @@ export async function saveCurriculumAction(
   await prisma.curriculumTopic.createMany({
     data: entries.map((e) => ({
       classLevel, term, subject, week: e.week,
+      weekSuffix: e.weekSuffix ?? "",
       topic: e.topic,
       subTopics: e.subTopics,
       behaviouralObjectives: e.behaviouralObjectives,
@@ -174,6 +176,7 @@ export async function createCurriculumEntryAction(
   const term = (formData.get("term") as string)?.trim();
   const subject = (formData.get("subject") as string)?.trim();
   const week = parseInt(formData.get("week") as string);
+  const weekSuffix = (formData.get("weekSuffix") as string)?.trim() || "";
   const topic = (formData.get("topic") as string)?.trim();
   const subTopics = ((formData.get("subTopics") as string) || "").split("\n").map((s) => s.trim()).filter(Boolean);
   const objectives = ((formData.get("behaviouralObjectives") as string) || "").split("\n").map((s) => s.trim()).filter(Boolean);
@@ -183,11 +186,11 @@ export async function createCurriculumEntryAction(
   }
 
   await prisma.curriculumTopic.create({
-    data: { classLevel, term, subject, week, topic, subTopics, behaviouralObjectives: objectives, isSystem: true, schoolId: null },
+    data: { classLevel, term, subject, week, weekSuffix, topic, subTopics, behaviouralObjectives: objectives, isSystem: true, schoolId: null },
   }).catch(() => {
-    // If unique constraint failed (same class/term/subject/week), update instead
+    // If unique constraint failed (same class/term/subject/week/suffix), update instead
     return prisma.curriculumTopic.updateMany({
-      where: { classLevel, term, subject, week, schoolId: null, isSystem: true },
+      where: { classLevel, term, subject, week, weekSuffix, schoolId: null, isSystem: true },
       data: { topic, subTopics, behaviouralObjectives: objectives },
     });
   });
@@ -225,9 +228,53 @@ export async function deleteCurriculumEntryAction(id: string): Promise<CrudState
   return { success: "Entry deleted." };
 }
 
+// ---------------------------------------------------------------------------
+// Browse tab — group entries by subject for FAQ-style listing
+// ---------------------------------------------------------------------------
+
+export interface SubjectGroup {
+  subject: string;
+  entries: EntryVM[];
+}
+
+export async function getEntriesByClass(classLevel: string): Promise<SubjectGroup[]> {
+  try { await guardOwner(); } catch { return []; }
+
+  const rows = await prisma.curriculumTopic.findMany({
+    where: { classLevel, schoolId: null, isSystem: true },
+    orderBy: [{ subject: "asc" }, { week: "asc" }, { weekSuffix: "asc" }],
+  });
+
+  const groups = new Map<string, SubjectGroup>();
+  for (const r of rows) {
+    const sub = r.subject;
+    if (!groups.has(sub)) groups.set(sub, { subject: sub, entries: [] });
+    groups.get(sub)!.entries.push({
+      id: r.id, classLevel: r.classLevel, term: r.term, subject: r.subject,
+      week: r.week, weekSuffix: r.weekSuffix ?? "", topic: r.topic,
+      subTopics: (r.subTopics as string[]) ?? [],
+      behaviouralObjectives: (r.behaviouralObjectives as string[]) ?? [],
+    });
+  }
+  return [...groups.values()];
+}
+
+export async function deleteAllSubjectEntriesAction(
+  classLevel: string, subject: string,
+): Promise<CrudState> {
+  try { await guardOwner(); } catch { return { error: "Not authorised." }; }
+
+  await prisma.curriculumTopic.deleteMany({
+    where: { classLevel, subject, schoolId: null, isSystem: true },
+  });
+
+  revalidatePath("/console/curriculum");
+  return { success: `All "${subject}" entries deleted for ${classLevel}.` };
+}
+
 export interface EntryVM {
   id: string; classLevel: string; term: string; subject: string;
-  week: number; topic: string; subTopics: string[]; behaviouralObjectives: string[];
+  week: number; weekSuffix: string; topic: string; subTopics: string[]; behaviouralObjectives: string[];
 }
 
 export async function getSystemEntries(
@@ -235,11 +282,11 @@ export async function getSystemEntries(
 ): Promise<EntryVM[]> {
   const rows = await prisma.curriculumTopic.findMany({
     where: { classLevel, term, subject, schoolId: null, isSystem: true },
-    orderBy: { week: "asc" },
+    orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
   });
   return rows.map((r) => ({
     id: r.id, classLevel: r.classLevel, term: r.term, subject: r.subject,
-    week: r.week, topic: r.topic,
+    week: r.week, weekSuffix: r.weekSuffix ?? "", topic: r.topic,
     subTopics: (r.subTopics as string[]) ?? [],
     behaviouralObjectives: (r.behaviouralObjectives as string[]) ?? [],
   }));

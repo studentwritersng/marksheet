@@ -28,10 +28,12 @@ export async function upsertCurriculumTopicAction(
     return { error: "Class level, term, subject, week, and topic are required." };
   }
 
+  const weekSuffix = "";
+
   // Check if a system default exists for this key
   const existing = await prisma.curriculumTopic.findFirst({
     where: {
-      classLevel, term, subject, week, schoolId: null,
+      classLevel, term, subject, week, weekSuffix, schoolId: null,
     },
   });
 
@@ -42,13 +44,13 @@ export async function upsertCurriculumTopicAction(
     // Create a school override (keep system default untouched)
     await prisma.curriculumTopic.upsert({
       where: {
-        classLevel_term_subject_week_schoolId: {
-          classLevel, term, subject, week, schoolId: ctx.schoolId,
+        classLevel_term_subject_week_weekSuffix_schoolId: {
+          classLevel, term, subject, week, weekSuffix, schoolId: ctx.schoolId,
         },
       },
       update: { topic, subTopics, behaviouralObjectives, isSystem: false },
       create: {
-        classLevel, term, subject, week,
+        classLevel, term, subject, week, weekSuffix,
         topic, subTopics, behaviouralObjectives, isSystem: false,
         schoolId: ctx.schoolId,
       },
@@ -57,13 +59,13 @@ export async function upsertCurriculumTopicAction(
     // No system default — just upsert for this school
     await prisma.curriculumTopic.upsert({
       where: {
-        classLevel_term_subject_week_schoolId: {
-          classLevel, term, subject, week, schoolId: ctx.schoolId,
+        classLevel_term_subject_week_weekSuffix_schoolId: {
+          classLevel, term, subject, week, weekSuffix, schoolId: ctx.schoolId,
         },
       },
       update: { topic, subTopics, behaviouralObjectives, isSystem: false },
       create: {
-        classLevel, term, subject, week,
+        classLevel, term, subject, week, weekSuffix,
         topic, subTopics, behaviouralObjectives, isSystem: false,
         schoolId: ctx.schoolId,
       },

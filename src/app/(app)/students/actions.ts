@@ -150,6 +150,13 @@ export async function createStudentAction(
       });
 
       parentCreds = { email: guardianEmail, password: parentPasswordRaw };
+
+      // Send parent credentials via email
+      await sendEmail({
+        to: guardianEmail,
+        subject: `Your Parent Portal Credentials – ${(await prisma.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } }))?.name ?? "School"}`,
+        text: `Hello ${guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${guardianEmail}\nPassword: ${parentPasswordRaw}\n\nLogin at: https://marksheet.ums.edu.ng/login\n\nRegards,\nSchool Admin`,
+      });
     }
   }
 

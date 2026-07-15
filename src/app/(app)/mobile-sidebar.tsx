@@ -10,7 +10,7 @@ export function MobileSidebar({
   schoolInfo,
 }: {
   nav: NavItem[];
-  schoolInfo: { name: string; logo: string | null; motto: string | null } | null;
+  schoolInfo: { name: string; logo: string | null; motto: string | null; shortcode: string | null } | null;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -23,7 +23,8 @@ export function MobileSidebar({
         aria-label="Open menu"
       >
         <span className="material-symbols-outlined text-[24px]">menu</span>
-        {schoolInfo?.name ?? "Marksheet"}
+        <span className="truncate max-w-[160px]">{schoolInfo?.name ?? "Marksheet"}</span>
+        {schoolInfo?.shortcode && <span className="font-label-sm text-label-sm text-on-surface-variant hidden xs:inline">{schoolInfo.shortcode}</span>}
       </button>
 
       {/* Overlay */}

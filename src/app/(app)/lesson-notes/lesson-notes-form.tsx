@@ -25,7 +25,7 @@ export function LessonNotesForm({
   const [aiClassId, setAiClassId] = useState("");
   const [aiTermId, setAiTermId] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("");
-  const [curriculumTopics, setCurriculumTopics] = useState<{ id: string; topic: string; week: number }[]>([]);
+  const [curriculumTopics, setCurriculumTopics] = useState<{ id: string; topic: string; week: number; weekSuffix: string }[]>([]);
   const [loadingTopics, setLoadingTopics] = useState(false);
 
   async function loadCurriculumTopics(subjectId: string, classId: string, termId: string) {
@@ -166,7 +166,7 @@ export function LessonNotesForm({
                       onChange={() => setSelectedTopic(ct.topic)}
                       className="text-primary"
                     />
-                    <span className="font-body-sm text-body-sm">Week {ct.week}: {ct.topic}</span>
+                    <span className="font-body-sm text-body-sm">Week {ct.week}{ct.weekSuffix || ""}: {ct.topic}</span>
                   </label>
                 ))}
               </div>

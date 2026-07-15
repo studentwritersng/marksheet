@@ -530,13 +530,14 @@ model CurriculumTopic {
   term                  String // FIRST / SECOND / THIRD
   subject               String // subject name (NERDC standard name)
   week                  Int
+  weekSuffix            String  @default("") // "" for single-week, "A", "B", "C" for multi-week splits
   topic                 String
   subTopics             Json? // array of sub-topics / details
   behaviouralObjectives Json? // array of behavioural objective strings
   isSystem              Boolean @default(true) // true = NERDC default, false = school override
-  schoolId              String? // null for NERDC defaults; set when a school overrides
+  schoolId              String? // null = NERDC defaults; set when a school overrides
 
-  @@unique([classLevel, term, subject, week, schoolId])
+  @@unique([classLevel, term, subject, week, weekSuffix, schoolId])
   @@index([classLevel, subject])
   @@map("curriculum_topics")
 }

@@ -31,11 +31,11 @@ export default async function AppLayout({
   const nav = buildNav(user, perms);
 
   // Fetch school info for sidebar branding
-  let schoolInfo: { name: string; logo: string | null; motto: string | null } | null = null;
+  let schoolInfo: { name: string; logo: string | null; motto: string | null; shortcode: string | null } | null = null;
   if (user.schoolId) {
     const school = await prisma.school.findUnique({
       where: { id: user.schoolId },
-      select: { name: true, logo: true, motto: true },
+      select: { name: true, logo: true, motto: true, shortcode: true },
     });
     schoolInfo = school;
   }

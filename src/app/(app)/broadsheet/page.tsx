@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
+import { defaultGradingScale } from "@/lib/grading-scale";
 import { BroadsheetView } from "./broadsheet-view";
 
 export default async function BroadsheetPage(props: {
@@ -192,18 +193,9 @@ async function fetchBroadsheetData(
     where: { id: schoolId },
     select: { gradingScale: true },
   });
-  const defaultGradingScale = [
-    { grade: "A1", min: 75, max: 100 },
-    { grade: "B2", min: 70, max: 74 },
-    { grade: "B3", min: 65, max: 69 },
-    { grade: "C4", min: 60, max: 64 },
-    { grade: "C5", min: 55, max: 59 },
-    { grade: "C6", min: 50, max: 54 },
-    { grade: "D7", min: 45, max: 49 },
-    { grade: "E8", min: 40, max: 44 },
-    { grade: "F9", min: 0, max: 39 },
-  ];
-  const scale = (school?.gradingScale as unknown as typeof defaultGradingScale) ?? defaultGradingScale;
+  const scale = (school?.gradingScale != null
+    ? (school.gradingScale as unknown as typeof defaultGradingScale)
+    : defaultGradingScale);
   for (const row of studentRows) {
     if (row.average != null) {
       for (const band of scale) {

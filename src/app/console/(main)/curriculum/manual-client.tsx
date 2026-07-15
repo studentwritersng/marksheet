@@ -102,7 +102,12 @@ export function ManualCurriculumClient({
                 <input name="week" type="number" min={1} required
                   className="w-full border border-white/10 rounded-lg px-3 py-2 bg-[#0a0e1a] text-white text-sm" />
               </div>
-              <div className="md:col-span-3">
+              <div>
+                <label className="text-xs text-white/50 block mb-1">Suffix</label>
+                <input name="weekSuffix" placeholder="A, B, C…"
+                  className="w-full border border-white/10 rounded-lg px-3 py-2 bg-[#0a0e1a] text-white text-sm" />
+              </div>
+              <div className="md:col-span-2">
                 <label className="text-xs text-white/50 block mb-1">Topic</label>
                 <input name="topic" required
                   className="w-full border border-white/10 rounded-lg px-3 py-2 bg-[#0a0e1a] text-white text-sm" />
@@ -155,7 +160,7 @@ export function ManualCurriculumClient({
                   </td>
                 ) : (
                   <>
-                    <td className="py-3 px-4 text-white font-semibold">Week {entry.week}</td>
+                    <td className="py-3 px-4 text-white font-semibold">Week {entry.week}{entry.weekSuffix || ""}</td>
                     <td className="py-3 px-4 text-white">{entry.topic}</td>
                     <td className="py-3 px-4">
                       {entry.subTopics.length > 0 ? (

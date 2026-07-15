@@ -7,6 +7,7 @@ import { upsertCurriculumTopicAction, deleteCurriculumOverrideAction } from "./a
 interface TopicVM {
   id: string;
   week: number;
+  weekSuffix: string;
   topic: string;
   subTopics: string[];
   behaviouralObjectives: string[];
@@ -154,7 +155,7 @@ export function CurriculumView({
                   </td>
                 ) : (
                   <>
-                    <td className="py-3 px-4 font-body-md text-body-md text-on-surface font-semibold">Week {t.week}</td>
+                    <td className="py-3 px-4 font-body-md text-body-md text-on-surface font-semibold">Week {t.week}{t.weekSuffix || ""}</td>
                     <td className="py-3 px-4">
                       <span className={`font-body-md text-body-md ${t.isOverride ? "text-primary font-semibold" : "text-on-surface"}`}>
                         {t.topic}

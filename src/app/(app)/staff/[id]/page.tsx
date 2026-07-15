@@ -4,6 +4,7 @@ import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { AssignmentForm } from "./assignment-form";
 import { AssignmentList } from "./assignment-list";
+import { StaffActions } from "./staff-actions";
 
 export default async function StaffDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
@@ -21,18 +22,23 @@ export default async function StaffDetailPage(props: { params: Promise<{ id: str
         include: { subject: true, class: true, term: { include: { session: true } } },
         orderBy: { createdAt: "desc" },
       },
+      user: { select: { id: true, isActive: true } },
     },
   });
   if (!staff) notFound();
 
-  const subjects = await prisma.subject.findMany({
-    where: { schoolId: user.schoolId },
-    orderBy: { name: "asc" },
-  });
   const classes = await prisma.class.findMany({
     where: { schoolId: user.schoolId, archived: false },
     orderBy: { name: "asc" },
   });
+  // Fetch class-subject links and assignments to filter subjects per class
+  const classSubjects = await prisma.classSubject.findMany({
+    where: { schoolId: user.schoolId },
+    include: { subject: { select: { id: true, name: true } } },
+  });
+  const alreadyAssigned = staff.assignments
+    .filter((a) => a.subjectId)
+    .map((a) => ({ subjectId: a.subjectId!, classId: a.classId }));
   const sessions = await prisma.session.findMany({
     where: { schoolId: user.schoolId },
     include: { terms: true },
@@ -50,8 +56,13 @@ export default async function StaffDetailPage(props: { params: Promise<{ id: str
         </h2>
         <AssignmentForm
           staffId={staff.id}
-          subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
           classes={classes.map((c) => ({ id: c.id, name: c.name }))}
+          classSubjects={classSubjects.map((cs) => ({
+            classId: cs.classId,
+            subjectId: cs.subject.id,
+            subjectName: cs.subject.name,
+          }))}
+          alreadyAssigned={alreadyAssigned}
           sessions={sessions.map((s) => ({
             id: s.id,
             label: s.label,
@@ -73,6 +84,15 @@ export default async function StaffDetailPage(props: { params: Promise<{ id: str
             session: a.term?.session?.label ?? null,
             term: a.term?.name ?? null,
           }))}
+        />
+      </div>
+
+      <div className="mt-8 border-t border-outline-variant pt-6">
+        <h2 className="mb-3 font-label-md text-label-md text-on-surface">Admin Actions</h2>
+        <StaffActions
+          staffId={staff.id}
+          hasUser={!!staff.user}
+          isSuspended={staff.accountStatus === "suspended"}
         />
       </div>
     </div>

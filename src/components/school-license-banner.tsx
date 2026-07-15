@@ -54,18 +54,6 @@ export async function SchoolLicenseBanner({ schoolId }: { schoolId: string }) {
     );
   }
 
-  // Expiring within 30 days — notice
-  if (daysRemaining <= 30) {
-    return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center gap-3">
-        <span className="material-symbols-outlined text-[20px] text-blue-600">info</span>
-        <p className="font-body-sm text-body-sm text-blue-700">
-          Your {license.plan.name} license expires in {daysRemaining} day(s).
-        </p>
-      </div>
-    );
-  }
-
-  // More than 30 days — no banner
+  // More than 7 days — no banner
   return null;
 }

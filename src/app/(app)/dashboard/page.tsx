@@ -135,7 +135,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <SchoolLicenseBanner schoolId={schoolId} />
+      {admin && <SchoolLicenseBanner schoolId={schoolId} />}
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {admin && (

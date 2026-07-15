@@ -37,6 +37,7 @@ export function buildNav(
       { label: "People", icon: "group", children: [
         { label: "Staff", href: "/staff", icon: "badge" },
         { label: "Students", href: "/students", icon: "group" },
+        { label: "Parents", href: "/parents", icon: "family_history" },
       ]},
       { label: "Assessments", icon: "quiz", children: [
         { label: "Lesson Notes", href: "/lesson-notes", icon: "note" },
@@ -52,6 +53,7 @@ export function buildNav(
         { label: "Attendance", href: "/results/attendance", icon: "fact_check" },
         { label: "Remarks", href: "/results/remarks", icon: "rate_review" },
         { label: "Broadsheet", href: "/broadsheet", icon: "table_chart" },
+        { label: "Grading Scale", href: "/grading-scale", icon: "score" },
       ]},
       { label: "Billing", icon: "payments", children: [
         { label: "Billing & License", href: "/billing", icon: "account_balance_wallet" },

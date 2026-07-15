@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
@@ -90,4 +91,105 @@ export async function removeAssignmentAction(
 
   revalidatePath(`/staff/${assignment.staff.id}`);
   return { success: "Assignment removed." };
+}
+
+export async function resetStaffPasswordAction(
+  staffId: string,
+  newPassword: string,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const staff = await prisma.staff.findFirst({
+    where: { id: staffId, schoolId: ctx.schoolId },
+    include: { user: { select: { id: true } } },
+  });
+  if (!staff) return { error: "Staff not found." };
+  if (!staff.user) return { error: "Staff has no login account." };
+
+  await prisma.user.update({
+    where: { id: staff.user.id },
+    data: {
+      passwordHash: await bcrypt.hash(newPassword, 10),
+      mustChangePassword: true,
+    },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "update",
+    entityType: "user",
+    entityId: staff.user.id,
+    afterValue: { passwordReset: true } as never,
+  });
+
+  return { success: "Password reset. Staff must change password on next login." };
+}
+
+export async function toggleSuspendStaffAction(
+  staffId: string,
+  suspended: boolean,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const staff = await prisma.staff.findFirst({
+    where: { id: staffId, schoolId: ctx.schoolId },
+    include: { user: { select: { id: true, isActive: true } } },
+  });
+  if (!staff) return { error: "Staff not found." };
+
+  await prisma.staff.update({
+    where: { id: staffId },
+    data: { accountStatus: suspended ? "suspended" : "active" },
+  });
+
+  if (staff.user) {
+    await prisma.user.update({
+      where: { id: staff.user.id },
+      data: { isActive: !suspended },
+    });
+  }
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: suspended ? "suspend" : "unsuspend",
+    entityType: "staff",
+    entityId: staffId,
+  });
+
+  revalidatePath(`/staff/${staffId}`);
+  return { success: suspended ? "Staff suspended." : "Staff reactivated." };
+}
+
+export async function deleteStaffAction(staffId: string): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const staff = await prisma.staff.findFirst({
+    where: { id: staffId, schoolId: ctx.schoolId },
+    include: { user: { select: { id: true } } },
+  });
+  if (!staff) return { error: "Staff not found." };
+
+  if (staff.user) {
+    await prisma.user.delete({ where: { id: staff.user.id } });
+  }
+  await prisma.staff.delete({ where: { id: staffId } });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "delete",
+    entityType: "staff",
+    entityId: staffId,
+  });
+
+  revalidatePath("/staff");
+  return { success: "Staff deleted." };
 }

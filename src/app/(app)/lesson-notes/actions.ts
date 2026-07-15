@@ -254,7 +254,7 @@ export async function getCurriculumTopicsAction(
   subjectName: string,
   classLevel: string,
   term: string,
-): Promise<{ id: string; topic: string; week: number }[]> {
+): Promise<{ id: string; topic: string; week: number; weekSuffix: string }[]> {
   async function query(cl: string) {
     return prisma.curriculumTopic.findMany({
       where: {
@@ -262,8 +262,8 @@ export async function getCurriculumTopicsAction(
         classLevel: cl,
         term,
       },
-      orderBy: { week: "asc" },
-      select: { id: true, topic: true, week: true },
+      orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
+      select: { id: true, topic: true, week: true, weekSuffix: true },
     });
   }
 

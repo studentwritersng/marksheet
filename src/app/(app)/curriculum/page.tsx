@@ -66,17 +66,19 @@ export default async function CurriculumPage(props: {
 
   const overrideTopics = await prisma.curriculumTopic.findMany({
     where: { classLevel: selectedClass, term: selectedTerm, subject: effectiveSubject, schoolId: user.schoolId },
-    orderBy: { week: "asc" },
+    orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
   });
-  const overrideMap = new Map(overrideTopics.map((t) => [t.week, t]));
 
-  const merged = systemTopics.map((sys) => overrideMap.get(sys.week) ?? sys);
+  const systemKey = (t: { week: number; weekSuffix: string }) => `${t.week}|${t.weekSuffix}`;
+  const overrideMap = new Map(overrideTopics.map((t) => [systemKey(t), t]));
+
+  const merged = systemTopics.map((sys) => overrideMap.get(systemKey(sys)) ?? sys);
   for (const ov of overrideTopics) {
-    if (!systemTopics.some((s) => s.week === ov.week)) {
+    if (!systemTopics.some((s) => systemKey(s) === systemKey(ov))) {
       merged.push(ov);
     }
   }
-  merged.sort((a, b) => a.week - b.week);
+  merged.sort((a, b) => a.week - b.week || a.weekSuffix.localeCompare(b.weekSuffix));
 
   return (
     <div>
@@ -100,6 +102,7 @@ export default async function CurriculumPage(props: {
           topics={merged.map((t) => ({
             id: t.id,
             week: t.week,
+            weekSuffix: t.weekSuffix ?? "",
             topic: t.topic,
             subTopics: (t.subTopics as string[]) ?? [],
             behaviouralObjectives: (t.behaviouralObjectives as string[]) ?? [],
