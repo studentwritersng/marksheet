@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction } from "./actions";
+import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction, updateSchoolAction, toggleSuspendSchoolAction } from "./actions";
 
 interface SchoolVM {
   id: string;
@@ -12,6 +12,7 @@ interface SchoolVM {
   motto: string | null;
   shortcode: string | null;
   maintenanceMode: boolean;
+  suspended: boolean;
   createdAt: string;
   _count: { students: number; staff: number; sessions: number; subjects: number };
 }
@@ -46,12 +47,18 @@ export function SchoolDetailClient({
   plans: PlanVM[];
 }) {
   const [showLicenseForm, setShowLicenseForm] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [maintState, maintAction, maintPending] = useActionState(
     async () => setMaintenanceModeAction(school.id, !school.maintenanceMode),
     {},
   );
   const [licenseState, licenseAction, licensePending] = useActionState(
     async (_prev: any, fd: FormData) => updateLicenseAction(school.id, fd),
+    {},
+  );
+  const [editState, editAction, editPending] = useActionState(updateSchoolAction, {});
+  const [suspendState, suspendAction, suspendPending] = useActionState(
+    async () => toggleSuspendSchoolAction(school.id),
     {},
   );
 
@@ -73,8 +80,13 @@ export function SchoolDetailClient({
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-semibold text-white">{school.name}</h1>
+            {school.suspended && (
+              <span className="rounded-full bg-red-900/50 text-red-300 text-[11px] px-2.5 py-0.5 font-medium border border-red-800/30">
+                Suspended
+              </span>
+            )}
             {currentLicense && (
               <span className={`rounded-full text-[11px] px-2.5 py-0.5 font-medium border ${statusColor[currentLicense.status] ?? ""}`}>
                 {currentLicense.status.replace("_", " ")}
@@ -95,22 +107,87 @@ export function SchoolDetailClient({
             <p className="text-xs text-white/30 mt-1 font-mono">Shortcode: {school.shortcode}</p>
           )}
         </div>
-        <form action={maintAction}>
-          <button
-            type="submit"
-            disabled={maintPending}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-              school.maintenanceMode
-                ? "text-emerald-400 border-emerald-800/30 hover:bg-emerald-900/20"
-                : "text-purple-400 border-purple-800/30 hover:bg-purple-900/20"
-            }`}
-          >
-            {maintPending ? "..." : school.maintenanceMode ? "Disable Maintenance" : "Enable Maintenance"}
-          </button>
-        </form>
+        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+          <form action={suspendAction}>
+            <button
+              type="submit"
+              disabled={suspendPending}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                school.suspended
+                  ? "text-emerald-400 border-emerald-800/30 hover:bg-emerald-900/20"
+                  : "text-red-400 border-red-800/30 hover:bg-red-900/20"
+              }`}
+            >
+              {suspendPending ? "..." : school.suspended ? "Unsuspend School" : "Suspend School"}
+            </button>
+          </form>
+          <button onClick={() => setEditing(!editing)}
+            className="text-xs text-white/70 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30"
+          >{editing ? "Cancel" : "Edit School"}</button>
+          <form action={maintAction}>
+            <button
+              type="submit"
+              disabled={maintPending}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                school.maintenanceMode
+                  ? "text-emerald-400 border-emerald-800/30 hover:bg-emerald-900/20"
+                  : "text-purple-400 border-purple-800/30 hover:bg-purple-900/20"
+              }`}
+            >
+              {maintPending ? "..." : school.maintenanceMode ? "Disable Maintenance" : "Enable Maintenance"}
+            </button>
+          </form>
+        </div>
       </div>
+      {suspendState.error && <p className="text-red-400 text-sm">{suspendState.error}</p>}
+      {suspendState.success && <p className="text-emerald-400 text-sm">{suspendState.success}</p>}
       {maintState.error && <p className="text-red-400 text-sm">{maintState.error}</p>}
       {maintState.success && <p className="text-emerald-400 text-sm">{maintState.success}</p>}
+
+      {/* Edit form */}
+      {editing && (
+        <form action={editAction} className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Edit School Details</h3>
+          <input type="hidden" name="schoolId" value={school.id} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-white/50 block mb-1">Name</label>
+              <input name="name" defaultValue={school.name} required
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+            </div>
+            <div>
+              <label className="text-xs text-white/50 block mb-1">Shortcode</label>
+              <input name="shortcode" defaultValue={school.shortcode ?? ""}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-mono" />
+            </div>
+            <div>
+              <label className="text-xs text-white/50 block mb-1">Address</label>
+              <input name="address" defaultValue={school.address ?? ""}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+            </div>
+            <div>
+              <label className="text-xs text-white/50 block mb-1">Phone</label>
+              <input name="phone" defaultValue={school.phone ?? ""}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+            </div>
+            <div>
+              <label className="text-xs text-white/50 block mb-1">Email</label>
+              <input name="email" type="email" defaultValue={school.email ?? ""}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+            </div>
+            <div>
+              <label className="text-xs text-white/50 block mb-1">Motto</label>
+              <input name="motto" defaultValue={school.motto ?? ""}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+            </div>
+          </div>
+          {editState.error && <p className="text-red-400 text-sm">{editState.error}</p>}
+          {editState.success && <p className="text-emerald-400 text-sm">{editState.success}</p>}
+          <button type="submit" disabled={editPending}
+            className="bg-emerald-700 hover:bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+          >{editPending ? "Saving..." : "Save Changes"}</button>
+        </form>
+      )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

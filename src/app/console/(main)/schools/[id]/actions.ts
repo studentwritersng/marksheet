@@ -121,3 +121,49 @@ export async function reactivateLicenseAction(licenseId: string, newEndDateStr: 
   revalidatePath(`/console/schools/${license.schoolId}`);
   return { success: "License reactivated." };
 }
+
+export async function updateSchoolAction(_prev: SchoolActionResult, formData: FormData): Promise<SchoolActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const schoolId = formData.get("schoolId") as string;
+  const name = (formData.get("name") as string)?.trim();
+  const address = (formData.get("address") as string)?.trim() || null;
+  const phone = (formData.get("phone") as string)?.trim() || null;
+  const email = (formData.get("email") as string)?.trim() || null;
+  const motto = (formData.get("motto") as string)?.trim() || null;
+  const shortcode = (formData.get("shortcode") as string)?.trim() || null;
+  if (!schoolId || !name) return { error: "School name is required." };
+  if (shortcode) {
+    const existing = await prisma.school.findFirst({ where: { shortcode, id: { not: schoolId } } });
+    if (existing) return { error: `Shortcode "${shortcode}" is already in use.` };
+  }
+  await prisma.school.update({ where: { id: schoolId }, data: { name, address, phone, email, motto, shortcode } });
+  await recordAudit({
+    actorId: (await getCurrentUser())!.userId,
+    action: "update",
+    entityType: "school",
+    entityId: schoolId,
+    afterValue: { name, address, phone, email, motto, shortcode },
+    schoolId,
+  });
+  revalidatePath(`/console/schools/${schoolId}`);
+  return { success: "School updated." };
+}
+
+export async function toggleSuspendSchoolAction(schoolId: string): Promise<SchoolActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { suspended: true } });
+  if (!school) return { error: "School not found." };
+  const newValue = !school.suspended;
+  await prisma.school.update({ where: { id: schoolId }, data: { suspended: newValue } });
+  await recordAudit({
+    actorId: (await getCurrentUser())!.userId,
+    action: newValue ? "suspend_school" : "unsuspend_school",
+    entityType: "school",
+    entityId: schoolId,
+    beforeValue: { suspended: school.suspended },
+    afterValue: { suspended: newValue },
+    schoolId,
+  });
+  revalidatePath(`/console/schools/${schoolId}`);
+  return { success: `School ${newValue ? "suspended" : "unsuspended"}.` };
+}

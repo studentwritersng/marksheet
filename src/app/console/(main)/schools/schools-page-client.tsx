@@ -12,6 +12,7 @@ interface SchoolVM {
   email: string | null;
   shortcode: string | null;
   maintenanceMode: boolean;
+  suspended: boolean;
   createdAt: string;
   studentCount: number;
   staffCount: number;
@@ -56,6 +57,9 @@ export function SchoolsPageClient({ schools, now }: { schools: SchoolVM[]; now: 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
                     <h2 className="text-white font-semibold text-base">{s.name}</h2>
+                    {s.suspended && (
+                      <span className="rounded-full bg-red-900/50 text-red-300 text-[10px] px-2 py-0.5 font-medium">Suspended</span>
+                    )}
                     {s.maintenanceMode && (
                       <span className="rounded-full bg-purple-900/50 text-purple-300 text-[10px] px-2 py-0.5 font-medium">Maintenance</span>
                     )}

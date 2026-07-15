@@ -17,6 +17,7 @@ export default async function ConsoleSchoolsPage() {
       email: true,
       shortcode: true,
       maintenanceMode: true,
+      suspended: true,
       createdAt: true,
       _count: { select: { students: true, staff: true, sessions: true } },
       licenses: {
@@ -40,6 +41,7 @@ export default async function ConsoleSchoolsPage() {
         email: s.email,
         shortcode: s.shortcode,
         maintenanceMode: s.maintenanceMode,
+        suspended: s.suspended,
         createdAt: s.createdAt.toISOString(),
         studentCount: s._count.students,
         staffCount: s._count.staff,

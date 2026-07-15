@@ -20,6 +20,7 @@ export default async function SchoolDetailPage({ params }: { params: Promise<{ i
       motto: true,
       shortcode: true,
       maintenanceMode: true,
+      suspended: true,
       createdAt: true,
       _count: { select: { students: true, staff: true, sessions: true, subjects: true } },
     },

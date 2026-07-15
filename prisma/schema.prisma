@@ -38,6 +38,8 @@ model School {
   studentSequence    Int      @default(0)
   // Maintenance mode — when true, non-admin users see a maintenance page
   maintenanceMode    Boolean  @default(false)
+  // Suspended by platform owner — when true, all school users are blocked
+  suspended          Boolean  @default(false)
   // Fee gating configuration (PRD 12 §3.2)
   feeGateExams       Boolean  @default(false) // block exam access if fee not cleared
   feeGateResults     Boolean  @default(false) // block result release if fee not cleared
