@@ -13,7 +13,7 @@ export default async function BillingPage() {
 
   const school = await prisma.school.findUnique({
     where: { id: user.schoolId },
-    select: { name: true, stageId: true, stage: { select: { id: true, name: true, price: true, plan: { select: { name: true, durationType: true } } } } },
+    select: { name: true, stage: true },
   });
   if (!school) redirect("/dashboard");
 
@@ -32,11 +32,17 @@ export default async function BillingPage() {
     }),
   ]);
 
+  // Compute effective price based on school's stage
+  const stage = school.stage;
+  const priceField = stage === "premium" ? "premiumPrice" : stage === "standard" ? "standardPrice" : "basicPrice";
+  const planForPrice = plans[0];
+  const effectivePrice = planForPrice?.[priceField]?.toNumber() ?? null;
+
   return (
     <BillingClient
       schoolName={school.name}
-      schoolStage={school.stage ? { name: school.stage.name, price: school.stage.price?.toNumber(), planName: school.stage.plan.name } : null}
-      plans={plans.map((p) => ({ id: p.id, name: p.name, durationType: p.durationType, price: p.price?.toNumber(), durationDays: p.durationDays }))}
+      schoolStage={{ stage: school.stage, price: effectivePrice }}
+      plans={plans.map((p) => ({ id: p.id, name: p.name, durationType: p.durationType, basicPrice: p.basicPrice?.toNumber(), standardPrice: p.standardPrice?.toNumber(), premiumPrice: p.premiumPrice?.toNumber(), durationDays: p.durationDays }))}
       methods={methods.map((m) => ({ id: m.id, type: m.type, label: m.label, details: m.details as Record<string, string> | null }))}
       payments={payments.map((p) => ({ id: p.id, planName: p.plan.name, amount: p.amount.toNumber(), methodLabel: p.paymentMethod.label, status: p.status, createdAt: p.createdAt.toISOString() }))}
       license={currentLicense ? { status: currentLicense.status, endDate: currentLicense.endDate.toISOString(), planName: currentLicense.plan.name } : null}

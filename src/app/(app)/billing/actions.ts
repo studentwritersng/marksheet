@@ -64,7 +64,7 @@ export async function submitPaymentAction(_prev: BillingActionResult, formData: 
     });
 
     // Look up school's stage for this license snapshot
-    const school = await prisma.school.findUnique({ where: { id: user.schoolId }, select: { stageId: true } });
+    const school = await prisma.school.findUnique({ where: { id: user.schoolId }, select: { stage: true } });
 
     // Activate or extend license
     const existing = await prisma.schoolLicense.findFirst({
@@ -85,7 +85,7 @@ export async function submitPaymentAction(_prev: BillingActionResult, formData: 
         data: {
           schoolId: user.schoolId,
           planId,
-          stageId: school?.stageId ?? null,
+          stage: school?.stage ?? null,
           startDate: new Date(),
           endDate: new Date(Date.now() + plan.durationDays * 24 * 60 * 60 * 1000),
           status: "active",

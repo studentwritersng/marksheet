@@ -13,7 +13,7 @@ interface SchoolVM {
   shortcode: string | null;
   maintenanceMode: boolean;
   suspended: boolean;
-  stageId: string | null;
+  stage: string;
   createdAt: string;
   _count: { students: number; staff: number; sessions: number; subjects: number };
 }
@@ -33,12 +33,11 @@ interface LicenseVM {
 }
 
 interface PlanVM { id: string; name: string; durationType: string; }
-interface PlanStageVM { id: string; name: string; price?: number | null; planName: string; durationType: string; }
 
 export function SchoolDetailClient({
-  school, licenses, plans, planStages,
+  school, licenses, plans,
 }: {
-  school: SchoolVM; licenses: LicenseVM[]; plans: PlanVM[]; planStages: PlanStageVM[];
+  school: SchoolVM; licenses: LicenseVM[]; plans: PlanVM[];
 }) {
   const [showLicenseForm, setShowLicenseForm] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -53,17 +52,15 @@ export function SchoolDetailClient({
     async () => toggleSuspendSchoolAction(school.id), {},
   );
 
-  const [stageId, setStageId] = useState(school.stageId ?? "");
+  const [stageValue, setStageValue] = useState(school.stage);
   const [stageState, stageAction, stagePending] = useActionState(
-    async () => setSchoolStageAction(school.id, stageId), {},
+    async () => setSchoolStageAction(school.id, stageValue), {},
   );
 
   const now = new Date();
   const currentLicense = licenses[0];
   const daysLeft = currentLicense
     ? Math.ceil((new Date(currentLicense.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
-
-  const currentStage = planStages.find((ps) => ps.id === school.stageId);
 
   const statusColor: Record<string, string> = {
     active: "text-emerald-400 bg-emerald-900/30 border-emerald-800/30",
@@ -98,7 +95,7 @@ export function SchoolDetailClient({
           </p>
           <p className="text-xs text-white/30 mt-1">
             Shortcode: <span className="font-mono">{school.shortcode ?? "—"}</span>
-            &middot; Stage: {currentStage ? <span className="text-emerald-400">{currentStage.planName} — {currentStage.name}{currentStage.price != null ? ` (₦${currentStage.price.toLocaleString()})` : ""}</span> : <span className="text-amber-400">None</span>}
+            &middot; Stage: <span className="text-emerald-400 capitalize">{school.stage}</span>
           </p>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
@@ -126,16 +123,15 @@ export function SchoolDetailClient({
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
         <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">Pricing Stage</h3>
         <div className="flex items-center gap-3">
-          <select value={stageId} onChange={(e) => setStageId(e.target.value)}
+          <select value={stageValue} onChange={(e) => setStageValue(e.target.value)}
             className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30 flex-1 max-w-md"
           >
-            <option value="">Select stage…</option>
-            {planStages.map((ps) => (
-              <option key={ps.id} value={ps.id}>{ps.planName} ({ps.durationType}) — {ps.name}{ps.price != null ? ` — ₦${ps.price.toLocaleString()}` : ""}</option>
-            ))}
+            <option value="basic">Basic</option>
+            <option value="standard">Standard</option>
+            <option value="premium">Premium</option>
           </select>
           <form action={stageAction}>
-            <button type="submit" disabled={stagePending || !stageId}
+            <button type="submit" disabled={stagePending}
               className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg disabled:opacity-60"
             >{stagePending ? "Saving..." : "Save Stage"}</button>
           </form>

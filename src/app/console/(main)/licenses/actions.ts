@@ -18,16 +18,19 @@ export async function createPlanAction(_prev: LicenseActionResult, formData: For
   try { await guard(); } catch { return { error: "Not authorised." }; }
   const name = (formData.get("name") as string)?.trim();
   const durationType = formData.get("durationType") as string;
-  const priceRaw = formData.get("price") as string;
+  const basicPriceRaw = formData.get("basicPrice") as string;
+  const standardPriceRaw = formData.get("standardPrice") as string;
+  const premiumPriceRaw = formData.get("premiumPrice") as string;
   const durationDaysRaw = formData.get("durationDays") as string;
   if (!name || !durationType) return { error: "Name and duration type are required." };
   if (!["monthly", "termly"].includes(durationType)) return { error: "Invalid duration type." };
-  const price = priceRaw ? parseFloat(priceRaw) : null;
+  const basicPrice = basicPriceRaw ? parseFloat(basicPriceRaw) : null;
+  const standardPrice = standardPriceRaw ? parseFloat(standardPriceRaw) : null;
+  const premiumPrice = premiumPriceRaw ? parseFloat(premiumPriceRaw) : null;
   const durationDays = durationDaysRaw ? parseInt(durationDaysRaw, 10) : null;
-  if (price !== null && isNaN(price)) return { error: "Invalid price." };
   if (durationDays !== null && (isNaN(durationDays) || durationDays < 1)) return { error: "Invalid duration days." };
   try {
-    await prisma.licensePlan.create({ data: { name, durationType: durationType as "monthly" | "termly", price, durationDays } });
+    await prisma.licensePlan.create({ data: { name, durationType: durationType as "monthly" | "termly", basicPrice, standardPrice, premiumPrice, durationDays } });
   } catch (e: any) {
     if (e?.code === "P2002") return { error: "A plan with this name already exists." };
     return { error: "Failed to create plan." };
@@ -41,16 +44,19 @@ export async function updatePlanAction(_prev: LicenseActionResult, formData: For
   const id = formData.get("planId") as string;
   const name = (formData.get("name") as string)?.trim();
   const durationType = formData.get("durationType") as string;
-  const priceRaw = formData.get("price") as string;
+  const basicPriceRaw = formData.get("basicPrice") as string;
+  const standardPriceRaw = formData.get("standardPrice") as string;
+  const premiumPriceRaw = formData.get("premiumPrice") as string;
   const durationDaysRaw = formData.get("durationDays") as string;
   if (!id || !name || !durationType) return { error: "Name and duration type are required." };
   if (!["monthly", "termly"].includes(durationType)) return { error: "Invalid duration type." };
-  const price = priceRaw ? parseFloat(priceRaw) : null;
+  const basicPrice = basicPriceRaw ? parseFloat(basicPriceRaw) : null;
+  const standardPrice = standardPriceRaw ? parseFloat(standardPriceRaw) : null;
+  const premiumPrice = premiumPriceRaw ? parseFloat(premiumPriceRaw) : null;
   const durationDays = durationDaysRaw ? parseInt(durationDaysRaw, 10) : null;
-  if (price !== null && isNaN(price)) return { error: "Invalid price." };
   if (durationDays !== null && (isNaN(durationDays) || durationDays < 1)) return { error: "Invalid duration days." };
   try {
-    await prisma.licensePlan.update({ where: { id }, data: { name, durationType: durationType as "monthly" | "termly", price, durationDays } });
+    await prisma.licensePlan.update({ where: { id }, data: { name, durationType: durationType as "monthly" | "termly", basicPrice, standardPrice, premiumPrice, durationDays } });
   } catch {
     return { error: "Failed to update plan." };
   }
@@ -72,45 +78,6 @@ export async function deletePlanAction(planId: string): Promise<LicenseActionRes
   await prisma.licensePlan.delete({ where: { id: planId } });
   revalidatePath("/console/licenses");
   return { success: "Plan deleted." };
-}
-
-// ── Stage management ────────────────────────────────────────────────────
-
-export async function createStageAction(_prev: LicenseActionResult, formData: FormData): Promise<LicenseActionResult> {
-  try { await guard(); } catch { return { error: "Not authorised." }; }
-  const planId = formData.get("planId") as string;
-  const name = (formData.get("name") as string)?.trim();
-  const priceRaw = formData.get("price") as string;
-  const sortOrderRaw = formData.get("sortOrder") as string;
-  if (!planId || !name) return { error: "Plan and stage name are required." };
-  const price = priceRaw ? parseFloat(priceRaw) : null;
-  const sortOrder = sortOrderRaw ? parseInt(sortOrderRaw, 10) : 0;
-  await prisma.planStage.create({ data: { planId, name, price, sortOrder } });
-  revalidatePath("/console/licenses");
-  return { success: `Stage "${name}" created.` };
-}
-
-export async function updateStageAction(_prev: LicenseActionResult, formData: FormData): Promise<LicenseActionResult> {
-  try { await guard(); } catch { return { error: "Not authorised." }; }
-  const id = formData.get("stageId") as string;
-  const name = (formData.get("name") as string)?.trim();
-  const priceRaw = formData.get("price") as string;
-  const sortOrderRaw = formData.get("sortOrder") as string;
-  if (!id || !name) return { error: "Stage name is required." };
-  const price = priceRaw ? parseFloat(priceRaw) : null;
-  const sortOrder = sortOrderRaw ? parseInt(sortOrderRaw, 10) : 0;
-  await prisma.planStage.update({ where: { id }, data: { name, price, sortOrder } });
-  revalidatePath("/console/licenses");
-  return { success: `Stage "${name}" updated.` };
-}
-
-export async function deleteStageAction(stageId: string): Promise<LicenseActionResult> {
-  try { await guard(); } catch { return { error: "Not authorised." }; }
-  const schools = await prisma.school.count({ where: { stageId } });
-  if (schools > 0) return { error: `${schools} school(s) use this stage. Reassign them first.` };
-  await prisma.planStage.delete({ where: { id: stageId } });
-  revalidatePath("/console/licenses");
-  return { success: "Stage deleted." };
 }
 
 export async function setLicenseStatusAction(licenseId: string, status: string): Promise<LicenseActionResult> {

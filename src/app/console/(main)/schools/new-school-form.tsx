@@ -3,11 +3,9 @@
 import { useActionState } from "react";
 import { createSchoolAction, type SchoolActionResult } from "./actions";
 
-interface PlanStageVM { id: string; name: string; price?: number | null; planName: string; durationType: string; }
-
 const init: SchoolActionResult = {};
 
-export function NewSchoolForm({ onClose, planStages }: { onClose: () => void; planStages: PlanStageVM[] }) {
+export function NewSchoolForm({ onClose }: { onClose: () => void; }) {
   const [state, action, pending] = useActionState(createSchoolAction, init);
 
   if (state.success) {
@@ -73,13 +71,11 @@ export function NewSchoolForm({ onClose, planStages }: { onClose: () => void; pl
         </div>
         <div>
           <label className="block text-xs text-white/40 mb-1">Pricing Stage *</label>
-          <select name="stageId" required className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30">
-            <option value="">Select plan + stage…</option>
-            {planStages.map((ps) => (
-              <option key={ps.id} value={ps.id}>
-                {ps.planName} ({ps.durationType}) — {ps.name}{ps.price != null ? ` — ₦${ps.price.toLocaleString()}` : ""}
-              </option>
-            ))}
+          <select name="stage" required className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30">
+            <option value="">Select pricing stage…</option>
+            <option value="basic">Basic</option>
+            <option value="standard">Standard</option>
+            <option value="premium">Premium</option>
           </select>
         </div>
       </div>

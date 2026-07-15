@@ -22,9 +22,7 @@ interface SchoolVM {
   licensePlanName: string | null;
 }
 
-interface PlanStageVM { id: string; name: string; price?: number | null; planName: string; durationType: string; }
-
-export function SchoolsPageClient({ schools, now, planStages }: { schools: SchoolVM[]; now: number; planStages: PlanStageVM[] }) {
+export function SchoolsPageClient({ schools, now }: { schools: SchoolVM[]; now: number; }) {
   const [showNewForm, setShowNewForm] = useState(false);
   const today = new Date(now);
 
@@ -46,7 +44,7 @@ export function SchoolsPageClient({ schools, now, planStages }: { schools: Schoo
       </div>
 
       {showNewForm && (
-        <NewSchoolForm onClose={() => setShowNewForm(false)} planStages={planStages} />
+        <NewSchoolForm onClose={() => setShowNewForm(false)} />
       )}
 
       <div className="grid grid-cols-1 gap-3">

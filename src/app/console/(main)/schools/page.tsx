@@ -7,39 +7,32 @@ export default async function ConsoleSchoolsPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "platform_owner") redirect("/console/login");
 
-  const [schools, planStages] = await Promise.all([
-    prisma.school.findMany({
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        address: true,
-        phone: true,
-        email: true,
-        shortcode: true,
-        maintenanceMode: true,
-        suspended: true,
-        createdAt: true,
-        _count: { select: { students: true, staff: true, sessions: true } },
-        licenses: {
-          orderBy: { endDate: "desc" },
-          take: 1,
-          select: { status: true, endDate: true, plan: { select: { name: true } } },
-        },
+  const schools = await prisma.school.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      phone: true,
+      email: true,
+      shortcode: true,
+      maintenanceMode: true,
+      suspended: true,
+      createdAt: true,
+      _count: { select: { students: true, staff: true, sessions: true } },
+      licenses: {
+        orderBy: { endDate: "desc" },
+        take: 1,
+        select: { status: true, endDate: true, plan: { select: { name: true } } },
       },
-    }),
-    prisma.planStage.findMany({
-      include: { plan: { select: { name: true, durationType: true } } },
-      orderBy: [{ plan: { name: "asc" } }, { sortOrder: "asc" }],
-    }),
-  ]);
+    },
+  });
 
   const now = Date.now();
 
   return (
     <SchoolsPageClient
       now={now}
-      planStages={planStages.map((ps) => ({ id: ps.id, name: ps.name, price: ps.price?.toNumber(), planName: ps.plan.name, durationType: ps.plan.durationType }))}
       schools={schools.map((s) => ({
         id: s.id,
         name: s.name,

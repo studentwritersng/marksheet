@@ -43,9 +43,8 @@ model School {
   // Fee gating configuration (PRD 12 §3.2)
   feeGateExams       Boolean  @default(false) // block exam access if fee not cleared
   feeGateResults     Boolean  @default(false) // block result release if fee not cleared
-  // Pricing stage for this school
-  stageId            String?
-  stage              PlanStage? @relation(fields: [stageId], references: [id])
+  // Pricing stage for this school (Basic / Standard / Premium)
+  stage LicenseStageName @default(basic)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -1228,41 +1227,30 @@ enum LicenseDurationType {
   termly
 }
 
-model LicensePlan {
-  id           String              @id @default(cuid())
-  name         String              @unique // e.g. "Monthly", "Termly"
-  durationType LicenseDurationType
-  price        Decimal? // e.g. 50000.00
-  durationDays Int? // e.g. 30 or 90
-  isActive     Boolean             @default(true) // can this plan be assigned to new schools?
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+enum LicenseStageName {
+  basic
+  standard
+  premium
+}
 
-  stages         PlanStage[]
+model LicensePlan {
+  id             String              @id @default(cuid())
+  name           String              @unique // e.g. "Monthly", "Termly"
+  durationType   LicenseDurationType
+  price          Decimal? // deprecated — use stage-specific prices below
+  basicPrice     Decimal? // price for Basic-stage schools
+  standardPrice  Decimal? // price for Standard-stage schools
+  premiumPrice   Decimal? // price for Premium-stage schools
+  durationDays   Int? // e.g. 30 or 90
+  isActive       Boolean             @default(true) // can this plan be assigned to new schools?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
   schoolLicenses SchoolLicense[]
   payments       Payment[]
   cashCodes      CashCode[]
 
   @@map("license_plans")
-}
-
-// Configurable pricing stage within a plan (e.g. tiered pricing by school size)
-model PlanStage {
-  id        String   @id @default(cuid())
-  planId    String
-  name      String   // e.g. "Basic (1-100)", "Standard (101-500)", "Premium (501+)"
-  price     Decimal? // overrides plan price; null = use plan default
-  criteria  Json?    // optional: e.g. {"minStudents": 1, "maxStudents": 100}
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  plan             LicensePlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
-  schools          School[]
-  licenseSnapshots SchoolLicense[]
-
-  @@index([planId])
-  @@map("plan_stages")
 }
 
 enum LicenseStatus {
@@ -1273,23 +1261,22 @@ enum LicenseStatus {
 }
 
 model SchoolLicense {
-  id               String        @id @default(cuid())
+  id               String            @id @default(cuid())
   schoolId         String
   planId           String
-  stageId          String? // snapshot of the stage at time of license creation
+  stage            LicenseStageName? // snapshot of the school's stage at license creation
   startDate        DateTime
   endDate          DateTime
-  status           LicenseStatus @default(active)
+  status           LicenseStatus     @default(active)
   paymentReference String? // free-text record of how/when the school paid
   setBy            String? // Platform Owner user id
-  autoRenewIntent  Boolean       @default(false) // informational only
+  autoRenewIntent  Boolean           @default(false) // informational only
   notes            String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   school School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   plan   LicensePlan @relation(fields: [planId], references: [id])
-  stage  PlanStage?  @relation(fields: [stageId], references: [id])
 
   @@index([schoolId])
   @@index([status])

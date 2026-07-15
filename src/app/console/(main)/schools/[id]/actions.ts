@@ -51,13 +51,13 @@ export async function updateLicenseAction(schoolId: string, formData: FormData):
   });
 
   // Snapshot the school's current stage
-  const schoolRec = await prisma.school.findUnique({ where: { id: schoolId }, select: { stageId: true } });
+  const schoolRec = await prisma.school.findUnique({ where: { id: schoolId }, select: { stage: true } });
 
   await prisma.schoolLicense.create({
     data: {
       schoolId,
       planId,
-      stageId: schoolRec?.stageId ?? null,
+      stage: schoolRec?.stage ?? null,
       startDate,
       endDate,
       status: "active",
@@ -153,19 +153,18 @@ export async function updateSchoolAction(_prev: SchoolActionResult, formData: Fo
   return { success: "School updated." };
 }
 
-export async function setSchoolStageAction(schoolId: string, stageId: string): Promise<SchoolActionResult> {
+export async function setSchoolStageAction(schoolId: string, stage: string): Promise<SchoolActionResult> {
   try { await guard(); } catch { return { error: "Not authorised." }; }
-  const stage = await prisma.planStage.findUnique({ where: { id: stageId } });
-  if (!stage) return { error: "Invalid stage." };
-  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { stageId: true } });
-  await prisma.school.update({ where: { id: schoolId }, data: { stageId } });
+  if (!["basic", "standard", "premium"].includes(stage)) return { error: "Invalid stage." };
+  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { stage: true } });
+  await prisma.school.update({ where: { id: schoolId }, data: { stage: stage as any } });
   await recordAudit({
     actorId: (await getCurrentUser())!.userId,
     action: "school_stage_changed",
     entityType: "school",
     entityId: schoolId,
-    beforeValue: { stageId: school?.stageId },
-    afterValue: { stageId },
+    beforeValue: { stage: school?.stage },
+    afterValue: { stage },
     schoolId,
   });
   revalidatePath(`/console/schools/${schoolId}`);

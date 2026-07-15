@@ -3,11 +3,11 @@
 import { useActionState, useState, useRef } from "react";
 import { submitPaymentAction } from "./actions";
 
-interface PlanVM { id: string; name: string; durationType: string; price?: number | null; durationDays?: number | null; }
+interface PlanVM { id: string; name: string; durationType: string; basicPrice?: number | null; standardPrice?: number | null; premiumPrice?: number | null; durationDays?: number | null; }
 interface MethodVM { id: string; type: string; label: string; details: Record<string, string> | null; }
 interface PaymentVM { id: string; planName: string; amount: number; methodLabel: string; status: string; createdAt: string; }
 interface LicenseVM { status: string; endDate?: string; planName?: string; }
-interface StageVM { name: string; price?: number | null; planName: string; }
+interface SchoolStageVM { stage: string; price?: number | null; }
 
 function formatPrice(n?: number | null) {
   if (n == null) return null;
@@ -15,7 +15,7 @@ function formatPrice(n?: number | null) {
 }
 
 export function BillingClient({ plans, methods, payments, license, schoolName, schoolStage }: {
-  plans: PlanVM[]; methods: MethodVM[]; payments: PaymentVM[]; license?: LicenseVM | null; schoolName: string; schoolStage: StageVM | null;
+  plans: PlanVM[]; methods: MethodVM[]; payments: PaymentVM[]; license?: LicenseVM | null; schoolName: string; schoolStage: SchoolStageVM | null;
 }) {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [selectedMethod, setSelectedMethod] = useState<string>("");
@@ -27,8 +27,12 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
   const chosenPlan = plans.find((p) => p.id === selectedPlan);
   const chosenMethod = methods.find((m) => m.id === selectedMethod);
 
-  // Use the school's stage price if available, otherwise fall back to plan price
-  const effectivePrice = schoolStage?.price ?? chosenPlan?.price;
+  // Get the price for the school's stage from the chosen plan
+  const stage = schoolStage?.stage ?? "basic";
+  const stageBasedPrice = chosenPlan
+    ? stage === "premium" ? chosenPlan.premiumPrice : stage === "standard" ? chosenPlan.standardPrice : chosenPlan.basicPrice
+    : null;
+  const effectivePrice = stageBasedPrice ?? schoolStage?.price;
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -48,7 +52,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
       {schoolStage && (
         <div className="bg-primary-container border border-outline-variant rounded-xl p-4">
           <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Your Pricing Stage</p>
-          <p className="font-label-md text-label-md text-on-primary-container font-semibold">{schoolStage.planName} — {schoolStage.name}</p>
+          <p className="font-label-md text-label-md text-on-primary-container font-semibold capitalize">{schoolStage.stage}</p>
           {schoolStage.price != null && <p className="text-lg font-bold text-emerald-700 mt-1">{formatPrice(schoolStage.price)}</p>}
         </div>
       )}
@@ -74,7 +78,9 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {plans.map((p) => {
             const active = selectedPlan === p.id;
-            const displayPrice = schoolStage?.price ?? p.price;
+            const pStage = schoolStage?.stage ?? "basic";
+            const planStagePrice = pStage === "premium" ? p.premiumPrice : pStage === "standard" ? p.standardPrice : p.basicPrice;
+            const displayPrice = planStagePrice ?? schoolStage?.price;
             return (
               <button key={p.id} onClick={() => { setSelectedPlan(p.id); setSelectedMethod(""); setCashCode(""); setProofBase64(""); }}
                 className={`text-left rounded-xl p-4 border transition-all ${
@@ -87,8 +93,8 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
                   {displayPrice != null && <span className="text-emerald-600 font-semibold">{formatPrice(displayPrice)}</span>}
                   {p.durationDays && <span>{p.durationDays} days</span>}
                 </div>
-                {schoolStage && schoolStage.price != null && (
-                  <p className="text-[10px] text-on-surface-variant mt-1">Based on your {schoolStage.name} stage</p>
+                {schoolStage && displayPrice != null && (
+                  <p className="text-[10px] text-on-surface-variant mt-1">Based on your {schoolStage.stage} stage</p>
                 )}
               </button>
             );
@@ -139,7 +145,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
           <input type="hidden" name="planId" value={selectedPlan} />
           <input type="hidden" name="methodId" value={selectedMethod} />
           <input type="hidden" name="proofUrl" value={proofBase64} />
-          {schoolStage && <input type="hidden" name="stageId" value={schoolStage.name} />}
+          {schoolStage && <input type="hidden" name="stage" value={schoolStage.stage} />}
 
           {chosenMethod?.type === "cash" && (
             <div>
