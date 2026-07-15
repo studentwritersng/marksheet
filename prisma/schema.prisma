@@ -73,6 +73,7 @@ model School {
   timetableTemplates   TimetableTemplate[]
   timetableRules       SchoolTimetableRule[]
   addonTimetables      AddonTimetable[]
+  taughtTopics         TaughtTopic[]
 
   @@map("schools")
 }
@@ -153,6 +154,7 @@ model Class {
   classSubjects        ClassSubject[]
   subjectRequirements  SubjectTimetableRequirement[]
   addonTimetableEntries AddonTimetableEntry[]
+  taughtTopics          TaughtTopic[]
 
   @@unique([sessionId, level, section, department])
   @@index([schoolId])
@@ -203,6 +205,7 @@ model Staff {
   timetableEntries TimetableEntry[]
   staffAvailabilities    StaffAvailability[]
   addonTimetableEntries  AddonTimetableEntry[]
+  taughtTopics           TaughtTopic[]
 
   @@unique([schoolId, email])
   @@index([schoolId])
@@ -250,6 +253,7 @@ model Subject {
   classSubjects    ClassSubject[]
   subjectRequirements  SubjectTimetableRequirement[]
   addonTimetableEntries AddonTimetableEntry[]
+  taughtTopics          TaughtTopic[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -322,6 +326,8 @@ model Student {
   userId          String?       @unique // links to User for student login
   // Extended bio-data (blood_group, genotype, previous_school, etc.) — school-configurable
   bioData         Json?
+  isClassCaptain  Boolean       @default(false)
+  isViceClassCaptain Boolean   @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -333,6 +339,7 @@ model Student {
   termResults    TermResult[]
   examAttempts   ExamAttempt[]
   consentRecords ConsentRecord[]
+  taughtTopics   TaughtTopic[]
 
   @@unique([schoolId, admissionNumber])
   @@index([schoolId])
@@ -1438,4 +1445,37 @@ model TicketMessage {
 
   @@index([ticketId])
   @@map("ticket_messages")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 18: Period Tracker Addon — track curriculum coverage by teachers
+// ---------------------------------------------------------------------------
+
+model TaughtTopic {
+  id                String    @id @default(cuid())
+  schoolId          String
+  classId           String
+  subjectId         String
+  curriculumTopicId String?
+  termId            String?
+  teacherId         String    // Staff id
+  teacherMarked     Boolean   @default(false)
+  captainMarked     Boolean   @default(false)
+  studentId         String?   // Student (captain/vice) who marked
+  teacherMarkedAt   DateTime?
+  captainMarkedAt   DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class    Class     @relation(fields: [classId], references: [id])
+  subject  Subject   @relation(fields: [subjectId], references: [id])
+  teacher  Staff     @relation(fields: [teacherId], references: [id])
+  student  Student?  @relation(fields: [studentId], references: [id])
+
+  @@unique([classId, subjectId, curriculumTopicId, teacherId])
+  @@index([schoolId])
+  @@index([classId])
+  @@index([teacherId])
+  @@map("taught_topics")
 }

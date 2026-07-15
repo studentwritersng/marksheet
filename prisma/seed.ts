@@ -260,6 +260,27 @@ async function main() {
     });
   }
 
+  // --- Period Tracker addon ------------------------------------------------
+  await prisma.addon.upsert({
+    where: { name: "Period Tracker" },
+    update: {},
+    create: {
+      name: "Period Tracker",
+      description: "Track curriculum coverage by teachers and class captains. Two-way verification ensures accountability for every period taught.",
+      features: [
+        "Teachers mark curriculum topics as taught per class/subject",
+        "Class captains verify taught topics for two-way confirmation",
+        "Real-time coverage stats on all dashboards",
+        "Track percentage of curriculum completed per subject and term",
+      ],
+      price: null,
+      durationDays: null,
+      isActive: true,
+      sortOrder: 2,
+    },
+  });
+  console.log(`  Addon: "Period Tracker"`);
+
   // --- Timetable Generator addon -------------------------------------------
   const addon = await prisma.addon.upsert({
     where: { name: "Timetable Generator" },

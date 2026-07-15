@@ -11,6 +11,7 @@ export interface NavItem {
 export function buildNav(
   user: SessionPayload,
   perms: EffectivePermissions,
+  isStudentCaptain?: boolean,
 ): NavItem[] {
   const items: NavItem[] = [{ label: "Dashboard", href: "/dashboard", icon: "overview" }];
 
@@ -46,6 +47,7 @@ export function buildNav(
         { label: "Assessment Weights", href: "/assessment-weightings", icon: "tune" },
         { label: "Exams", href: "/exams", icon: "quiz" },
         { label: "Timetable", href: "/timetable", icon: "calendar_view_week" },
+        { label: "Period Tracker", href: "/period-tracker", icon: "checklist" },
       ]},
       { label: "Results", icon: "analytics", children: [
         { label: "Result", href: "/results", icon: "analytics" },
@@ -72,12 +74,16 @@ export function buildNav(
       { label: "My Wards", href: "/parent", icon: "family_history" },
     );
   } else if (user.role === "student") {
-    items.push(
+    const studentItems: NavItem[] = [
       { label: "My Exams", href: "/my-exams", icon: "quiz" },
       { label: "My Results", href: "/my-results", icon: "analytics" },
       { label: "My Timetable", href: "/my-timetable", icon: "calendar_view_week" },
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
-    );
+    ];
+    if (isStudentCaptain) {
+      studentItems.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });
+    }
+    items.push(...studentItems);
   } else {
     if (
       perms.subjectTeacherClassIds.size > 0 ||
@@ -87,6 +93,7 @@ export function buildNav(
     }
     if (perms.subjectTeacherSubjectIds.size > 0) {
       items.push({ label: "Lesson Notes", href: "/lesson-notes", icon: "note" });
+      items.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });
     }
     if (perms.classTeacherClassIds.size > 0) {
       items.push({ label: "Students", href: "/students", icon: "group" });

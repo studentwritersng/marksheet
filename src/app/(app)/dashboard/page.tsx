@@ -1,6 +1,9 @@
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
+import type { EffectivePermissions } from "@/lib/auth/permissions";
+import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { isAddonActive } from "@/lib/addons/check";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { SchoolLicenseBanner } from "@/components/school-license-banner";
@@ -155,6 +158,9 @@ export default async function DashboardPage() {
         <StatCard label="Term Results" value={termResults} icon="analytics" gradient="from-indigo-500 to-indigo-700" />
       </div>
 
+      {/* Period Tracker coverage (all roles) */}
+      <PeriodCoverageWidget schoolId={schoolId} perms={perms} user={user} />
+
       {/* Calendar + charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Calendar widget */}
@@ -251,6 +257,120 @@ function MiniCalendar() {
         ))}
         {cells}
       </div>
+    </div>
+  );
+}
+
+async function PeriodCoverageWidget({
+  schoolId, perms, user,
+}: {
+  schoolId: string; perms: EffectivePermissions; user: SessionPayload;
+}) {
+  const addonActive = await isAddonActive(schoolId, "Period Tracker");
+  if (!addonActive) return null;
+
+  let classIds: string[] = [];
+  if (user.role === "staff" && user.staffId) {
+    classIds = Array.from(perms.subjectTeacherClassIds);
+  } else if (perms.isSuperAdmin || perms.isSchoolAdmin) {
+    const classes = await prisma.class.findMany({ where: { schoolId, archived: false }, select: { id: true } });
+    classIds = classes.map((c) => c.id);
+  } else if (user.role === "student" && user.userId) {
+    const s = await prisma.student.findFirst({
+      where: { userId: user.userId, schoolId },
+      select: { currentClassId: true, isClassCaptain: true, isViceClassCaptain: true },
+    });
+    if (s?.currentClassId && (s.isClassCaptain || s.isViceClassCaptain)) {
+      classIds = [s.currentClassId];
+    }
+  }
+  if (classIds.length === 0) return null;
+
+  const [currentTerm, classes] = await Promise.all([
+    prisma.term.findFirst({
+      where: { session: { schoolId, isCurrent: true }, isCurrent: true },
+      select: { name: true },
+    }),
+    prisma.class.findMany({ where: { id: { in: classIds } }, select: { id: true, level: true, name: true } }),
+  ]);
+  if (!currentTerm) return null;
+
+  const rows: { className: string; subjectName: string; total: number; taught: number; pct: number }[] = [];
+  for (const cls of classes) {
+    const classSubjects = await prisma.classSubject.findMany({
+      where: { classId: cls.id },
+      include: { subject: { select: { name: true } } },
+    });
+    for (const cs of classSubjects) {
+      const total = await prisma.curriculumTopic.count({
+        where: { classLevel: cls.level, subject: cs.subject.name, term: currentTerm.name },
+      });
+      if (total === 0) continue;
+      const taught = await prisma.taughtTopic.count({
+        where: { classId: cls.id, subjectId: cs.subjectId, teacherMarked: true, captainMarked: true },
+      });
+      rows.push({
+        className: cls.name,
+        subjectName: cs.subject.name,
+        total,
+        taught,
+        pct: Math.round((taught / total) * 100),
+      });
+    }
+  }
+
+  if (rows.length === 0) return null;
+
+  const allTaught = rows.reduce((a, r) => a + r.taught, 0);
+  const allTotal = rows.reduce((a, r) => a + r.total, 0);
+  const overallPct = Math.round((allTaught / allTotal) * 100);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-label-md text-label-md text-on-surface-variant flex items-center gap-2">
+          <span className="material-symbols-outlined text-[20px]">checklist</span>
+          Period Tracker Coverage
+        </h3>
+        <div className="flex items-center gap-1">
+          <span className="font-label-sm text-label-sm font-semibold">{overallPct}%</span>
+          <span className="font-body-sm text-body-sm text-on-surface-variant">complete</span>
+        </div>
+      </div>
+      <div className="h-2 bg-surface-container rounded-full mb-4 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${overallPct}%`,
+            backgroundColor: overallPct >= 75 ? "#15803d" : overallPct >= 50 ? "#d97706" : "#dc2626",
+          }}
+        />
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="border-b border-outline-variant">
+              <th className="py-1.5 pr-2 font-label-sm text-label-sm text-on-surface-variant">Class</th>
+              <th className="py-1.5 pr-2 font-label-sm text-label-sm text-on-surface-variant">Subject</th>
+              <th className="py-1.5 pr-2 font-label-sm text-label-sm text-on-surface-variant text-right">%</th>
+              <th className="py-1.5 font-label-sm text-label-sm text-on-surface-variant text-right">Done</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, 10).map((r, i) => (
+              <tr key={i} className="border-b border-outline-variant/50">
+                <td className="py-1.5 pr-2 text-on-surface">{r.className}</td>
+                <td className="py-1.5 pr-2 text-on-surface">{r.subjectName}</td>
+                <td className="py-1.5 pr-2 text-right font-semibold" style={{ color: r.pct >= 75 ? "#15803d" : r.pct >= 50 ? "#d97706" : "#dc2626" }}>{r.pct}%</td>
+                <td className="py-1.5 text-right text-on-surface-variant">{r.taught}/{r.total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > 10 && (
+        <p className="mt-2 text-center text-xs text-on-surface-variant">+{rows.length - 10} more</p>
+      )}
     </div>
   );
 }

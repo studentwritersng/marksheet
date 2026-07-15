@@ -28,7 +28,17 @@ export default async function AppLayout({
   }
 
   const perms = await resolvePermissions(user);
-  const nav = buildNav(user, perms);
+
+  let isStudentCaptain = false;
+  if (user.role === "student" && user.userId) {
+    const s = await prisma.student.findFirst({
+      where: { userId: user.userId, schoolId: user.schoolId ?? "" },
+      select: { isClassCaptain: true, isViceClassCaptain: true },
+    });
+    isStudentCaptain = s?.isClassCaptain === true || s?.isViceClassCaptain === true;
+  }
+
+  const nav = buildNav(user, perms, isStudentCaptain);
 
   // Fetch school info for sidebar branding
   let schoolInfo: { name: string; logo: string | null; motto: string | null; shortcode: string | null } | null = null;
