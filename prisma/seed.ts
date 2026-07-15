@@ -260,6 +260,30 @@ async function main() {
     });
   }
 
+  // --- Timetable Generator addon -------------------------------------------
+  const addon = await prisma.addon.upsert({
+    where: { name: "Timetable Generator" },
+    update: {},
+    create: {
+      name: "Timetable Generator",
+      description: "AI-powered collision-free timetable generation for your school. Define templates, subject requirements, staff availability, and generate optimal timetables.",
+      features: [
+        "Customisable timetable templates with days and periods",
+        "Define subject period requirements per class level",
+        "Staff availability management with daily/weekly limits",
+        "Smart CSP solver that avoids collisions",
+        "Score-based optimisation across multiple runs",
+        "Room and room type management",
+        "Custom timetable rules (hard and soft constraints)",
+      ],
+      price: null,
+      durationDays: null,
+      isActive: true,
+      sortOrder: 1,
+    },
+  });
+  console.log(`  Addon: "${addon.name}" (${addon.id})`);
+
   console.log("Seed complete.");
   console.log("Logins:");
   console.log("  Super Admin: super@marksheet.dev / superadmin123");
