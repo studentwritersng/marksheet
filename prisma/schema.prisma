@@ -65,6 +65,7 @@ model School {
   payments             Payment[]
   tickets              Ticket[]
   consentRecords       ConsentRecord[]
+  schoolAddons         SchoolAddon[]
 
   @@map("schools")
 }
@@ -1125,6 +1126,59 @@ model CashCode {
 
   @@index([code])
   @@map("cash_codes")
+}
+
+model Addon {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  features     Json?   // array of feature descriptions
+  price        Decimal? // null = free
+  durationDays Int?    // null = one-time/permanent, set = renewable
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schoolAddons    SchoolAddon[]
+  activationCodes AddonCode[]
+
+  @@map("addons")
+}
+
+model AddonCode {
+  id             String    @id @default(cuid())
+  code           String    @unique // e.g. "ADDON-A3B7K9"
+  addonId        String
+  schoolId       String?   // pre-assigned to a school (optional)
+  isUsed         Boolean   @default(false)
+  usedAt         DateTime?
+  usedBySchoolId String?
+  createdAt      DateTime  @default(now())
+
+  addon Addon @relation(fields: [addonId], references: [id])
+
+  @@index([code])
+  @@map("addon_codes")
+}
+
+model SchoolAddon {
+  id             String    @id @default(cuid())
+  schoolId       String
+  addonId        String
+  status         String    @default("active") // active, expired, suspended
+  activatedAt    DateTime  @default(now())
+  expiresAt      DateTime? // null = permanent
+  activatedVia   String    // "purchase" or "code"
+  activationCode String?   // the code used (if via code)
+  paymentId      String?   // the payment (if via purchase)
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  addon  Addon  @relation(fields: [addonId], references: [id])
+
+  @@unique([schoolId, addonId])
+  @@index([schoolId])
+  @@map("school_addons")
 }
 
 model Payment {

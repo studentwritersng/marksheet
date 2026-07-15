@@ -55,6 +55,7 @@ export function buildNav(
       ]},
       { label: "Billing", icon: "payments", children: [
         { label: "Billing & License", href: "/billing", icon: "account_balance_wallet" },
+        { label: "Addons", href: "/addons", icon: "extension" },
       ]},
       { label: "System", icon: "settings", children: [
         { label: "Announcements", href: "/announcements", icon: "campaign" },
