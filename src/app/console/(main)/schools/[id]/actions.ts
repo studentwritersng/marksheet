@@ -50,10 +50,14 @@ export async function updateLicenseAction(schoolId: string, formData: FormData):
     data: { status: "expired" },
   });
 
+  // Snapshot the school's current stage
+  const schoolRec = await prisma.school.findUnique({ where: { id: schoolId }, select: { stageId: true } });
+
   await prisma.schoolLicense.create({
     data: {
       schoolId,
       planId,
+      stageId: schoolRec?.stageId ?? null,
       startDate,
       endDate,
       status: "active",
@@ -147,6 +151,25 @@ export async function updateSchoolAction(_prev: SchoolActionResult, formData: Fo
   });
   revalidatePath(`/console/schools/${schoolId}`);
   return { success: "School updated." };
+}
+
+export async function setSchoolStageAction(schoolId: string, stageId: string): Promise<SchoolActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const stage = await prisma.planStage.findUnique({ where: { id: stageId } });
+  if (!stage) return { error: "Invalid stage." };
+  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { stageId: true } });
+  await prisma.school.update({ where: { id: schoolId }, data: { stageId } });
+  await recordAudit({
+    actorId: (await getCurrentUser())!.userId,
+    action: "school_stage_changed",
+    entityType: "school",
+    entityId: schoolId,
+    beforeValue: { stageId: school?.stageId },
+    afterValue: { stageId },
+    schoolId,
+  });
+  revalidatePath(`/console/schools/${schoolId}`);
+  return { success: "Stage updated." };
 }
 
 export async function toggleSuspendSchoolAction(schoolId: string): Promise<SchoolActionResult> {

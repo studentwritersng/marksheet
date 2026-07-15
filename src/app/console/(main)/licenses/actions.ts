@@ -74,6 +74,45 @@ export async function deletePlanAction(planId: string): Promise<LicenseActionRes
   return { success: "Plan deleted." };
 }
 
+// ── Stage management ────────────────────────────────────────────────────
+
+export async function createStageAction(_prev: LicenseActionResult, formData: FormData): Promise<LicenseActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const planId = formData.get("planId") as string;
+  const name = (formData.get("name") as string)?.trim();
+  const priceRaw = formData.get("price") as string;
+  const sortOrderRaw = formData.get("sortOrder") as string;
+  if (!planId || !name) return { error: "Plan and stage name are required." };
+  const price = priceRaw ? parseFloat(priceRaw) : null;
+  const sortOrder = sortOrderRaw ? parseInt(sortOrderRaw, 10) : 0;
+  await prisma.planStage.create({ data: { planId, name, price, sortOrder } });
+  revalidatePath("/console/licenses");
+  return { success: `Stage "${name}" created.` };
+}
+
+export async function updateStageAction(_prev: LicenseActionResult, formData: FormData): Promise<LicenseActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const id = formData.get("stageId") as string;
+  const name = (formData.get("name") as string)?.trim();
+  const priceRaw = formData.get("price") as string;
+  const sortOrderRaw = formData.get("sortOrder") as string;
+  if (!id || !name) return { error: "Stage name is required." };
+  const price = priceRaw ? parseFloat(priceRaw) : null;
+  const sortOrder = sortOrderRaw ? parseInt(sortOrderRaw, 10) : 0;
+  await prisma.planStage.update({ where: { id }, data: { name, price, sortOrder } });
+  revalidatePath("/console/licenses");
+  return { success: `Stage "${name}" updated.` };
+}
+
+export async function deleteStageAction(stageId: string): Promise<LicenseActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const schools = await prisma.school.count({ where: { stageId } });
+  if (schools > 0) return { error: `${schools} school(s) use this stage. Reassign them first.` };
+  await prisma.planStage.delete({ where: { id: stageId } });
+  revalidatePath("/console/licenses");
+  return { success: "Stage deleted." };
+}
+
 export async function setLicenseStatusAction(licenseId: string, status: string): Promise<LicenseActionResult> {
   try { await guard(); } catch { return { error: "Not authorised." }; }
   if (!["active", "grace_period", "expired", "suspended"].includes(status)) return { error: "Invalid status." };

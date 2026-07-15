@@ -1,11 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { createPlanAction, updatePlanAction, togglePlanActiveAction, deletePlanAction, setLicenseStatusAction } from "./actions";
+import { createPlanAction, updatePlanAction, togglePlanActiveAction, deletePlanAction, setLicenseStatusAction, createStageAction, updateStageAction, deleteStageAction } from "./actions";
 
-interface PlanVM { id: string; name: string; durationType: string; price?: number | null; durationDays?: number | null; isActive: boolean; }
+interface StageVM { id: string; name: string; price?: number | null; criteria: Record<string, number> | null; sortOrder: number; }
+interface PlanVM { id: string; name: string; durationType: string; price?: number | null; durationDays?: number | null; isActive: boolean; stages: StageVM[]; }
 interface LicenseVM {
-  id: string; schoolName: string; planName: string; durationType: string;
+  id: string; schoolName: string; planName: string; stageName: string | null; durationType: string;
   startDate: string; endDate: string; status: string;
   autoRenewIntent: boolean; paymentReference: string | null; setBy: string | null;
 }
@@ -51,7 +52,7 @@ export function LicensesClient({ plans, licenses }: { plans: PlanVM[]; licenses:
                 </select>
               </div>
               <div>
-                <label className="text-xs text-white/50 block mb-1">Price</label>
+                <label className="text-xs text-white/50 block mb-1">Base Price</label>
                 <input name="price" type="number" step="0.01" min="0" placeholder="e.g. 50000" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
               </div>
               <div>
@@ -65,7 +66,7 @@ export function LicensesClient({ plans, licenses }: { plans: PlanVM[]; licenses:
           </form>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {plans.map((p) => <PlanCard key={p.id} plan={p} />)}
           {plans.length === 0 && <p className="text-white/30 text-sm col-span-full py-4 text-center">No plans defined.</p>}
         </div>
@@ -81,6 +82,7 @@ export function LicensesClient({ plans, licenses }: { plans: PlanVM[]; licenses:
               <tr className="border-b border-white/5 text-white/40 text-xs uppercase tracking-wider">
                 <th className="text-left px-5 py-3 font-medium">School</th>
                 <th className="text-left px-4 py-3 font-medium">Plan</th>
+                <th className="text-left px-4 py-3 font-medium">Stage</th>
                 <th className="text-left px-4 py-3 font-medium">Start</th>
                 <th className="text-left px-4 py-3 font-medium">End</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -101,6 +103,7 @@ export function LicensesClient({ plans, licenses }: { plans: PlanVM[]; licenses:
 
 function PlanCard({ plan }: { plan: PlanVM }) {
   const [editing, setEditing] = useState(false);
+  const [showStages, setShowStages] = useState(false);
   const [editState, editAction, editPending] = useActionState(updatePlanAction, {});
   const [togState, togAction, togPending] = useActionState(async () => togglePlanActiveAction(plan.id, !plan.isActive), {});
   const [delState, delAction, delPending] = useActionState(async () => deletePlanAction(plan.id), {});
@@ -122,7 +125,7 @@ function PlanCard({ plan }: { plan: PlanVM }) {
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[10px] text-white/50 block mb-0.5">Price</label>
+            <label className="text-[10px] text-white/50 block mb-0.5">Base Price</label>
             <input name="price" type="number" step="0.01" min="0" defaultValue={plan.price ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
           </div>
           <div>
@@ -148,6 +151,16 @@ function PlanCard({ plan }: { plan: PlanVM }) {
       </div>
       <p className="text-white/40 text-xs capitalize mb-1">{plan.durationType}</p>
       {plan.price != null && <p className="text-xs text-white/50">{formatPrice(plan.price)}{plan.durationDays ? " · " + plan.durationDays + " days" : ""}</p>}
+      {plan.stages.length > 0 && (
+        <div className="mt-2 space-y-1">
+          <p className="text-[10px] text-white/30 uppercase tracking-wider">Stages</p>
+          {plan.stages.map((s) => <StageRow key={s.id} stage={s} planId={plan.id} />)}
+        </div>
+      )}
+      <button onClick={() => setShowStages(!showStages)} className="text-[10px] text-white/40 hover:text-white/70 underline mt-1 inline-block">
+        {showStages ? "Close stage editor" : `Add / manage stages`}
+      </button>
+      {showStages && <StageForm planId={plan.id} />}
       <div className="flex gap-2 mt-2">
         <button onClick={() => setEditing(true)} className="text-[10px] text-white/40 hover:text-white/70 underline">Edit</button>
         <form action={togAction}><button type="submit" disabled={togPending} className="text-[10px] text-white/40 hover:text-white/70 underline">{plan.isActive ? "Deactivate" : "Activate"}</button></form>
@@ -160,6 +173,53 @@ function PlanCard({ plan }: { plan: PlanVM }) {
   );
 }
 
+function StageRow({ stage, planId }: { stage: StageVM; planId: string }) {
+  const [editing, setEditing] = useState(false);
+  const [editState, editAction, editPending] = useActionState(updateStageAction, {});
+  const [delState, delAction, delPending] = useActionState(async () => deleteStageAction(stage.id), {});
+
+  if (editing) {
+    return (
+      <form action={editAction} className="flex items-center gap-1">
+        <input type="hidden" name="stageId" value={stage.id} />
+        <input name="name" defaultValue={stage.name} required className="w-28 bg-white/5 border border-white/10 rounded p-0.5 text-[10px] text-white" />
+        <input name="price" type="number" step="0.01" min="0" defaultValue={stage.price ?? ""} placeholder="Price" className="w-16 bg-white/5 border border-white/10 rounded p-0.5 text-[10px] text-white" />
+        <input name="sortOrder" type="number" defaultValue={stage.sortOrder} className="w-10 bg-white/5 border border-white/10 rounded p-0.5 text-[10px] text-white" />
+        <button type="submit" disabled={editPending} className="text-[10px] text-emerald-400 hover:text-emerald-300">Save</button>
+        <button type="button" onClick={() => setEditing(false)} className="text-[10px] text-white/40 hover:text-white/70">X</button>
+        {editState.success && <span className="text-emerald-400 text-[10px]">{editState.success}</span>}
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between text-[11px] text-white/70">
+      <span>{stage.name}</span>
+      <div className="flex items-center gap-2">
+        {stage.price != null && <span className="text-emerald-400">{formatPrice(stage.price)}</span>}
+        <button onClick={() => setEditing(true)} className="text-white/30 hover:text-white/70">Edit</button>
+        <form action={delAction}><button type="submit" disabled={delPending} className="text-red-400 hover:text-red-300">Del</button></form>
+      </div>
+      {delState.error && <p className="text-red-400 text-[10px]">{delState.error}</p>}
+    </div>
+  );
+}
+
+function StageForm({ planId }: { planId: string }) {
+  const [state, action, pending] = useActionState(createStageAction, {});
+  return (
+    <form action={action} className="mt-2 flex items-center gap-1">
+      <input type="hidden" name="planId" value={planId} />
+      <input name="name" required placeholder="Stage name" className="w-28 bg-white/5 border border-white/10 rounded p-0.5 text-[10px] text-white placeholder:text-white/20" />
+      <input name="price" type="number" step="0.01" min="0" placeholder="Price" className="w-16 bg-white/5 border border-white/10 rounded p-0.5 text-[10px] text-white placeholder:text-white/20" />
+      <input name="sortOrder" type="number" defaultValue="1" className="w-10 bg-white/5 border border-white/10 rounded p-0.5 text-[10px] text-white" />
+      <button type="submit" disabled={pending} className="text-[10px] text-emerald-400 hover:text-emerald-300">Add</button>
+      {state.success && <span className="text-emerald-400 text-[10px]">{state.success}</span>}
+      {state.error && <span className="text-red-400 text-[10px]">{state.error}</span>}
+    </form>
+  );
+}
+
 function LicenseRow({ license }: { license: LicenseVM }) {
   const [newStatus, setNewStatus] = useState(license.status);
   const [statusState, statusAction, statusPending] = useActionState(async () => setLicenseStatusAction(license.id, newStatus), {});
@@ -169,6 +229,7 @@ function LicenseRow({ license }: { license: LicenseVM }) {
     <tr className="hover:bg-white/[0.02] transition-colors">
       <td className="px-5 py-3 text-white font-medium">{license.schoolName}</td>
       <td className="px-4 py-3 text-white/70">{license.planName}</td>
+      <td className="px-4 py-3 text-white/50 text-xs font-mono">{license.stageName ?? "—"}</td>
       <td className="px-4 py-3 text-white/50 text-xs">{new Date(license.startDate).toLocaleDateString()}</td>
       <td className="px-4 py-3 text-white/50 text-xs">{new Date(license.endDate).toLocaleDateString()}</td>
       <td className="px-4 py-3"><span className={"rounded-full text-[11px] px-2.5 py-0.5 font-medium " + (statusColors[license.status] || "bg-gray-800 text-gray-400")}>{license.status.replace("_", " ")}</span></td>

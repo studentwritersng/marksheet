@@ -305,6 +305,34 @@ async function main() {
   });
   console.log(`  Addon: "${addon.name}" (${addon.id})`);
 
+  // --- Plan Stages -----------------------------------------------------------
+  const plansWithStages = await prisma.licensePlan.findMany({ include: { stages: true } });
+  for (const pl of plansWithStages) {
+    if (pl.stages.length > 0) {
+      console.log(`  Plan "${pl.name}" already has ${pl.stages.length} stage(s), skipping.`);
+      continue;
+    }
+    const basePrice = pl.price?.toNumber() ?? null;
+    await prisma.planStage.createMany({
+      data: [
+        { planId: pl.id, name: "Basic (1–100 students)", price: basePrice ? Math.round(basePrice * 0.7) : null, criteria: { minStudents: 1, maxStudents: 100 }, sortOrder: 1 },
+        { planId: pl.id, name: "Standard (101–500 students)", price: basePrice ?? null, criteria: { minStudents: 101, maxStudents: 500 }, sortOrder: 2 },
+        { planId: pl.id, name: "Premium (501+ students)", price: basePrice ? Math.round(basePrice * 1.5) : null, criteria: { minStudents: 501 }, sortOrder: 3 },
+      ],
+    });
+    console.log(`  Seeded 3 stages for plan "${pl.name}"`);
+  }
+
+  // Assign a default stage to each school that doesn't have one
+  const schoolsNoStage = await prisma.school.findMany({ where: { stageId: null }, select: { id: true } });
+  for (const s of schoolsNoStage) {
+    const firstStage = await prisma.planStage.findFirst({ orderBy: { sortOrder: "asc" } });
+    if (firstStage) {
+      await prisma.school.update({ where: { id: s.id }, data: { stageId: firstStage.id } });
+      console.log(`  Assigned stage "${firstStage.name}" to school ${s.id}`);
+    }
+  }
+
   console.log("Seed complete.");
   console.log("Logins:");
   console.log("  Super Admin: super@marksheet.dev / superadmin123");

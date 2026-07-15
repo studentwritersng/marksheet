@@ -7,14 +7,15 @@ interface PlanVM { id: string; name: string; durationType: string; price?: numbe
 interface MethodVM { id: string; type: string; label: string; details: Record<string, string> | null; }
 interface PaymentVM { id: string; planName: string; amount: number; methodLabel: string; status: string; createdAt: string; }
 interface LicenseVM { status: string; endDate?: string; planName?: string; }
+interface StageVM { name: string; price?: number | null; planName: string; }
 
 function formatPrice(n?: number | null) {
   if (n == null) return null;
   return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(n);
 }
 
-export function BillingClient({ plans, methods, payments, license, schoolName }: {
-  plans: PlanVM[]; methods: MethodVM[]; payments: PaymentVM[]; license?: LicenseVM | null; schoolName: string;
+export function BillingClient({ plans, methods, payments, license, schoolName, schoolStage }: {
+  plans: PlanVM[]; methods: MethodVM[]; payments: PaymentVM[]; license?: LicenseVM | null; schoolName: string; schoolStage: StageVM | null;
 }) {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [selectedMethod, setSelectedMethod] = useState<string>("");
@@ -25,6 +26,9 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
 
   const chosenPlan = plans.find((p) => p.id === selectedPlan);
   const chosenMethod = methods.find((m) => m.id === selectedMethod);
+
+  // Use the school's stage price if available, otherwise fall back to plan price
+  const effectivePrice = schoolStage?.price ?? chosenPlan?.price;
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,14 +45,21 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
         <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">{schoolName}</p>
       </div>
 
+      {schoolStage && (
+        <div className="bg-primary-container border border-outline-variant rounded-xl p-4">
+          <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Your Pricing Stage</p>
+          <p className="font-label-md text-label-md text-on-primary-container font-semibold">{schoolStage.planName} — {schoolStage.name}</p>
+          {schoolStage.price != null && <p className="text-lg font-bold text-emerald-700 mt-1">{formatPrice(schoolStage.price)}</p>}
+        </div>
+      )}
+
       {license && (
         <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5">
           <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-2">Current License</h2>
           <div className="flex items-center gap-3 flex-wrap">
             <span className={`rounded-full text-xs px-3 py-1 font-medium ${
               license.status === "active" ? "bg-emerald-100 text-emerald-700" :
-              license.status === "grace_period" ? "bg-amber-100 text-amber-700" :
-              "bg-red-100 text-red-700"
+              license.status === "grace_period" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
             }`}>{license.status.replace("_", " ")}</span>
             <span className="text-on-surface text-sm font-medium">{license.planName}</span>
             {license.endDate && (
@@ -63,6 +74,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {plans.map((p) => {
             const active = selectedPlan === p.id;
+            const displayPrice = schoolStage?.price ?? p.price;
             return (
               <button key={p.id} onClick={() => { setSelectedPlan(p.id); setSelectedMethod(""); setCashCode(""); setProofBase64(""); }}
                 className={`text-left rounded-xl p-4 border transition-all ${
@@ -72,9 +84,12 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
                 <p className="font-label-md text-label-md font-semibold">{p.name}</p>
                 <p className="text-xs text-on-surface-variant capitalize">{p.durationType}</p>
                 <div className="flex items-center gap-2 text-xs text-on-surface-variant mt-1">
-                  {p.price != null && <span className="text-emerald-600 font-semibold">{formatPrice(p.price)}</span>}
+                  {displayPrice != null && <span className="text-emerald-600 font-semibold">{formatPrice(displayPrice)}</span>}
                   {p.durationDays && <span>{p.durationDays} days</span>}
                 </div>
+                {schoolStage && schoolStage.price != null && (
+                  <p className="text-[10px] text-on-surface-variant mt-1">Based on your {schoolStage.name} stage</p>
+                )}
               </button>
             );
           })}
@@ -106,9 +121,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
                       <p>Account: <span className="text-on-surface font-medium">{m.details.accountNumber}</span></p>
                       <p>Name: <span className="text-on-surface font-medium">{m.details.accountName}</span></p>
                       {m.details.instructions && (
-                        <div className="mt-2 pt-2 border-t border-outline-variant text-on-surface-variant whitespace-pre-wrap">
-                          {m.details.instructions}
-                        </div>
+                        <div className="mt-2 pt-2 border-t border-outline-variant text-on-surface-variant whitespace-pre-wrap">{m.details.instructions}</div>
                       )}
                     </div>
                   )}
@@ -126,6 +139,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
           <input type="hidden" name="planId" value={selectedPlan} />
           <input type="hidden" name="methodId" value={selectedMethod} />
           <input type="hidden" name="proofUrl" value={proofBase64} />
+          {schoolStage && <input type="hidden" name="stageId" value={schoolStage.name} />}
 
           {chosenMethod?.type === "cash" && (
             <div>
@@ -148,10 +162,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
                 <label className="font-body-sm text-body-sm text-on-surface block mb-1">Upload Receipt (optional)</label>
                 <input ref={fileRef} type="file" accept="image/*" onChange={handleFile}
                   className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-[#002046] file:text-white hover:file:bg-[#003366]" />
-                {proofBase64 && (
-                  <img src={proofBase64} alt="Receipt preview"
-                    className="mt-2 max-h-32 rounded-lg border border-outline-variant object-contain" />
-                )}
+                {proofBase64 && <img src={proofBase64} alt="Receipt preview" className="mt-2 max-h-32 rounded-lg border border-outline-variant object-contain" />}
               </div>
             </>
           )}
@@ -165,7 +176,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
           <div className="flex items-center gap-3">
             <button type="submit" disabled={pending}
               className="bg-[#002046] hover:bg-[#003366] text-white text-sm px-5 py-2 rounded-lg disabled:opacity-60 font-label-md text-label-md"
-            >{pending ? "Submitting..." : chosenMethod?.type === "cash" ? "Activate with Code" : `Pay ${formatPrice(chosenPlan?.price) ?? ""}`}</button>
+            >{pending ? "Submitting..." : chosenMethod?.type === "cash" ? "Activate with Code" : `Pay ${formatPrice(effectivePrice) ?? ""}`}</button>
           </div>
           {state.error && <p className="text-red-600 text-xs">{state.error}</p>}
           {state.success && <p className="text-emerald-600 text-xs">{state.success}</p>}
@@ -179,11 +190,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName }:
           </div>
           <div className="divide-y divide-outline-variant">
             {payments.map((p) => {
-              const colors: Record<string, string> = {
-                pending: "text-amber-600",
-                verified: "text-emerald-600",
-                failed: "text-red-600",
-              };
+              const colors: Record<string, string> = { pending: "text-amber-600", verified: "text-emerald-600", failed: "text-red-600" };
               return (
                 <div key={p.id} className="px-5 py-3 flex items-center justify-between text-sm">
                   <div>

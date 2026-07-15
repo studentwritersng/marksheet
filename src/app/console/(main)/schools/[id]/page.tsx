@@ -21,6 +21,7 @@ export default async function SchoolDetailPage({ params }: { params: Promise<{ i
       shortcode: true,
       maintenanceMode: true,
       suspended: true,
+      stageId: true,
       createdAt: true,
       _count: { select: { students: true, staff: true, sessions: true, subjects: true } },
     },
@@ -28,13 +29,17 @@ export default async function SchoolDetailPage({ params }: { params: Promise<{ i
 
   if (!school) notFound();
 
-  const [licenses, plans] = await Promise.all([
+  const [licenses, plans, planStages] = await Promise.all([
     prisma.schoolLicense.findMany({
       where: { schoolId: id },
       orderBy: { createdAt: "desc" },
       include: { plan: { select: { name: true, durationType: true } } },
     }),
     prisma.licensePlan.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    prisma.planStage.findMany({
+      include: { plan: { select: { name: true, durationType: true } } },
+      orderBy: [{ plan: { name: "asc" } }, { sortOrder: "asc" }],
+    }),
   ]);
 
   return (
@@ -57,6 +62,7 @@ export default async function SchoolDetailPage({ params }: { params: Promise<{ i
         createdAt: l.createdAt.toISOString(),
       }))}
       plans={plans.map((p) => ({ id: p.id, name: p.name, durationType: p.durationType }))}
+      planStages={planStages.map((ps) => ({ id: ps.id, name: ps.name, price: ps.price?.toNumber(), planName: ps.plan.name, durationType: ps.plan.durationType }))}
     />
   );
 }

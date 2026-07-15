@@ -28,12 +28,18 @@ export async function createSchoolAction(
   const phone = (formData.get("phone") as string)?.trim() || null;
   const email = (formData.get("email") as string)?.trim() || null;
   const shortcode = (formData.get("shortcode") as string)?.trim() || null;
+  const stageId = (formData.get("stageId") as string)?.trim() || null;
   const adminEmail = (formData.get("adminEmail") as string)?.trim() || null;
   const adminPassword = (formData.get("adminPassword") as string)?.trim() || null;
   const adminFirstName = (formData.get("adminFirstName") as string)?.trim() || null;
   const adminLastName = (formData.get("adminLastName") as string)?.trim() || null;
 
   if (!name) return { error: "School name is required." };
+  if (!stageId) return { error: "Pricing stage is required." };
+
+  // Verify stage exists
+  const stage = await prisma.planStage.findUnique({ where: { id: stageId } });
+  if (!stage) return { error: "Invalid pricing stage." };
 
   // Check shortcode uniqueness
   if (shortcode) {
@@ -42,7 +48,7 @@ export async function createSchoolAction(
   }
 
   const school = await prisma.school.create({
-    data: { name, address, phone, email, shortcode },
+    data: { name, address, phone, email, shortcode, stageId },
   });
 
   // Optionally create an initial admin user for the school

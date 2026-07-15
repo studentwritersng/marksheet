@@ -29,6 +29,9 @@ export async function verifyPaymentAction(paymentId: string, days: number): Prom
     orderBy: { endDate: "desc" },
   });
 
+  // Look up school's stage for this license snapshot
+  const school = await prisma.school.findUnique({ where: { id: payment.schoolId }, select: { stageId: true } });
+
   if (existing) {
     // Extend the current license
     await prisma.schoolLicense.update({
@@ -44,6 +47,7 @@ export async function verifyPaymentAction(paymentId: string, days: number): Prom
       data: {
         schoolId: payment.schoolId,
         planId: payment.planId,
+        stageId: school?.stageId ?? null,
         startDate: new Date(),
         endDate: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
         status: "active",

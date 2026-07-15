@@ -18,7 +18,7 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model School {
-  id                 String   @id @default(cuid())
+  id                 String     @id @default(cuid())
   name               String
   address            String?
   logo               String?
@@ -43,6 +43,9 @@ model School {
   // Fee gating configuration (PRD 12 §3.2)
   feeGateExams       Boolean  @default(false) // block exam access if fee not cleared
   feeGateResults     Boolean  @default(false) // block result release if fee not cleared
+  // Pricing stage for this school
+  stageId            String?
+  stage              PlanStage? @relation(fields: [stageId], references: [id])
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -1235,11 +1238,31 @@ model LicensePlan {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
+  stages         PlanStage[]
   schoolLicenses SchoolLicense[]
   payments       Payment[]
   cashCodes      CashCode[]
 
   @@map("license_plans")
+}
+
+// Configurable pricing stage within a plan (e.g. tiered pricing by school size)
+model PlanStage {
+  id        String   @id @default(cuid())
+  planId    String
+  name      String   // e.g. "Basic (1-100)", "Standard (101-500)", "Premium (501+)"
+  price     Decimal? // overrides plan price; null = use plan default
+  criteria  Json?    // optional: e.g. {"minStudents": 1, "maxStudents": 100}
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  plan             LicensePlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  schools          School[]
+  licenseSnapshots SchoolLicense[]
+
+  @@index([planId])
+  @@map("plan_stages")
 }
 
 enum LicenseStatus {
@@ -1253,6 +1276,7 @@ model SchoolLicense {
   id               String        @id @default(cuid())
   schoolId         String
   planId           String
+  stageId          String? // snapshot of the stage at time of license creation
   startDate        DateTime
   endDate          DateTime
   status           LicenseStatus @default(active)
@@ -1265,6 +1289,7 @@ model SchoolLicense {
 
   school School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   plan   LicensePlan @relation(fields: [planId], references: [id])
+  stage  PlanStage?  @relation(fields: [stageId], references: [id])
 
   @@index([schoolId])
   @@index([status])
