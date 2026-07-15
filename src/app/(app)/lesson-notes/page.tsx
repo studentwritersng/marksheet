@@ -10,19 +10,38 @@ export default async function LessonNotesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
-  if (!canManageSchool(perms) || !user.schoolId) {
+  const isTeacher = perms.subjectTeacherSubjectIds.size > 0 || perms.classTeacherClassIds.size > 0;
+  if ((!canManageSchool(perms) && !isTeacher) || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
+  const isAdmin = canManageSchool(perms);
+
   const [subjects, classes, terms, notes] = await Promise.all([
-    prisma.subject.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } }),
-    prisma.class.findMany({ where: { schoolId: user.schoolId, archived: false }, orderBy: { name: "asc" } }),
+    isAdmin
+      ? prisma.subject.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } })
+      : prisma.subject.findMany({
+          where: { schoolId: user.schoolId, id: { in: [...perms.subjectTeacherSubjectIds, ...perms.hodSubjectIds] } },
+          orderBy: { name: "asc" },
+        }),
+    isAdmin
+      ? prisma.class.findMany({ where: { schoolId: user.schoolId, archived: false }, orderBy: { name: "asc" } })
+      : prisma.class.findMany({
+          where: { schoolId: user.schoolId, archived: false, id: { in: [...perms.visibleClassIds] } },
+          orderBy: { name: "asc" },
+        }),
     prisma.term.findMany({ where: { session: { schoolId: user.schoolId, isCurrent: true } }, orderBy: { name: "asc" } }),
-    prisma.lessonNote.findMany({
-      where: { schoolId: user.schoolId },
-      include: { subject: true, class: true, term: true },
-      orderBy: { createdAt: "desc" },
-    }),
+    isAdmin
+      ? prisma.lessonNote.findMany({
+          where: { schoolId: user.schoolId },
+          include: { subject: { select: { name: true } }, class: { select: { name: true } }, term: { select: { name: true } } },
+          orderBy: { createdAt: "desc" },
+        })
+      : prisma.lessonNote.findMany({
+          where: { schoolId: user.schoolId, createdBy: user.staffId ?? "" },
+          include: { subject: { select: { name: true } }, class: { select: { name: true } }, term: { select: { name: true } } },
+          orderBy: { createdAt: "desc" },
+        }),
   ]);
 
   return (

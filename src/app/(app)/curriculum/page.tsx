@@ -31,13 +31,20 @@ export default async function CurriculumPage(props: {
   const selectedTerm = sp.term || "FIRST";
   const selectedSubject = sp.subject || "";
 
-  // Get all subjects the school has (for the add-new dropdown)
-  const schoolSubjects = await prisma.subject.findMany({
-    where: { schoolId: user.schoolId },
-    select: { name: true },
-    orderBy: { name: "asc" },
+  // Get subjects linked to the selected class level via ClassSubject
+  const matchingClasses = await prisma.class.findMany({
+    where: { schoolId: user.schoolId, level: selectedClass, archived: false },
+    select: { id: true },
   });
-  const allSubjectNames = schoolSubjects.map((s) => s.name);
+  const classIds = matchingClasses.map((c) => c.id);
+  const linkedSubjects = classIds.length > 0
+    ? await prisma.subject.findMany({
+        where: { schoolId: user.schoolId, classSubjects: { some: { classId: { in: classIds } } } },
+        select: { name: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
+  const linkedSubjectNames = linkedSubjects.map((s) => s.name);
 
   // Also get subjects from curriculum for the filter
   const subjectsRaw = await prisma.curriculumTopic.findMany({
@@ -47,7 +54,7 @@ export default async function CurriculumPage(props: {
     orderBy: { subject: "asc" },
   });
   const curriculumSubjects = subjectsRaw.map((s) => s.subject);
-  const filterSubjects = curriculumSubjects.length > 0 ? curriculumSubjects : allSubjectNames;
+  const filterSubjects = curriculumSubjects.length > 0 ? curriculumSubjects : linkedSubjectNames;
 
   const effectiveSubject = selectedSubject || filterSubjects[0] || "";
 
@@ -83,10 +90,10 @@ export default async function CurriculumPage(props: {
 
       <div className="mt-6">
         <CurriculumView
-          classLevels={classLevels}
-          terms={terms}
-          subjects={filterSubjects}
-          allSubjects={allSubjectNames}
+            classLevels={classLevels}
+            terms={terms}
+            subjects={filterSubjects}
+            allSubjects={linkedSubjectNames}
           selectedClass={selectedClass}
           selectedTerm={selectedTerm}
           selectedSubject={effectiveSubject}
