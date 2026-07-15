@@ -66,6 +66,11 @@ model School {
   tickets              Ticket[]
   consentRecords       ConsentRecord[]
   schoolAddons         SchoolAddon[]
+  subjectRequirements  SubjectTimetableRequirement[]
+  staffAvailability    StaffAvailability[]
+  timetableTemplates   TimetableTemplate[]
+  timetableRules       SchoolTimetableRule[]
+  addonTimetables      AddonTimetable[]
 
   @@map("schools")
 }
@@ -142,8 +147,10 @@ model Class {
   lessonNotes      LessonNote[]
   exams            Exam[]
   examClasses      ExamClass[]
-  timetableEntries TimetableEntry[]
-  classSubjects    ClassSubject[]
+  timetableEntries     TimetableEntry[]
+  classSubjects        ClassSubject[]
+  subjectRequirements  SubjectTimetableRequirement[]
+  addonTimetableEntries AddonTimetableEntry[]
 
   @@unique([sessionId, level, section, department])
   @@index([schoolId])
@@ -192,6 +199,8 @@ model Staff {
   assignments      Assignment[]
   user             User?
   timetableEntries TimetableEntry[]
+  staffAvailabilities    StaffAvailability[]
+  addonTimetableEntries  AddonTimetableEntry[]
 
   @@unique([schoolId, email])
   @@index([schoolId])
@@ -237,6 +246,8 @@ model Subject {
   subjectResults   SubjectResult[]
   timetableEntries TimetableEntry[]
   classSubjects    ClassSubject[]
+  subjectRequirements  SubjectTimetableRequirement[]
+  addonTimetableEntries AddonTimetableEntry[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -963,7 +974,170 @@ model TimetableEntry {
 }
 
 // ---------------------------------------------------------------------------
-// PRD 12: Fee Status Check
+// PRD 17: Timetable Generator Addon Models (addon-specific, gated behind addon check)
+// ---------------------------------------------------------------------------
+
+model SubjectTimetableRequirement {
+  id                    String @id @default(cuid())
+  schoolId              String
+  subjectId             String
+  classId               String? // null if applied level-wide
+  classLevel            String? // e.g. "JSS1"
+  weeklyPeriodsRequired Int
+  doublePeriodAllowed   Boolean @default(true)
+  preferredTimeOfDay    String @default("none") // morning / afternoon / none
+  isPractical           Boolean @default(false)
+  requiresRoomTypeId    String?
+
+  school  School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  class   Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@map("subject_timetable_requirements")
+}
+
+model StaffAvailability {
+  id                 String  @id @default(cuid())
+  schoolId           String
+  staffId            String
+  day                Int     // 0=Monday .. 4=Friday
+  availablePeriodIds String[] // array of period IDs or names
+  maxPeriodsPerDay   Int     @default(8)
+  maxPeriodsPerWeek  Int     @default(40)
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  staff  Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, day])
+  @@map("staff_availability")
+}
+
+model TimetableTemplate {
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String
+  appliesTo String[] // e.g. ["JSS1", "JSS2"] or ["all"]
+
+  school      School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolDays  SchoolDay[]
+  periods     AddonPeriod[]
+  timetables  AddonTimetable[]
+
+  @@unique([schoolId, name])
+  @@map("timetable_templates")
+}
+
+model SchoolDay {
+  id            String  @id @default(cuid())
+  templateId    String
+  dayName       String  // e.g. "Monday"
+  dayIndex      Int     // 0=Monday .. 4=Friday
+  isTeachingDay Boolean @default(true)
+
+  template TimetableTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("school_days")
+}
+
+model AddonPeriod {
+  id           String @id @default(cuid())
+  templateId   String
+  periodNumber Int
+  startTime    String // e.g. "08:00"
+  endTime      String // e.g. "08:40"
+  periodType   String // teaching / break / assembly / fixed_other
+
+  template TimetableTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("addon_periods")
+}
+
+model SchoolTimetableRule {
+  id         String  @id @default(cuid())
+  schoolId   String
+  ruleType   String  // max_consecutive_periods, max_subject_periods_per_day, fixed_period_assignment, room_exclusivity, subject_time_preference, max_teacher_subjects, practical_double_period, etc.
+  parameters Json    // rule configuration parameters
+  isHard     Boolean @default(true)
+  weight     Int     @default(100)
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@map("school_timetable_rules")
+}
+
+model RoomType {
+  id       String @id @default(cuid())
+  schoolId String
+  name     String // e.g. "Physics Lab"
+  rooms    Room[]
+
+  @@map("room_types")
+}
+
+model Room {
+  id         String @id @default(cuid())
+  schoolId   String
+  name       String // e.g. "Room 101"
+  roomTypeId String
+  capacity   Int    @default(40)
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@map("rooms")
+}
+
+model AddonTimetable {
+  id              String   @id @default(cuid())
+  schoolId        String
+  sessionId       String
+  termId          String
+  templateId      String
+  status          String   @default("draft") // draft / published / archived
+  generatedAt     DateTime @default(now())
+  generationScore Int      @default(0)
+
+  school   School                @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  template TimetableTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  entries  AddonTimetableEntry[]
+  runs     TimetableGenerationRun[]
+
+  @@map("addon_timetables")
+}
+
+model AddonTimetableEntry {
+  id          String  @id @default(cuid())
+  timetableId String
+  classId     String
+  periodId    String  // references AddonPeriod
+  day         Int     // 0=Monday .. 4=Friday
+  subjectId   String
+  staffId     String?
+  roomId      String?
+  isLocked    Boolean @default(false)
+
+  timetable AddonTimetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  class     Class          @relation(fields: [classId], references: [id])
+  subject   Subject        @relation(fields: [subjectId], references: [id])
+  staff     Staff?         @relation(fields: [staffId], references: [id])
+
+  @@map("addon_timetable_entries")
+}
+
+model TimetableGenerationRun {
+  id                       String    @id @default(cuid())
+  timetableId              String
+  triggeredBy              String
+  startedAt                DateTime  @default(now())
+  completedAt              DateTime?
+  status                   String    // success / partial / failed
+  finalScore               Int       @default(0)
+  hardConstraintViolations String[]  // list of conflict descriptions
+  iterationsRun            Int       @default(0)
+
+  timetable AddonTimetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+
+  @@map("timetable_generation_runs")
+}
 // ---------------------------------------------------------------------------
 
 model FeeStatus {
