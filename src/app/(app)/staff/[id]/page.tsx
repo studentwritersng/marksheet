@@ -36,7 +36,13 @@ export default async function StaffDetailPage(props: { params: Promise<{ id: str
     where: { schoolId: user.schoolId },
     include: { subject: { select: { id: true, name: true } } },
   });
-  const alreadyAssigned = staff.assignments
+  // Fetch ALL subject_teacher assignments across the school so we exclude
+  // subjects already taken by ANY teacher for a given class.
+  const allSchoolAssignments = await prisma.assignment.findMany({
+    where: { schoolId: user.schoolId, assignmentType: "subject_teacher", subjectId: { not: null } },
+    select: { subjectId: true, classId: true },
+  });
+  const alreadyAssigned = allSchoolAssignments
     .filter((a) => a.subjectId)
     .map((a) => ({ subjectId: a.subjectId!, classId: a.classId }));
   const sessions = await prisma.session.findMany({
