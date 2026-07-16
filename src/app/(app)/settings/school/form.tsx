@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { updateSchoolSettingsAction } from "./actions";
+import { useActionState, useState, useTransition } from "react";
+import { updateSchoolSettingsAction, exportSchoolBackupAction } from "./actions";
 import { ImageUploader } from "@/components/image-uploader";
 
 export function SchoolSettingsForm({
@@ -110,11 +110,46 @@ export function SchoolSettingsForm({
       {state.error && <p className="bg-red-50 text-red-700 font-body-sm text-body-sm px-4 py-3 rounded-lg border border-red-200">{state.error}</p>}
       {state.success && <p className="bg-green-50 text-green-700 font-body-sm text-body-sm px-4 py-3 rounded-lg border border-green-200">{state.success}</p>}
 
+      {/* Backup & Restore */}
+      <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-4">
+        <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Backup & Restore</h3>
+        <p className="font-body-sm text-body-sm text-on-surface-variant">Download your school data as a JSON file. Config backup includes settings, classes, subjects, staff, and timetable setup. Full backup includes all academic records.</p>
+        <div className="flex flex-wrap gap-3">
+          <DownloadBackupButton mode="config" label="Download Config Backup" />
+          <DownloadBackupButton mode="full" label="Download Full Backup" />
+        </div>
+      </div>
+
       <div className="flex justify-end">
         <button type="submit" disabled={pending} className="bg-[#002046] text-white font-label-md text-label-md py-2.5 px-6 rounded-lg hover:bg-[#003366] disabled:opacity-60 transition-colors">
           {pending ? "Saving…" : "Save Settings"}
         </button>
       </div>
     </form>
+  );
+}
+
+function DownloadBackupButton({ mode, label }: { mode: "config" | "full"; label: string }) {
+  const [pending, startTransition] = useTransition();
+
+  const handleDownload = () => {
+    startTransition(async () => {
+      const result = await exportSchoolBackupAction(mode);
+      if (result.error) { alert(result.error); return; }
+      const blob = new Blob([result.data!], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename!;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  };
+
+  return (
+    <button type="button" onClick={handleDownload} disabled={pending}
+      className="border border-outline-variant text-on-surface font-label-sm text-label-sm py-2 px-4 rounded-lg hover:bg-surface-container-high disabled:opacity-60 transition-colors">
+      {pending ? "Downloading…" : label}
+    </button>
   );
 }

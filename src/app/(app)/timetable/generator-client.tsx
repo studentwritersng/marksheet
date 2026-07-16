@@ -14,7 +14,7 @@ import {
 interface TemplateVM { id: string; name: string; appliesTo: string[]; }
 interface DayVM { id: string; dayName: string; dayIndex: number; isTeachingDay: boolean; }
 interface PeriodVM { id: string; periodNumber: number; startTime: string; endTime: string; periodType: string; }
-interface RequirementVM { id: string; subjectId: string; subjectName: string; classLevel: string | null; weeklyPeriodsRequired: number; doublePeriodAllowed: boolean; preferredTimeOfDay: string; isPractical: boolean; }
+interface RequirementVM { id: string; subjectId: string; subjectName: string; classId: string | null; className: string | null; classLevel: string | null; weeklyPeriodsRequired: number; doublePeriodAllowed: boolean; preferredTimeOfDay: string; isPractical: boolean; }
 interface StaffAvailVM { id: string; staffId: string; staffName: string; day: number; maxPeriodsPerDay: number; maxPeriodsPerWeek: number; }
 interface RuleVM { id: string; ruleType: string; parameters: Record<string, any>; isHard: boolean; weight: number; }
 interface RoomTypeVM { id: string; name: string; }
@@ -22,17 +22,19 @@ interface RoomVM { id: string; name: string; roomTypeId: string; capacity: numbe
 interface SubjectVM { id: string; name: string; }
 interface StaffVM { id: string; fullName: string; }
 interface ClassVM { id: string; name: string; level: string; }
+interface ClassSubjectLinkVM { classId: string; subjectId: string; }
 interface TimetableVM { id: string; status: string; generatedAt: string; generationScore: number; }
 interface TimetableEntryVM { id: string; timetableId: string; classId: string; className: string; day: number; periodId: string; subjectName: string; staffName: string | null; isLocked: boolean; }
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 export function TimetableGeneratorClient({
-  templates, subjects, staff, classes, requirements, staffAvail, rules, roomTypes, rooms, timetables, entries,
+  templates, subjects, staff, classes, requirements, staffAvail, rules, roomTypes, rooms, timetables, entries, classSubjects,
 }: {
   templates: TemplateVM[]; subjects: SubjectVM[]; staff: StaffVM[]; classes: ClassVM[];
   requirements: RequirementVM[]; staffAvail: StaffAvailVM[]; rules: RuleVM[];
   roomTypes: RoomTypeVM[]; rooms: RoomVM[]; timetables: TimetableVM[]; entries: TimetableEntryVM[];
+  classSubjects: ClassSubjectLinkVM[];
 }) {
   const [tab, setTab] = useState<"template" | "requirements" | "staff" | "rules" | "rooms" | "generate">("template");
 
@@ -57,7 +59,7 @@ export function TimetableGeneratorClient({
         <TemplateTab templates={templates} />
       )}
       {tab === "requirements" && (
-        <RequirementsTab subjects={subjects} classes={classes} requirements={requirements} />
+        <RequirementsTab subjects={subjects} classes={classes} requirements={requirements} classSubjects={classSubjects} />
       )}
       {tab === "staff" && (
         <StaffTab staff={staff} staffAvail={staffAvail} />
@@ -202,27 +204,35 @@ function TemplateTab({ templates }: { templates: TemplateVM[] }) {
   );
 }
 
-function RequirementsTab({ subjects, classes, requirements }: { subjects: SubjectVM[]; classes: ClassVM[]; requirements: RequirementVM[] }) {
+function RequirementsTab({ subjects, classes, requirements, classSubjects }: { subjects: SubjectVM[]; classes: ClassVM[]; requirements: RequirementVM[]; classSubjects: ClassSubjectLinkVM[] }) {
   const [state, action, pending] = useActionState(upsertSubjectRequirementAction, {});
   const [delState, delAction] = useActionState(deleteSubjectRequirementAction, {});
-  const classLevels = [...new Set(classes.map((c) => c.level))].sort();
+  const [selClass, setSelClass] = useState("");
+
+  const linkedSubjectIds = new Set(
+    classSubjects.filter((cs) => cs.classId === selClass).map((cs) => cs.subjectId)
+  );
+  const availableSubjects = selClass
+    ? subjects.filter((s) => linkedSubjectIds.has(s.id))
+    : [];
+  const selectedClass = classes.find((c) => c.id === selClass);
 
   return (
     <div className="space-y-4">
       <form action={action} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 space-y-3">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
-            <label className="text-xs text-on-surface-variant block mb-1">Subject</label>
-            <select name="subjectId" required className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface">
-              <option value="">Select</option>
-              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <label className="text-xs text-on-surface-variant block mb-1">Class</label>
+            <select name="classId" value={selClass} onChange={(e) => setSelClass(e.target.value)} required className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface">
+              <option value="">Select class</option>
+              {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant block mb-1">Class Level</label>
-            <select name="classLevel" className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface">
-              <option value="">All levels</option>
-              {classLevels.map((l) => <option key={l} value={l}>{l}</option>)}
+            <label className="text-xs text-on-surface-variant block mb-1">Subject</label>
+            <select name="subjectId" required disabled={!selClass} className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface">
+              <option value="">{selClass ? "Select subject" : "Select a class first"}</option>
+              {availableSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
           <div>
@@ -238,6 +248,7 @@ function RequirementsTab({ subjects, classes, requirements }: { subjects: Subjec
             </select>
           </div>
         </div>
+        <input type="hidden" name="classLevel" value={selectedClass?.level ?? ""} />
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-1 text-sm">
             <input type="checkbox" name="doublePeriodAllowed" value="true" defaultChecked /> Allow double periods
@@ -254,7 +265,7 @@ function RequirementsTab({ subjects, classes, requirements }: { subjects: Subjec
           <thead className="bg-surface-container-high">
             <tr className="text-left text-on-surface-variant text-xs uppercase">
               <th className="px-4 py-2">Subject</th>
-              <th className="px-4 py-2">Level</th>
+              <th className="px-4 py-2">Class</th>
               <th className="px-4 py-2">Periods/Week</th>
               <th className="px-4 py-2">Double</th>
               <th className="px-4 py-2">Time</th>
@@ -265,7 +276,7 @@ function RequirementsTab({ subjects, classes, requirements }: { subjects: Subjec
             {requirements.map((r) => (
               <tr key={r.id}>
                 <td className="px-4 py-2">{r.subjectName}</td>
-                <td className="px-4 py-2 text-on-surface-variant">{r.classLevel ?? "All"}</td>
+                <td className="px-4 py-2 text-on-surface-variant">{r.className ?? r.classLevel ?? "All"}</td>
                 <td className="px-4 py-2">{r.weeklyPeriodsRequired}</td>
                 <td className="px-4 py-2">{r.doublePeriodAllowed ? "Yes" : "No"}</td>
                 <td className="px-4 py-2 capitalize">{r.preferredTimeOfDay}</td>

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
+import { exportSchoolData } from "@/lib/backup/export";
 
 export interface SchoolSettingsState {
   error?: string;
@@ -53,4 +54,17 @@ export async function updateSchoolSettingsAction(
 
   revalidatePath("/settings/school");
   return { success: "School settings updated." };
+}
+
+export async function exportSchoolBackupAction(mode: "config" | "full"): Promise<{ data?: string; filename?: string; error?: string }> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try {
+    const school = await prisma.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } });
+    const backup = await exportSchoolData(ctx.schoolId, mode);
+    const slug = school?.name?.replace(/\s+/g, "-").toLowerCase() ?? "school";
+    return { data: JSON.stringify(backup, null, 2), filename: `${slug}-${mode}-backup-${new Date().toISOString().split("T")[0]}.json` };
+  } catch (e: any) {
+    return { error: `Export failed: ${e.message}` };
+  }
 }

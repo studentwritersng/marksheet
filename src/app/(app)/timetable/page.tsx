@@ -28,7 +28,7 @@ export default async function TimetablePage() {
 
   let genData: any = null;
   if (addonActive) {
-    const [templates, requirements, staffAvail, rules, roomTypes, rooms, timetables, allEntries] = await Promise.all([
+    const [templates, requirements, staffAvail, rules, roomTypes, rooms, timetables, allEntries, classSubjects] = await Promise.all([
       prisma.timetableTemplate.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } }),
       prisma.subjectTimetableRequirement.findMany({ where: { schoolId: user.schoolId } }),
       prisma.staffAvailability.findMany({ where: { schoolId: user.schoolId } }),
@@ -40,6 +40,7 @@ export default async function TimetablePage() {
         where: { timetable: { schoolId: user.schoolId } },
         include: { class: { select: { name: true } }, subject: { select: { name: true } }, staff: { select: { fullName: true } } },
       }),
+      prisma.classSubject.findMany({ where: { schoolId: user.schoolId } }),
     ]);
 
     genData = {
@@ -49,6 +50,7 @@ export default async function TimetablePage() {
       classes: classes.map((c) => ({ id: c.id, name: c.name, level: c.level })),
       requirements: requirements.map((r) => ({
         id: r.id, subjectId: r.subjectId, subjectName: subjects.find((s) => s.id === r.subjectId)?.name ?? "",
+        classId: r.classId, className: classes.find((c) => c.id === r.classId)?.name ?? null,
         classLevel: r.classLevel, weeklyPeriodsRequired: r.weeklyPeriodsRequired,
         doublePeriodAllowed: r.doublePeriodAllowed, preferredTimeOfDay: r.preferredTimeOfDay, isPractical: r.isPractical,
       })),
@@ -70,6 +72,7 @@ export default async function TimetablePage() {
         id: e.id, timetableId: e.timetableId, classId: e.classId, className: e.class.name, day: e.day,
         periodId: e.periodId, subjectName: e.subject.name, staffName: e.staff?.fullName ?? null, isLocked: e.isLocked,
       })),
+      classSubjects: classSubjects.map((cs) => ({ classId: cs.classId, subjectId: cs.subjectId })),
     };
   }
 
@@ -120,6 +123,7 @@ export default async function TimetablePage() {
             rooms={genData.rooms}
             timetables={genData.timetables}
             entries={genData.entries}
+            classSubjects={genData.classSubjects}
           />
         </div>
       )}

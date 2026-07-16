@@ -108,6 +108,7 @@ export async function upsertSubjectRequirementAction(_prev: ActionResult, formDa
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardGenerator(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
   const subjectId = formData.get("subjectId") as string;
+  const classId = (formData.get("classId") as string)?.trim() || null;
   const classLevel = (formData.get("classLevel") as string)?.trim() || null;
   const weeklyPeriodsRequired = parseInt(formData.get("weeklyPeriodsRequired") as string);
   const doublePeriodAllowed = formData.get("doublePeriodAllowed") === "true";
@@ -115,9 +116,9 @@ export async function upsertSubjectRequirementAction(_prev: ActionResult, formDa
   const isPractical = formData.get("isPractical") === "true";
   if (!subjectId || isNaN(weeklyPeriodsRequired)) return { error: "Missing required fields." };
   const existing = await prisma.subjectTimetableRequirement.findFirst({
-    where: { schoolId: ctx.schoolId, subjectId, classLevel },
+    where: { schoolId: ctx.schoolId, subjectId, classId },
   });
-  const data = { schoolId: ctx.schoolId, subjectId, classLevel, weeklyPeriodsRequired, doublePeriodAllowed, preferredTimeOfDay, isPractical };
+  const data = { schoolId: ctx.schoolId, subjectId, classId, classLevel, weeklyPeriodsRequired, doublePeriodAllowed, preferredTimeOfDay, isPractical };
   if (existing) {
     await prisma.subjectTimetableRequirement.update({ where: { id: existing.id }, data });
   } else {
