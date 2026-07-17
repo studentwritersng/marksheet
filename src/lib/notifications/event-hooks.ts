@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isAddonActive } from "@/lib/addons/check";
 import { queueEventNotification, fillTemplate } from "./provider-actions";
+import { createNotification } from "./actions";
 
 const NOTIFY_ADDON = "Notifications (WhatsApp & SMS)";
 
@@ -187,4 +188,98 @@ export async function hookExamScheduled(
       }
     }
   }
+}
+
+// ── Shared helper to notify guardians of a single student ────────────────
+
+async function notifyGuardians(
+  schoolId: string, eventType: string, studentId: string, studentName: string, className: string, schoolName: string,
+  extraVars: Record<string, string>,
+) {
+  const config = await getSchoolConfig(schoolId);
+  if (!config) return;
+
+  const channels: string[] = [];
+  if (channelActive(config, "sms")) channels.push("sms");
+  if (channelActive(config, "whatsapp")) channels.push("whatsapp");
+  if (channels.length === 0) return;
+
+  const templates = await getTemplatesForEvent(eventType);
+  if (templates.length === 0) return;
+
+  const guardians = await getGuardianPhones(studentId);
+  if (guardians.length === 0) return;
+
+  for (const channel of channels) {
+    const template = templates.find((t) => t.channel === channel);
+    if (!template) continue;
+    for (const guardian of guardians) {
+      const message = await fillTemplate(template.body, {
+        studentName,
+        guardianName: guardian.fullName,
+        className,
+        schoolName,
+        ...extraVars,
+      });
+      await queueEventNotification(schoolId, eventType, guardian.phone, channel, message);
+    }
+  }
+}
+
+// ── Hook: Student signed in ──────────────────────────────────────────────
+
+export async function hookStudentSignedIn(
+  schoolId: string, studentId: string, studentName: string, className: string, time: string,
+) {
+  const schoolName = await getSchoolName(schoolId);
+
+  // In-app notifications for parents
+  const guardians = await prisma.guardian.findMany({
+    where: { studentId, parentUserId: { not: null } },
+    select: { parentUserId: true },
+  });
+  for (const g of guardians) {
+    await createNotification({
+      schoolId, recipientType: "parent", recipientId: g.parentUserId!,
+      eventType: "student_signed_in",
+      title: "Student Signed In",
+      content: `${studentName} signed in at ${time}`,
+    });
+  }
+
+  // SMS / WhatsApp (only if addon is active)
+  const active = await isAddonActive(schoolId, NOTIFY_ADDON);
+  if (!active) return;
+  await notifyGuardians(schoolId, "student_signed_in", studentId, studentName, className, schoolName, {
+    time,
+  });
+}
+
+// ── Hook: Student signed out ─────────────────────────────────────────────
+
+export async function hookStudentSignedOut(
+  schoolId: string, studentId: string, studentName: string, className: string, time: string,
+) {
+  const schoolName = await getSchoolName(schoolId);
+
+  // In-app notifications for parents
+  const guardians = await prisma.guardian.findMany({
+    where: { studentId, parentUserId: { not: null } },
+    select: { parentUserId: true },
+  });
+  for (const g of guardians) {
+    await createNotification({
+      schoolId, recipientType: "parent", recipientId: g.parentUserId!,
+      eventType: "student_signed_out",
+      title: "Student Signed Out",
+      content: `${studentName} signed out at ${time}`,
+    });
+  }
+
+  // SMS / WhatsApp (only if addon is active)
+  const active = await isAddonActive(schoolId, NOTIFY_ADDON);
+  if (!active) return;
+  await notifyGuardians(schoolId, "student_signed_out", studentId, studentName, className, schoolName, {
+    time,
+  });
 }

@@ -9,7 +9,8 @@ import {
   getAttendanceStats,
   getStaffForAttendance,
   getAllClassAttendanceSummary,
-  scanStudentAttendanceAction,
+  scanStudentSignInAction,
+  scanStudentSignOutAction,
   type StudentAttendanceRow,
   type AttendanceStats,
   type StaffAttendanceRow,
@@ -276,7 +277,7 @@ function StudentAttendanceTab({
   classes: { id: string; name: string }[];
   classId: string; setClassId: (v: string) => void;
   date: string; setDate: (v: string) => void;
-  students: StudentAttendanceRow[];
+  students: (StudentAttendanceRow & { signInAt: string | null; signOutAt: string | null })[];
   loading: boolean; saving: boolean; dirty: boolean;
   statusColors: Record<string, string>;
   onLoad: () => void;
@@ -286,6 +287,11 @@ function StudentAttendanceTab({
   periodId?: string;
   setPeriodId?: (v: string) => void;
 }) {
+
+  const formatTime = (iso: string | null) => {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5 flex flex-col gap-4">
       <div className="flex flex-wrap gap-4 items-end">
@@ -342,6 +348,8 @@ function StudentAttendanceTab({
                   <th className="py-2 pr-4">#</th>
                   <th className="py-2 pr-4">Admission No.</th>
                   <th className="py-2 pr-4">Student Name</th>
+                  <th className="py-2 pr-4">Sign In</th>
+                  <th className="py-2 pr-4">Sign Out</th>
                   <th className="py-2 pr-4">Status</th>
                 </tr>
               </thead>
@@ -351,6 +359,8 @@ function StudentAttendanceTab({
                     <td className="py-2 pr-4 font-body-sm text-body-sm text-on-surface-variant">{i + 1}</td>
                     <td className="py-2 pr-4 font-body-sm text-body-sm">{s.admissionNumber}</td>
                     <td className="py-2 pr-4 font-body-md text-body-md">{s.fullName}</td>
+                    <td className="py-2 pr-4 font-body-sm text-body-sm text-on-surface-variant">{formatTime(s.signInAt)}</td>
+                    <td className="py-2 pr-4 font-body-sm text-body-sm text-on-surface-variant">{formatTime(s.signOutAt)}</td>
                     <td className="py-2">
                       <select
                         value={s.status ?? ""}
@@ -533,6 +543,7 @@ function ScannerTab({
   periodId?: string;
   setPeriodId?: (v: string) => void;
 }) {
+  const [mode, setMode] = useState<"sign_in" | "sign_out">("sign_in");
   const [scanResult, setScanResult] = useState<{ success?: string; error?: string; studentName?: string } | null>(null);
   const [scannerActive, setScannerActive] = useState(false);
   const scannerRef = useRef<HTMLDivElement>(null);
@@ -553,7 +564,8 @@ function ScannerTab({
         setScannerActive(false);
 
         const pId = attendancePeriodEnabled ? periodId : undefined;
-        const result = await scanStudentAttendanceAction(schoolId, decodedText.trim(), date, pId);
+        const action = mode === "sign_in" ? scanStudentSignInAction : scanStudentSignOutAction;
+        const result = await action(schoolId, decodedText.trim(), date, pId);
         if (result.error) {
           setScanResult({ error: result.error, studentName: result.student?.fullName });
         } else {
@@ -565,7 +577,7 @@ function ScannerTab({
       setScanResult({ error: "Failed to access camera. Ensure camera permissions are granted." });
       setScannerActive(false);
     });
-  }, [schoolId, date, periodId, attendancePeriodEnabled]);
+  }, [schoolId, date, periodId, attendancePeriodEnabled, mode]);
 
   const stopScanner = useCallback(() => {
     if (html5QrCodeRef.current) {
@@ -605,6 +617,30 @@ function ScannerTab({
             </select>
           </div>
         )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMode("sign_in")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              mode === "sign_in"
+                ? "bg-primary text-white"
+                : "bg-white text-on-surface-variant border border-outline-variant"
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("sign_out")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              mode === "sign_out"
+                ? "bg-primary text-white"
+                : "bg-white text-on-surface-variant border border-outline-variant"
+            }`}
+          >
+            Sign Out
+          </button>
+        </div>
         <button
           onClick={scannerActive ? stopScanner : startScanner}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -613,7 +649,7 @@ function ScannerTab({
               : "bg-[#002046] text-white hover:bg-[#001a33]"
           }`}
         >
-          {scannerActive ? "Stop Scanner" : "Start Scanner"}
+          {scannerActive ? "Stop Scanner" : `Start ${mode === "sign_in" ? "Sign In" : "Sign Out"}`}
         </button>
       </div>
 

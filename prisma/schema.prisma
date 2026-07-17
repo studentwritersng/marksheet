@@ -1509,15 +1509,17 @@ model TaughtTopic {
 // ---------------------------------------------------------------------------
 
 model AttendanceRecord {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   schoolId   String
   studentId  String
   classId    String
-  date       DateTime @db.Date
-  periodId   String?  // null if period attendance is disabled by school
-  status     String   // present / absent / late / excused
-  scannedBy  String   // staffId of the person who scanned
-  scannedAt  DateTime @default(now())
+  date       DateTime   @db.Date
+  periodId   String?    // null if period attendance is disabled by school
+  status     String     // present / absent / late / excused
+  signInAt   DateTime?  // exact time student signed in (scan or manual)
+  signOutAt  DateTime?  // exact time student signed out (scan)
+  scannedBy  String     // staffId of the person who scanned
+  scannedAt  DateTime   @default(now())
 
   school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student Student @relation(fields: [studentId], references: [id])
@@ -1529,13 +1531,15 @@ model AttendanceRecord {
 }
 
 model StaffAttendanceRecord {
-  id        String   @id @default(cuid())
-  schoolId  String
-  staffId   String
-  date      DateTime @db.Date
-  status    String   // present / absent / late
-  scannedBy String   // staffId of the scanner
-  scannedAt DateTime @default(now())
+  id         String     @id @default(cuid())
+  schoolId   String
+  staffId    String
+  date       DateTime   @db.Date
+  status     String     // present / absent / late
+  signInAt   DateTime?  // exact time staff signed in
+  signOutAt  DateTime?  // exact time staff signed out
+  scannedBy  String     // staffId of the scanner
+  scannedAt  DateTime   @default(now())
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   staff  Staff  @relation(fields: [staffId], references: [id])

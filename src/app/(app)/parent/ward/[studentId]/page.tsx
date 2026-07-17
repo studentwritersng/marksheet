@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { AttendanceHistory } from "./attendance-history";
 
 export default async function WardResultPage(props: {
   params: Promise<{ studentId: string }>;
@@ -116,6 +117,8 @@ export default async function WardResultPage(props: {
       {s.termResults.length === 0 && (
         <p className="font-body-md text-body-md text-on-surface-variant py-8 text-center">No results available yet.</p>
       )}
+
+      <AttendanceHistory schoolId={s.schoolId} studentId={s.id} />
     </div>
   );
 }

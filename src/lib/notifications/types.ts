@@ -18,6 +18,10 @@ export interface TemplateVM {
 
 export const EVENT_TYPE_LABELS: Record<string, string> = {
   attendance_marked_absent: "Absent from Class",
+  student_signed_in: "Student Signed In",
+  student_signed_out: "Student Signed Out",
+  staff_signed_in: "Staff Signed In",
+  staff_signed_out: "Staff Signed Out",
   result_published: "Result Published",
   exam_scheduled: "Exam Scheduled",
   fee_reminder: "Fee Reminder",

@@ -7,7 +7,9 @@ import { resolvePermissions } from "@/lib/auth/permissions";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { isAddonActive } from "@/lib/addons/check";
-import { hookAttendanceAbsent } from "@/lib/notifications/event-hooks";
+import {
+  hookAttendanceAbsent, hookStudentSignedIn, hookStudentSignedOut,
+} from "@/lib/notifications/event-hooks";
 
 export interface ActionState { error?: string; success?: string }
 
@@ -25,6 +27,8 @@ export interface StudentAttendanceRow {
   fullName: string;
   status: AttendanceStatus | null;
   recordId: string | null;
+  signInAt: string | null;
+  signOutAt: string | null;
 }
 
 export async function getStudentsWithAttendance(
@@ -43,7 +47,7 @@ export async function getStudentsWithAttendance(
     }),
     prisma.attendanceRecord.findMany({
       where: { schoolId, classId, date, periodId: periodId ?? null },
-      select: { id: true, studentId: true, status: true },
+      select: { id: true, studentId: true, status: true, signInAt: true, signOutAt: true },
     }),
   ]);
 
@@ -58,6 +62,8 @@ export async function getStudentsWithAttendance(
         fullName: `${s.firstName} ${s.lastName}`,
         status: (record?.status as AttendanceStatus) ?? null,
         recordId: record?.id ?? null,
+        signInAt: record?.signInAt?.toISOString() ?? null,
+        signOutAt: record?.signOutAt?.toISOString() ?? null,
       };
     }),
   };
@@ -89,7 +95,11 @@ export async function takeStudentAttendanceAction(
 
     for (const entry of entries) {
       const existingId = existingMap.get(entry.studentId);
-      const data = { status: entry.status as string, scannedBy: user.staffId, scannedAt: new Date(), periodId: periodId ?? null };
+      const now = new Date();
+      const data: any = { status: entry.status as string, scannedBy: user.staffId, scannedAt: now, periodId: periodId ?? null };
+      if (entry.status === "present") {
+        data.signInAt = now;
+      }
       if (existingId) {
         await prisma.attendanceRecord.update({ where: { id: existingId }, data });
       } else {
@@ -123,6 +133,8 @@ export interface StaffAttendanceRow {
   fullName: string;
   status: AttendanceStatus | null;
   recordId: string | null;
+  signInAt: string | null;
+  signOutAt: string | null;
 }
 
 export async function getStaffForAttendance(
@@ -141,22 +153,27 @@ export async function getStaffForAttendance(
     }),
     prisma.staffAttendanceRecord.findMany({
       where: { schoolId, date },
-      select: { id: true, staffId: true, status: true },
+      select: { id: true, staffId: true, status: true, signInAt: true, signOutAt: true },
     }),
   ]);
 
   const recordMap = new Map(records.map((r) => [r.staffId, r]));
   const myRecord = user.staffId && recordMap.has(user.staffId)
-    ? { staffId: user.staffId, fullName: "", status: recordMap.get(user.staffId)!.status as AttendanceStatus, recordId: recordMap.get(user.staffId)!.id }
+    ? { staffId: user.staffId, fullName: "", status: recordMap.get(user.staffId)!.status as AttendanceStatus, recordId: recordMap.get(user.staffId)!.id, signInAt: recordMap.get(user.staffId)!.signInAt?.toISOString() ?? null, signOutAt: recordMap.get(user.staffId)!.signOutAt?.toISOString() ?? null }
     : null;
 
   return {
-    staff: allStaff.map((s) => ({
-      staffId: s.id,
-      fullName: s.fullName,
-      status: (recordMap.get(s.id)?.status as AttendanceStatus) ?? null,
-      recordId: recordMap.get(s.id)?.id ?? null,
-    })),
+    staff: allStaff.map((s) => {
+      const r = recordMap.get(s.id);
+      return {
+        staffId: s.id,
+        fullName: s.fullName,
+        status: (r?.status as AttendanceStatus) ?? null,
+        recordId: r?.id ?? null,
+        signInAt: r?.signInAt?.toISOString() ?? null,
+        signOutAt: r?.signOutAt?.toISOString() ?? null,
+      };
+    }),
     myRecord,
   };
 }
@@ -171,10 +188,14 @@ export async function takeStaffAttendanceAction(
 
     const date = new Date(dateStr + "T00:00:00");
 
+    const now = new Date();
+    const data: any = { status, scannedBy: user.staffId, scannedAt: now };
+    if (status === "present") data.signInAt = now;
+
     await prisma.staffAttendanceRecord.upsert({
       where: { staffId_date: { staffId: user.staffId, date } },
-      update: { status, scannedBy: user.staffId, scannedAt: new Date() },
-      create: { schoolId, staffId: user.staffId, date, status, scannedBy: user.staffId },
+      update: data,
+      create: { schoolId, staffId: user.staffId, date, ...data },
     });
 
     revalidatePath("/attendance");
@@ -194,10 +215,14 @@ export async function adminSetStaffAttendanceAction(
 
     const date = new Date(dateStr + "T00:00:00");
 
+    const now = new Date();
+    const data: any = { status, scannedBy: user.staffId, scannedAt: now };
+    if (status === "present") data.signInAt = now;
+
     await prisma.staffAttendanceRecord.upsert({
       where: { staffId_date: { staffId, date } },
-      update: { status, scannedBy: user.staffId, scannedAt: new Date() },
-      create: { schoolId, staffId, date, status, scannedBy: user.staffId },
+      update: data,
+      create: { schoolId, staffId, date, ...data },
     });
 
     revalidatePath("/attendance");
@@ -245,16 +270,48 @@ export async function getAttendanceStats(
   };
 }
 
+export interface AttendanceTimelineRow {
+  date: string;
+  status: AttendanceStatus;
+  signInAt: string | null;
+  signOutAt: string | null;
+}
+
+export async function getStudentAttendanceTimeline(
+  schoolId: string, studentId: string, from?: string, to?: string,
+): Promise<{ records: AttendanceTimelineRow[] }> {
+  const where: any = { schoolId, studentId };
+  if (from || to) {
+    where.date = {};
+    if (from) where.date.gte = new Date(from + "T00:00:00");
+    if (to) where.date.lte = new Date(to + "T23:59:59");
+  }
+  const records = await prisma.attendanceRecord.findMany({
+    where,
+    orderBy: { date: "desc" },
+    take: 90,
+    select: { date: true, status: true, signInAt: true, signOutAt: true },
+  });
+  return {
+    records: records.map((r) => ({
+      date: r.date.toISOString().split("T")[0],
+      status: r.status as AttendanceStatus,
+      signInAt: r.signInAt?.toISOString() ?? null,
+      signOutAt: r.signOutAt?.toISOString() ?? null,
+    })),
+  };
+}
+
 export async function getStudentAttendanceHistory(
   schoolId: string, studentId: string, limit = 30,
-): Promise<{ date: string; status: AttendanceStatus }[]> {
+): Promise<{ date: string; status: AttendanceStatus; signInAt: string | null; signOutAt: string | null }[]> {
   const records = await prisma.attendanceRecord.findMany({
     where: { schoolId, studentId },
     orderBy: { date: "desc" },
     take: limit,
-    select: { date: true, status: true },
+    select: { date: true, status: true, signInAt: true, signOutAt: true },
   });
-  return records.map((r) => ({ date: r.date.toISOString().split("T")[0], status: r.status as AttendanceStatus }));
+  return records.map((r) => ({ date: r.date.toISOString().split("T")[0], status: r.status as AttendanceStatus, signInAt: r.signInAt?.toISOString() ?? null, signOutAt: r.signOutAt?.toISOString() ?? null }));
 }
 
 export interface ClassAttendanceSummary {
@@ -350,9 +407,18 @@ export async function getStudentQrCards(
   return { cards };
 }
 
-export async function scanStudentAttendanceAction(
+type ScanResult = ActionState & { student?: { id: string; fullName: string; className: string } };
+
+async function lookupStudent(schoolId: string, admissionNumber: string) {
+  return prisma.student.findFirst({
+    where: { schoolId, admissionNumber, status: "active" },
+    select: { id: true, firstName: true, lastName: true, currentClass: { select: { id: true, name: true } } },
+  });
+}
+
+export async function scanStudentSignInAction(
   schoolId: string, admissionNumber: string, date: string, periodId?: string,
-): Promise<ActionState & { student?: { id: string; fullName: string; className: string } }> {
+): Promise<ScanResult> {
   try {
     const user = await getCurrentUser();
     if (!user || !user.schoolId) return { error: "Not authenticated." };
@@ -360,14 +426,12 @@ export async function scanStudentAttendanceAction(
     if (!perms.isSchoolAdmin && !perms.isSuperAdmin && !perms.isReceptionist) return { error: "Not authorised." };
     await guardAddon(schoolId);
 
-    const student = await prisma.student.findFirst({
-      where: { schoolId, admissionNumber, status: "active" },
-      select: { id: true, firstName: true, lastName: true, currentClass: { select: { id: true, name: true } } },
-    });
+    const student = await lookupStudent(schoolId, admissionNumber);
     if (!student) return { error: `No active student found with admission number "${admissionNumber}".` };
 
     const pId = periodId || null;
     const dateObj = new Date(date + "T00:00:00");
+    const now = new Date();
 
     const existing = await prisma.attendanceRecord.findFirst({
       where: {
@@ -378,7 +442,7 @@ export async function scanStudentAttendanceAction(
 
     if (existing && existing.status === "present") {
       return {
-        error: `Already marked present.`,
+        error: `Already signed in at ${existing.signInAt?.toLocaleTimeString()}.`,
         student: { id: student.id, fullName: `${student.firstName} ${student.lastName}`, className: student.currentClass?.name ?? "" },
       };
     }
@@ -388,24 +452,81 @@ export async function scanStudentAttendanceAction(
     if (existing) {
       await prisma.attendanceRecord.update({
         where: { id: existing.id },
-        data: { status: "present", scannedBy, scannedAt: new Date() },
+        data: { status: "present", signInAt: now, scannedBy, scannedAt: now },
       });
     } else {
       await prisma.attendanceRecord.create({
         data: {
           schoolId, studentId: student.id, classId, date: dateObj,
-          status: "present", scannedBy, scannedAt: new Date(),
+          status: "present", signInAt: now, scannedBy, scannedAt: now,
           periodId: pId,
         },
       });
     }
 
-    await recordAudit({ schoolId, actorId: user.userId, action: "scan_attendance", entityType: "attendance_record" });
+    await recordAudit({ schoolId, actorId: user.userId, action: "scan_sign_in", entityType: "attendance_record" });
     revalidatePath("/attendance");
 
+    const studentName = `${student.firstName} ${student.lastName}`;
+    const className = student.currentClass?.name ?? "";
+    hookStudentSignedIn(schoolId, student.id, studentName, className, now.toLocaleTimeString());
+
     return {
-      success: `${student.firstName} ${student.lastName} marked present.`,
-      student: { id: student.id, fullName: `${student.firstName} ${student.lastName}`, className: student.currentClass?.name ?? "" },
+      success: `${studentName} signed in at ${now.toLocaleTimeString()}.`,
+      student: { id: student.id, fullName: studentName, className },
+    };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+export async function scanStudentSignOutAction(
+  schoolId: string, admissionNumber: string, date: string, periodId?: string,
+): Promise<ScanResult> {
+  try {
+    const user = await getCurrentUser();
+    if (!user || !user.schoolId) return { error: "Not authenticated." };
+    const perms = await resolvePermissions(user);
+    if (!perms.isSchoolAdmin && !perms.isSuperAdmin && !perms.isReceptionist) return { error: "Not authorised." };
+    await guardAddon(schoolId);
+
+    const student = await lookupStudent(schoolId, admissionNumber);
+    if (!student) return { error: `No active student found with admission number "${admissionNumber}".` };
+
+    const pId = periodId || null;
+    const dateObj = new Date(date + "T00:00:00");
+    const now = new Date();
+
+    const existing = await prisma.attendanceRecord.findFirst({
+      where: {
+        schoolId, studentId: student.id, date: dateObj,
+        ...(pId ? { periodId: pId } : { periodId: null }),
+      },
+    });
+
+    if (!existing || !existing.signInAt) {
+      return { error: "Must sign in before signing out.", student: { id: student.id, fullName: `${student.firstName} ${student.lastName}`, className: student.currentClass?.name ?? "" } };
+    }
+
+    if (existing.signOutAt) {
+      return { error: `Already signed out at ${existing.signOutAt.toLocaleTimeString()}.`, student: { id: student.id, fullName: `${student.firstName} ${student.lastName}`, className: student.currentClass?.name ?? "" } };
+    }
+
+    await prisma.attendanceRecord.update({
+      where: { id: existing.id },
+      data: { signOutAt: now, scannedBy: user.staffId ?? user.userId, scannedAt: now },
+    });
+
+    await recordAudit({ schoolId, actorId: user.userId, action: "scan_sign_out", entityType: "attendance_record" });
+    revalidatePath("/attendance");
+
+    const studentName = `${student.firstName} ${student.lastName}`;
+    const className = student.currentClass?.name ?? "";
+    hookStudentSignedOut(schoolId, student.id, studentName, className, now.toLocaleTimeString());
+
+    return {
+      success: `${studentName} signed out at ${now.toLocaleTimeString()}.`,
+      student: { id: student.id, fullName: studentName, className },
     };
   } catch (e: unknown) {
     return { error: e instanceof Error ? e.message : "Unknown error" };
