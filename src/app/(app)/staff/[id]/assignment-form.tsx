@@ -50,6 +50,7 @@ export function AssignmentForm({
           <option value="exam_officer">Exam Officer</option>
           <option value="school_admin">School Admin</option>
           <option value="fee_status_manager">Fee Status Manager</option>
+          <option value="receptionist">Receptionist</option>
         </select>
       </div>
 

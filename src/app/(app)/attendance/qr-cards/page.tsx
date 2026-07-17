@@ -11,7 +11,7 @@ export default async function QrCardsPage() {
 
   const schoolId = user.schoolId;
   const perms = await resolvePermissions(user);
-  if (!perms.isSuperAdmin && !perms.isSchoolAdmin) redirect("/attendance");
+  if (!perms.isSuperAdmin && !perms.isSchoolAdmin && !perms.isReceptionist) redirect("/attendance");
 
   const addonActive = await isAddonActive(schoolId, "Daily Attendance");
 

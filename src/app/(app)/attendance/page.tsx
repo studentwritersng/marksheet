@@ -13,7 +13,7 @@ export default async function AttendancePage() {
   const addonActive = await isAddonActive(schoolId, "Daily Attendance");
 
   const perms = await resolvePermissions(user);
-  const isAdmin = perms.isSuperAdmin || perms.isSchoolAdmin;
+  const isAdmin = perms.isSuperAdmin || perms.isSchoolAdmin || perms.isReceptionist;
 
   const classes = await prisma.class.findMany({
     where: { schoolId, archived: false },

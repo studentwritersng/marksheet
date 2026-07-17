@@ -22,6 +22,7 @@ export interface EffectivePermissions {
   isSchoolAdmin: boolean;
   isExamOfficer: boolean;
   isFeeStatusManager: boolean;
+  isReceptionist: boolean;
   assignments: ResolvedAssignment[];
   // Distinct scope sets derived from assignments
   subjectTeacherClassIds: Set<string>;
@@ -45,6 +46,7 @@ export async function resolvePermissions(
     isSchoolAdmin: false,
     isExamOfficer: false,
     isFeeStatusManager: false,
+    isReceptionist: false,
     assignments: [],
     subjectTeacherClassIds: new Set(),
     subjectTeacherSubjectIds: new Set(),
@@ -142,6 +144,9 @@ export async function resolvePermissions(
           result.hodSubjectIds.add(a.subjectId);
           result.visibleSubjectIds.add(a.subjectId);
         }
+        break;
+      case "receptionist":
+        result.isReceptionist = true;
         break;
     }
   }

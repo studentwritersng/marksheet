@@ -34,6 +34,7 @@ export function buildNav(
         { label: "Class–Subject Links", href: "/class-subjects", icon: "link" },
         { label: "Curriculum", href: "/curriculum", icon: "menu_book" },
         { label: "Syllabi", href: "/syllabus", icon: "import_contacts" },
+        { label: "Timetable", href: "/timetable", icon: "calendar_view_week" },
       ]},
       { label: "People", icon: "group", children: [
         { label: "Staff", href: "/staff", icon: "badge" },
@@ -46,7 +47,6 @@ export function buildNav(
         { label: "Essay Grading", href: "/essay-grading", icon: "rate_review" },
         { label: "Assessment Weights", href: "/assessment-weightings", icon: "tune" },
         { label: "Exams", href: "/exams", icon: "quiz" },
-        { label: "Timetable", href: "/timetable", icon: "calendar_view_week" },
         { label: "Period Tracker", href: "/period-tracker", icon: "checklist" },
         { label: "Daily Attendance", href: "/attendance", icon: "fact_check" },
         { label: "Notifications", href: "/notifications", icon: "notifications" },
@@ -61,15 +61,15 @@ export function buildNav(
       ]},
       { label: "Billing", icon: "payments", children: [
         { label: "Billing & License", href: "/billing", icon: "account_balance_wallet" },
-        { label: "Addons", href: "/addons", icon: "extension" },
       ]},
       { label: "System", icon: "settings", children: [
         { label: "Announcements", href: "/announcements", icon: "campaign" },
-        { label: "Support Tickets", href: "/tickets", icon: "support" },
         { label: "Audit Log", href: "/audit-log", icon: "history" },
-        { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
         { label: "Settings", href: "/settings/school", icon: "settings" },
       ]},
+      { label: "Addons", href: "/addons", icon: "extension" },
+      { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
+      { label: "Support Tickets", href: "/tickets", icon: "support" },
     );
   } else if (user.role === "parent") {
     items.push(
