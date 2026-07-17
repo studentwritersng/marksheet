@@ -330,6 +330,28 @@ async function main() {
   });
   console.log(`  Assigned "basic" stage to school ${school.id}`);
 
+  // --- Seed two new addons: Daily Attendance + Notifications ------------
+  const newAddonNames = ["Daily Attendance", "Notifications (WhatsApp & SMS)"];
+  for (const name of newAddonNames) {
+    const existing = await prisma.addon.findUnique({ where: { name } });
+    if (!existing) {
+      await prisma.addon.create({
+        data: {
+          name,
+          description: name === "Daily Attendance"
+            ? "QR-based student & staff attendance with ID card generation"
+            : "WhatsApp and SMS notification service for guardians",
+          features: name === "Daily Attendance"
+            ? ["QR code ID cards", "Mobile scanning", "Per-period toggle", "Report card integration"]
+            : ["WhatsApp messaging", "SMS fallback", "Multiple template rotation", "Anti-ban delays"],
+          isActive: true,
+          sortOrder: name === "Daily Attendance" ? 3 : 4,
+        },
+      });
+      console.log(`  Seeded addon: "${name}"`);
+    }
+  }
+
   // ======================================================================
   // TIMETABLE GENERATOR DEMO DATA
   // ======================================================================

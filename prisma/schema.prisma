@@ -43,6 +43,8 @@ model School {
   // Fee gating configuration (PRD 12 §3.2)
   feeGateExams       Boolean  @default(false) // block exam access if fee not cleared
   feeGateResults     Boolean  @default(false) // block result release if fee not cleared
+  // Attendance period toggle — if false, attendance is once per day (morning sign-in)
+  attendancePeriodEnabled Boolean @default(false)
   // Pricing stage for this school (Basic / Standard / Premium)
   stage LicenseStageName @default(basic)
   createdAt          DateTime @default(now())
@@ -76,6 +78,12 @@ model School {
   timetableRules       SchoolTimetableRule[]
   addonTimetables      AddonTimetable[]
   taughtTopics         TaughtTopic[]
+  attendanceRecords    AttendanceRecord[]
+  staffAttendance      StaffAttendanceRecord[]
+  idCardTemplate       IDCardTemplate?
+  notificationLogs     NotificationLog[]
+  notificationQueue    NotificationQueue[]
+  schoolNotificationConfig SchoolNotificationConfig?
 
   @@map("schools")
 }
@@ -157,6 +165,7 @@ model Class {
   subjectRequirements  SubjectTimetableRequirement[]
   addonTimetableEntries AddonTimetableEntry[]
   taughtTopics          TaughtTopic[]
+  attendanceRecords     AttendanceRecord[]
 
   @@unique([sessionId, level, section, department])
   @@index([schoolId])
@@ -208,6 +217,7 @@ model Staff {
   staffAvailabilities    StaffAvailability[]
   addonTimetableEntries  AddonTimetableEntry[]
   taughtTopics           TaughtTopic[]
+  attendanceRecords      StaffAttendanceRecord[]
 
   @@unique([schoolId, email])
   @@index([schoolId])
@@ -269,6 +279,7 @@ enum AssignmentType {
   exam_officer
   school_admin
   fee_status_manager
+  receptionist
 }
 
 // Assignment = scoped, versioned, many-to-many staff role.
@@ -341,7 +352,8 @@ model Student {
   termResults    TermResult[]
   examAttempts   ExamAttempt[]
   consentRecords ConsentRecord[]
-  taughtTopics   TaughtTopic[]
+  taughtTopics      TaughtTopic[]
+  attendanceRecords AttendanceRecord[]
 
   @@unique([schoolId, admissionNumber])
   @@index([schoolId])
@@ -354,8 +366,8 @@ model Guardian {
   studentId        String
   relationship     String // father / mother / guardian / other
   fullName         String
-  phone            String?
-  email            String?
+  phone            String  // required for notification addon (must be WhatsApp-capable)
+  email            String? // required for notification addon in production
   address          String?
   isPrimaryContact Boolean @default(false)
   parentUserId     String? // links to User with role=parent
@@ -1490,4 +1502,137 @@ model TaughtTopic {
   @@index([classId])
   @@index([teacherId])
   @@map("taught_topics")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 19: Daily Attendance Addon — QR-based student & staff attendance
+// ---------------------------------------------------------------------------
+
+model AttendanceRecord {
+  id         String   @id @default(cuid())
+  schoolId   String
+  studentId  String
+  classId    String
+  date       DateTime @db.Date
+  periodId   String?  // null if period attendance is disabled by school
+  status     String   // present / absent / late / excused
+  scannedBy  String   // staffId of the person who scanned
+  scannedAt  DateTime @default(now())
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+
+  @@unique([studentId, date, periodId])
+  @@index([schoolId, date])
+  @@map("attendance_records")
+}
+
+model StaffAttendanceRecord {
+  id        String   @id @default(cuid())
+  schoolId  String
+  staffId   String
+  date      DateTime @db.Date
+  status    String   // present / absent / late
+  scannedBy String   // staffId of the scanner
+  scannedAt DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  staff  Staff  @relation(fields: [staffId], references: [id])
+
+  @@unique([staffId, date])
+  @@map("staff_attendance_records")
+}
+
+model IDCardTemplate {
+  id        String   @id @default(cuid())
+  schoolId  String   @unique
+  layout    Json     @default("{}") // logo position, colors, fields, font
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@map("id_card_templates")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 20: WhatsApp & SMS Notification Addon
+// ---------------------------------------------------------------------------
+
+model NotificationProviderConfig {
+  id          String   @id @default(cuid())
+  channel     String   // whatsapp / sms
+  provider    String   // twilio / africastalking / custom
+  label       String?
+  credentials Json     // API keys, endpoints, sender IDs
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("notification_provider_configs")
+}
+
+model NotificationTemplate {
+  id        String   @id @default(cuid())
+  eventType String   // attendance_marked_absent / result_published / exam_scheduled / fee_reminder
+  channel   String   // whatsapp / sms
+  label     String?
+  body      String   // template with {{variables}}
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventType, channel])
+  @@map("notification_templates")
+}
+
+model NotificationQueue {
+  id          String    @id @default(cuid())
+  schoolId    String
+  eventType   String
+  channel     String    // whatsapp / sms
+  recipient   String    // phone number
+  message     String
+  status      String    @default("pending") // pending / sent / failed
+  scheduledAt DateTime  // when to send (for random delay 5-50s)
+  sentAt      DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+  @@map("notification_queue")
+}
+
+model NotificationLog {
+  id        String   @id @default(cuid())
+  schoolId  String
+  eventType String
+  channel   String   // whatsapp / sms
+  recipient String   // phone number
+  message   String
+  status    String   // sent / failed
+  provider  String?
+  error     String?
+  sentAt    DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, sentAt])
+  @@map("notification_logs")
+}
+
+model SchoolNotificationConfig {
+  id              String   @id @default(cuid())
+  schoolId        String   @unique
+  smsActive       Boolean  @default(false)
+  whatsappActive  Boolean  @default(false)
+  enabledEvents   Json     @default("[]") // array of event type strings
+  updatedAt       DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@map("school_notification_configs")
 }

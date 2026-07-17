@@ -6,6 +6,7 @@ import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { notifyStudents } from "@/lib/notifications/actions";
+import { hookExamScheduled } from "@/lib/notifications/event-hooks";
 import type { Prisma } from "@prisma/client";
 
 export interface ActionState {
@@ -70,6 +71,11 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
   await Promise.all(classes.map((c) =>
     notifyStudents(c.id, "exam_graded", `New Exam: ${subjectName}`, `A new ${subjectName} exam has been created for ${c.name}. Complete it before the deadline.`, ctx.schoolId)
   ));
+
+  // Fire WhatsApp/SMS notification hooks for each class
+  for (const c of classes) {
+    hookExamScheduled(ctx.schoolId, exam.id, subjectName, c.name);
+  }
 
   revalidatePath("/exams");
   return { success: "Exam created." };

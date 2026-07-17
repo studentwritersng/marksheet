@@ -48,6 +48,8 @@ export function buildNav(
         { label: "Exams", href: "/exams", icon: "quiz" },
         { label: "Timetable", href: "/timetable", icon: "calendar_view_week" },
         { label: "Period Tracker", href: "/period-tracker", icon: "checklist" },
+        { label: "Daily Attendance", href: "/attendance", icon: "fact_check" },
+        { label: "Notifications", href: "/notifications", icon: "notifications" },
       ]},
       { label: "Results", icon: "analytics", children: [
         { label: "Result", href: "/results", icon: "analytics" },
@@ -72,6 +74,7 @@ export function buildNav(
   } else if (user.role === "parent") {
     items.push(
       { label: "My Wards", href: "/parent", icon: "family_history" },
+      { label: "Notification Prefs", href: "/parent/settings", icon: "notifications" },
     );
   } else if (user.role === "student") {
     const studentItems: NavItem[] = [
@@ -94,6 +97,7 @@ export function buildNav(
     if (perms.subjectTeacherSubjectIds.size > 0) {
       items.push({ label: "Lesson Notes", href: "/lesson-notes", icon: "note" });
       items.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });
+      items.push({ label: "Daily Attendance", href: "/attendance", icon: "fact_check" });
     }
     if (perms.classTeacherClassIds.size > 0) {
       items.push({ label: "Students", href: "/students", icon: "group" });

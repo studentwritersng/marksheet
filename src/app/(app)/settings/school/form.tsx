@@ -7,7 +7,7 @@ import { ImageUploader } from "@/components/image-uploader";
 export function SchoolSettingsForm({
   school,
 }: {
-  school: { name: string; address: string; logo: string; phone: string; email: string; motto: string; signature: string; stamp: string; shortcode: string; maintenanceMode: boolean; feeGateExams: boolean; feeGateResults: boolean };
+  school: { name: string; address: string; logo: string; phone: string; email: string; motto: string; signature: string; stamp: string; shortcode: string; maintenanceMode: boolean; feeGateExams: boolean; feeGateResults: boolean; attendancePeriodEnabled: boolean };
 }) {
   const [state, action, pending] = useActionState(updateSchoolSettingsAction, {});
   const [logoUrl, setLogoUrl] = useState(school.logo);
@@ -83,6 +83,20 @@ export function SchoolSettingsForm({
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="feeGateResults" defaultChecked={school.feeGateResults} className="sr-only peer" />
+            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+          </label>
+        </div>
+      </div>
+
+      {/* Daily Attendance Period Toggle */}
+      <div className="bg-white border border-outline-variant rounded-xl p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Per-Period Attendance</h3>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">When enabled, teachers can record attendance per class period instead of once per day. This requires the Daily Attendance addon.</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="attendancePeriodEnabled" defaultChecked={school.attendancePeriodEnabled} className="sr-only peer" />
             <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
           </label>
         </div>

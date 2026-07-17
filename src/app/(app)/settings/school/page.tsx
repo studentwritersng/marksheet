@@ -32,6 +32,7 @@ export default async function SchoolSettingsPage() {
               maintenanceMode: school.maintenanceMode,
               feeGateExams: school.feeGateExams,
               feeGateResults: school.feeGateResults,
+              attendancePeriodEnabled: school.attendancePeriodEnabled,
               address: school.address ?? "",
               logo: school.logo ?? "",
               signature: school.signature ?? "",

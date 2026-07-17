@@ -6,6 +6,7 @@ import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications/actions";
+import { hookResultPublished } from "@/lib/notifications/event-hooks";
 import { computeClassResults, persistResults } from "@/lib/results/compute";
 
 export interface ActionState {
@@ -126,6 +127,14 @@ export async function finalizeTermResultsAction(
           content: `Your ${term?.name ?? ""} term results have been published. Check your results now.`,
         })
       )
+  );
+
+  // Fire WhatsApp/SMS notification hook for parents
+  hookResultPublished(
+    ctx.schoolId,
+    termId,
+    term?.name ?? "",
+    termResults.filter((tr) => tr.student.userId).map((tr) => tr.studentId),
   );
 
   await recordAudit({
