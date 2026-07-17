@@ -33,6 +33,7 @@ export default async function SchoolSettingsPage() {
               feeGateExams: school.feeGateExams,
               feeGateResults: school.feeGateResults,
               attendancePeriodEnabled: school.attendancePeriodEnabled,
+              attendanceLateCutoff: school.attendanceLateCutoff,
               address: school.address ?? "",
               logo: school.logo ?? "",
               signature: school.signature ?? "",

@@ -7,7 +7,7 @@ import { ImageUploader } from "@/components/image-uploader";
 export function SchoolSettingsForm({
   school,
 }: {
-  school: { name: string; address: string; logo: string; phone: string; email: string; motto: string; signature: string; stamp: string; shortcode: string; maintenanceMode: boolean; feeGateExams: boolean; feeGateResults: boolean; attendancePeriodEnabled: boolean };
+  school: { name: string; address: string; logo: string; phone: string; email: string; motto: string; signature: string; stamp: string; shortcode: string; maintenanceMode: boolean; feeGateExams: boolean; feeGateResults: boolean; attendancePeriodEnabled: boolean; attendanceLateCutoff: string | null };
 }) {
   const [state, action, pending] = useActionState(updateSchoolSettingsAction, {});
   const [logoUrl, setLogoUrl] = useState(school.logo);
@@ -88,17 +88,23 @@ export function SchoolSettingsForm({
         </div>
       </div>
 
-      {/* Daily Attendance Period Toggle */}
-      <div className="bg-white border border-outline-variant rounded-xl p-6">
+      {/* Daily Attendance Settings */}
+      <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-4">
+        <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Daily Attendance Settings</h3>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Per-Period Attendance</h3>
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">When enabled, teachers can record attendance per class period instead of once per day. This requires the Daily Attendance addon.</p>
+            <p className="font-label-md text-label-md text-on-surface font-medium">Per-Period Attendance</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">When enabled, teachers can record attendance per class period instead of once per day.</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="attendancePeriodEnabled" defaultChecked={school.attendancePeriodEnabled} className="sr-only peer" />
             <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
           </label>
+        </div>
+        <div>
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Late Cut-off Time</label>
+          <p className="font-body-sm text-body-sm text-on-surface-variant mb-2">Sign-ins after this time are automatically marked as &quot;late&quot;. Leave empty to disable.</p>
+          <input type="time" name="attendanceLateCutoff" defaultValue={school.attendanceLateCutoff ?? ""} className="w-full max-w-xs border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary" />
         </div>
       </div>
 

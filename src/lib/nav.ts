@@ -27,7 +27,7 @@ export function buildNav(
 
   if (admin) {
     items.push(
-      { label: "Academics", icon: "school", children: [
+      { label: "Academic", icon: "school", children: [
         { label: "Sessions & Terms", href: "/sessions", icon: "calendar_today" },
         { label: "Classes", href: "/classes", icon: "school" },
         { label: "Subjects", href: "/subjects", icon: "book" },
@@ -41,13 +41,17 @@ export function buildNav(
         { label: "Students", href: "/students", icon: "group" },
         { label: "Parents", href: "/parents", icon: "family_history" },
       ]},
-      { label: "Assessments", icon: "quiz", children: [
+      { label: "Teaching Resources", icon: "menu_book", children: [
+        { label: "Period Tracker", href: "/period-tracker", icon: "checklist" },
         { label: "Lesson Notes", href: "/lesson-notes", icon: "note" },
         { label: "Question Bank", href: "/questions", icon: "quiz" },
-        { label: "Essay Grading", href: "/essay-grading", icon: "rate_review" },
+      ]},
+      { label: "Assessments", icon: "quiz", children: [
         { label: "Assessment Weights", href: "/assessment-weightings", icon: "tune" },
         { label: "Exams", href: "/exams", icon: "quiz" },
-        { label: "Period Tracker", href: "/period-tracker", icon: "checklist" },
+        { label: "Essay Grading", href: "/essay-grading", icon: "rate_review" },
+      ]},
+      { label: "Attendance & Notifications", icon: "notifications", children: [
         { label: "Daily Attendance", href: "/attendance", icon: "fact_check" },
         { label: "Notifications", href: "/notifications", icon: "notifications" },
       ]},
@@ -62,13 +66,13 @@ export function buildNav(
       { label: "Billing", icon: "payments", children: [
         { label: "Billing & License", href: "/billing", icon: "account_balance_wallet" },
       ]},
+      { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
       { label: "System", icon: "settings", children: [
         { label: "Announcements", href: "/announcements", icon: "campaign" },
         { label: "Audit Log", href: "/audit-log", icon: "history" },
         { label: "Settings", href: "/settings/school", icon: "settings" },
       ]},
       { label: "Addons", href: "/addons", icon: "extension" },
-      { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
       { label: "Support Tickets", href: "/tickets", icon: "support" },
     );
   } else if (user.role === "parent") {

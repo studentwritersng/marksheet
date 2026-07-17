@@ -17,6 +17,7 @@ const navItems: NavItem[] = [
   { label: "Upload NERDC", href: "/console/nerdc-upload", icon: "upload_file" },
   { label: "Payments", href: "/console/payments", icon: "payments" },
   { label: "Payment Methods", href: "/console/payment-methods", icon: "account_balance" },
+  { label: "Notifications", href: "/console/notifications", icon: "notifications" },
   { label: "Addons", href: "/console/addons", icon: "extension" },
   { label: "AI Config", href: "/console/ai", icon: "settings" },
   { label: "Tickets", href: "/console/tickets", icon: "support" },

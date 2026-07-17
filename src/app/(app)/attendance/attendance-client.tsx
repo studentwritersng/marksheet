@@ -423,7 +423,7 @@ function StaffAttendanceTab({
       {staffId && (
         <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5">
           <h2 className="font-headline-sm text-headline-sm text-on-surface mb-3">My Check‑in</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="date"
               value={date}
@@ -432,7 +432,7 @@ function StaffAttendanceTab({
             />
           </div>
           {myRecord ? (
-            <div className="mt-3 flex items-center gap-3">
+            <div className="mt-3 flex flex-wrap items-center gap-3">
               <span className="font-body-md text-body-md">Status:</span>
               <span className={`px-3 py-1 rounded-lg font-body-sm text-body-sm border ${statusColors[myRecord.status!]}`}>
                 {myRecord.status}
@@ -696,7 +696,7 @@ function ReportTab({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end gap-4">
+      <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1">
           <label className="font-body-sm text-body-sm text-on-surface-variant">Date</label>
           <input

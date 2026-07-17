@@ -433,6 +433,19 @@ export async function scanStudentSignInAction(
     const dateObj = new Date(date + "T00:00:00");
     const now = new Date();
 
+    // Determine if late based on school cutoff
+    const school = await prisma.school.findUnique({
+      where: { id: schoolId },
+      select: { attendanceLateCutoff: true },
+    });
+    const status: string = (() => {
+      if (!school?.attendanceLateCutoff) return "present";
+      const [h, m] = school.attendanceLateCutoff.split(":").map(Number);
+      const cutoff = new Date(dateObj);
+      cutoff.setHours(h, m, 0, 0);
+      return now > cutoff ? "late" : "present";
+    })();
+
     const existing = await prisma.attendanceRecord.findFirst({
       where: {
         schoolId, studentId: student.id, date: dateObj,
@@ -440,9 +453,9 @@ export async function scanStudentSignInAction(
       },
     });
 
-    if (existing && existing.status === "present") {
+    if (existing && existing.signInAt) {
       return {
-        error: `Already signed in at ${existing.signInAt?.toLocaleTimeString()}.`,
+        error: `Already signed in at ${existing.signInAt.toLocaleTimeString()}.`,
         student: { id: student.id, fullName: `${student.firstName} ${student.lastName}`, className: student.currentClass?.name ?? "" },
       };
     }
@@ -452,13 +465,13 @@ export async function scanStudentSignInAction(
     if (existing) {
       await prisma.attendanceRecord.update({
         where: { id: existing.id },
-        data: { status: "present", signInAt: now, scannedBy, scannedAt: now },
+        data: { status, signInAt: now, scannedBy, scannedAt: now },
       });
     } else {
       await prisma.attendanceRecord.create({
         data: {
           schoolId, studentId: student.id, classId, date: dateObj,
-          status: "present", signInAt: now, scannedBy, scannedAt: now,
+          status, signInAt: now, scannedBy, scannedAt: now,
           periodId: pId,
         },
       });
@@ -472,7 +485,7 @@ export async function scanStudentSignInAction(
     hookStudentSignedIn(schoolId, student.id, studentName, className, now.toLocaleTimeString());
 
     return {
-      success: `${studentName} signed in at ${now.toLocaleTimeString()}.`,
+      success: `${studentName} signed in (${status}) at ${now.toLocaleTimeString()}.`,
       student: { id: student.id, fullName: studentName, className },
     };
   } catch (e: unknown) {

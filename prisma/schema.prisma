@@ -45,6 +45,8 @@ model School {
   feeGateResults     Boolean  @default(false) // block result release if fee not cleared
   // Attendance period toggle — if false, attendance is once per day (morning sign-in)
   attendancePeriodEnabled Boolean @default(false)
+  // Time after which sign-in is considered late, e.g. "08:30"
+  attendanceLateCutoff    String?
   // Pricing stage for this school (Basic / Standard / Premium)
   stage LicenseStageName @default(basic)
   createdAt          DateTime @default(now())
