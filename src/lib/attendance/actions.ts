@@ -104,7 +104,7 @@ export async function takeStudentAttendanceAction(
     if (absentIds.length > 0) {
       const absentStudents = await prisma.student.findMany({
         where: { id: { in: absentIds } },
-        select: { id: true, firstName: true, lastName: true, currentClass: { select: { name: true } } },
+      select: { id: true, firstName: true, lastName: true, currentClass: { select: { id: true, name: true } } },
       });
       const className = absentStudents[0]?.currentClass?.name ?? "";
       for (const s of absentStudents) {
@@ -348,4 +348,66 @@ export async function getStudentQrCards(
   );
 
   return { cards };
+}
+
+export async function scanStudentAttendanceAction(
+  schoolId: string, admissionNumber: string, date: string, periodId?: string,
+): Promise<ActionState & { student?: { id: string; fullName: string; className: string } }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user || !user.schoolId) return { error: "Not authenticated." };
+    const perms = await resolvePermissions(user);
+    if (!perms.isSchoolAdmin && !perms.isSuperAdmin && !perms.isReceptionist) return { error: "Not authorised." };
+    await guardAddon(schoolId);
+
+    const student = await prisma.student.findFirst({
+      where: { schoolId, admissionNumber, status: "active" },
+      select: { id: true, firstName: true, lastName: true, currentClass: { select: { id: true, name: true } } },
+    });
+    if (!student) return { error: `No active student found with admission number "${admissionNumber}".` };
+
+    const pId = periodId || null;
+    const dateObj = new Date(date + "T00:00:00");
+
+    const existing = await prisma.attendanceRecord.findFirst({
+      where: {
+        schoolId, studentId: student.id, date: dateObj,
+        ...(pId ? { periodId: pId } : { periodId: null }),
+      },
+    });
+
+    if (existing && existing.status === "present") {
+      return {
+        error: `Already marked present.`,
+        student: { id: student.id, fullName: `${student.firstName} ${student.lastName}`, className: student.currentClass?.name ?? "" },
+      };
+    }
+
+    const classId = student.currentClass?.id ?? "";
+    const scannedBy = user.staffId ?? user.userId;
+    if (existing) {
+      await prisma.attendanceRecord.update({
+        where: { id: existing.id },
+        data: { status: "present", scannedBy, scannedAt: new Date() },
+      });
+    } else {
+      await prisma.attendanceRecord.create({
+        data: {
+          schoolId, studentId: student.id, classId, date: dateObj,
+          status: "present", scannedBy, scannedAt: new Date(),
+          periodId: pId,
+        },
+      });
+    }
+
+    await recordAudit({ schoolId, actorId: user.userId, action: "scan_attendance", entityType: "attendance_record" });
+    revalidatePath("/attendance");
+
+    return {
+      success: `${student.firstName} ${student.lastName} marked present.`,
+      student: { id: student.id, fullName: `${student.firstName} ${student.lastName}`, className: student.currentClass?.name ?? "" },
+    };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : "Unknown error" };
+  }
 }

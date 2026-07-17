@@ -97,6 +97,8 @@ export function buildNav(
     if (perms.subjectTeacherSubjectIds.size > 0) {
       items.push({ label: "Lesson Notes", href: "/lesson-notes", icon: "note" });
       items.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });
+    }
+    if (perms.subjectTeacherSubjectIds.size > 0 || perms.isReceptionist) {
       items.push({ label: "Daily Attendance", href: "/attendance", icon: "fact_check" });
     }
     if (perms.classTeacherClassIds.size > 0) {

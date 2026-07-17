@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   takeStudentAttendanceAction,
   takeStaffAttendanceAction,
@@ -9,6 +9,7 @@ import {
   getAttendanceStats,
   getStaffForAttendance,
   getAllClassAttendanceSummary,
+  scanStudentAttendanceAction,
   type StudentAttendanceRow,
   type AttendanceStats,
   type StaffAttendanceRow,
@@ -25,7 +26,7 @@ interface Props {
   attendancePeriodEnabled?: boolean;
 }
 
-type Tab = "students" | "staff" | "report";
+type Tab = "students" | "staff" | "report" | "scanner";
 
 export function AttendanceClient({ schoolId, staffId, isAdmin, classes, today, attendancePeriodEnabled }: Props) {
   const [tab, setTab] = useState<Tab>("students");
@@ -104,6 +105,7 @@ export function AttendanceClient({ schoolId, staffId, isAdmin, classes, today, a
     setMessage(null);
     if (t === "students") loadData();
     else if (t === "staff") loadStaffData();
+    else if (t === "scanner") setMessage(null);
     else loadReportData();
   };
 
@@ -160,6 +162,7 @@ export function AttendanceClient({ schoolId, staffId, isAdmin, classes, today, a
   const tabs: { key: Tab; label: string }[] = [
     { key: "students", label: "Student Attendance" },
     { key: "staff", label: "Staff Check‑in" },
+    { key: "scanner", label: "QR Scanner" },
     { key: "report", label: "Reports" },
   ];
 
@@ -238,6 +241,17 @@ export function AttendanceClient({ schoolId, staffId, isAdmin, classes, today, a
           onLoad={loadStaffData}
           onCheckin={handleStaffCheckin}
           onAdminSetStatus={handleAdminStaffStatus}
+        />
+      )}
+
+      {tab === "scanner" && (
+        <ScannerTab
+          schoolId={schoolId}
+          date={date}
+          setDate={setDate}
+          attendancePeriodEnabled={attendancePeriodEnabled}
+          periodId={periodId}
+          setPeriodId={setPeriodId}
         />
       )}
 
@@ -505,6 +519,131 @@ function StaffAttendanceTab({
 
       {!staffId && !isAdmin && (
         <p className="font-body-md text-body-md text-on-surface-variant">Staff check‑in is available for staff accounts.</p>
+      )}
+    </div>
+  );
+}
+
+function ScannerTab({
+  schoolId, date, setDate, attendancePeriodEnabled, periodId, setPeriodId,
+}: {
+  schoolId: string;
+  date: string; setDate: (v: string) => void;
+  attendancePeriodEnabled?: boolean;
+  periodId?: string;
+  setPeriodId?: (v: string) => void;
+}) {
+  const [scanResult, setScanResult] = useState<{ success?: string; error?: string; studentName?: string } | null>(null);
+  const [scannerActive, setScannerActive] = useState(false);
+  const scannerRef = useRef<HTMLDivElement>(null);
+  const html5QrCodeRef = useRef<any>(null);
+
+  const startScanner = useCallback(async () => {
+    setScanResult(null);
+    const { Html5Qrcode } = await import("html5-qrcode");
+    const scanner = new Html5Qrcode("qr-scanner-element");
+    html5QrCodeRef.current = scanner;
+    setScannerActive(true);
+
+    scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      async (decodedText: string) => {
+        scanner.stop().catch(() => {});
+        setScannerActive(false);
+
+        const pId = attendancePeriodEnabled ? periodId : undefined;
+        const result = await scanStudentAttendanceAction(schoolId, decodedText.trim(), date, pId);
+        if (result.error) {
+          setScanResult({ error: result.error, studentName: result.student?.fullName });
+        } else {
+          setScanResult({ success: result.success, studentName: result.student?.fullName });
+        }
+      },
+      () => {},
+    ).catch(() => {
+      setScanResult({ error: "Failed to access camera. Ensure camera permissions are granted." });
+      setScannerActive(false);
+    });
+  }, [schoolId, date, periodId, attendancePeriodEnabled]);
+
+  const stopScanner = useCallback(() => {
+    if (html5QrCodeRef.current) {
+      html5QrCodeRef.current.stop().catch(() => {});
+      html5QrCodeRef.current = null;
+    }
+    setScannerActive(false);
+  }, []);
+
+  useEffect(() => {
+    return () => { stopScanner(); };
+  }, [stopScanner]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-4 items-end">
+        <div className="flex flex-col gap-1">
+          <label className="font-body-sm text-body-sm text-on-surface-variant">Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="border border-outline-variant rounded-lg px-3 py-2 font-body-md text-body-md"
+          />
+        </div>
+        {attendancePeriodEnabled && setPeriodId && (
+          <div className="flex flex-col gap-1">
+            <label className="font-body-sm text-body-sm text-on-surface-variant">Period</label>
+            <select
+              value={periodId}
+              onChange={(e) => setPeriodId(e.target.value)}
+              className="border border-outline-variant rounded-lg px-3 py-2 font-body-md text-body-md"
+            >
+              {Array.from({ length: 8 }, (_, i) => (
+                <option key={i + 1} value={`${i + 1}`}>Period {i + 1}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <button
+          onClick={scannerActive ? stopScanner : startScanner}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            scannerActive
+              ? "bg-red-600 text-white hover:bg-red-700"
+              : "bg-[#002046] text-white hover:bg-[#001a33]"
+          }`}
+        >
+          {scannerActive ? "Stop Scanner" : "Start Scanner"}
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5">
+        <div
+          id="qr-scanner-element"
+          ref={scannerRef}
+          className="w-full max-w-md mx-auto"
+          style={{ minHeight: scannerActive ? 300 : 0 }}
+        />
+        {!scannerActive && !scanResult && (
+          <p className="text-center font-body-md text-body-md text-on-surface-variant py-12">
+            Click &ldquo;Start Scanner&rdquo; and point the camera at a student&apos;s QR ID card to mark them present.
+          </p>
+        )}
+      </div>
+
+      {scanResult && (
+        <div
+          className={`px-4 py-3 rounded-xl font-body-sm text-body-sm ${
+            scanResult.success
+              ? "bg-[#E8F5E9] text-[#2E7D32] border border-[#A5D6A7]"
+              : "bg-[#FFEBEE] text-[#C62828] border border-[#EF9A9A]"
+          }`}
+        >
+          {scanResult.studentName && (
+            <span className="font-semibold">{scanResult.studentName}</span>
+          )}
+          <span> — {scanResult.success ?? scanResult.error}</span>
+        </div>
       )}
     </div>
   );
