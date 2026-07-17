@@ -6,7 +6,7 @@ import { isAddonActive } from "@/lib/addons/check";
 import { runSolver } from "@/lib/timetable/solver";
 import type { SolverInput } from "@/lib/timetable/solver";
 
-export async function POST() {
+export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, violations: ["Not authenticated."] }, { status: 401 });
   const perms = await resolvePermissions(user);
@@ -14,6 +14,9 @@ export async function POST() {
     return NextResponse.json({ success: false, violations: ["Not authorised."] }, { status: 403 });
   }
   const schoolId = user.schoolId;
+
+  let body: { classIds?: string[] } = {};
+  try { body = await request.json(); } catch {}
 
   const active = await isAddonActive(schoolId, "Timetable Generator");
   if (!active) {
@@ -69,6 +72,7 @@ export async function POST() {
     days: teachingDays,
     requirements: requirements.map((r) => ({
       subjectId: r.subjectId,
+      classId: r.classId,
       classLevel: r.classLevel,
       weeklyPeriodsRequired: r.weeklyPeriodsRequired,
       doublePeriodAllowed: r.doublePeriodAllowed,
@@ -88,6 +92,7 @@ export async function POST() {
       weight: r.weight,
     })),
     lockedEntries: [],
+    classIds: body.classIds && body.classIds.length > 0 ? body.classIds : undefined,
   };
 
   const result = runSolver(input);

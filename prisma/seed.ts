@@ -21,10 +21,11 @@ async function main() {
   // --- Demo school ------------------------------------------------------
   const school = await prisma.school.upsert({
     where: { id: "demo-school" },
-    update: {},
+    update: { shortcode: "UMS" },
     create: {
       id: "demo-school",
       name: "Unity Model Secondary School",
+      shortcode: "UMS",
       address: "12 Awolowo Road, Ikeja, Lagos",
       admissionFormat: "UMS/{year}/{seq:4}",
       gradingScale: [
@@ -132,8 +133,10 @@ async function main() {
   const LEVELS = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
   const classes: Record<string, string> = {};
   for (const level of LEVELS) {
-    const created = await prisma.class.create({
-      data: {
+    const created = await prisma.class.upsert({
+      where: { sessionId_level_section_department: { sessionId: session.id, level, section: "", department: "" } },
+      update: {},
+      create: {
         schoolId: school.id,
         sessionId: session.id,
         name: level,
@@ -327,11 +330,325 @@ async function main() {
   });
   console.log(`  Assigned "basic" stage to school ${school.id}`);
 
+  // ======================================================================
+  // TIMETABLE GENERATOR DEMO DATA
+  // ======================================================================
+
+  // --- Additional subjects for SSS --------------------------------
+  const extraSubjects = [
+    "Physics", "Chemistry", "Further Mathematics", "Literature in English",
+    "Government", "Civic Education", "Economics", "Commerce", "Accounting",
+    "Computer Science", "Health Education", "CRS",
+  ];
+  for (const name of extraSubjects) {
+    const s = await prisma.subject.upsert({
+      where: { schoolId_name: { schoolId: school.id, name } },
+      update: {},
+      create: { schoolId: school.id, name },
+    });
+    subjects[name] = s.id;
+  }
+
+  // --- Staff (teachers) ------------------------------------------
+  const teacherDefs = [
+    { email: "f.okeke@ums.edu.ng", name: "Frances Okeke" },
+    { email: "t.ade@ums.edu.ng", name: "Tunde Adebayo" },
+    { email: "n.chiamaka@ums.edu.ng", name: "Nwosu Chiamaka" },
+    { email: "i.samuel@ums.edu.ng", name: "Ibrahim Samuel" },
+    { email: "a.oluchi@ums.edu.ng", name: "Amara Oluchi" },
+    { email: "d.aminu@ums.edu.ng", name: "Danjuma Aminu" },
+    { email: "g.ekpo@ums.edu.ng", name: "Grace Ekpo" },
+    { email: "k.obinna@ums.edu.ng", name: "Kehinde Obinna" },
+  ];
+  const staffById: Record<string, string> = {};
+  for (const t of teacherDefs) {
+    const s = await prisma.staff.upsert({
+      where: { schoolId_email: { schoolId: school.id, email: t.email } },
+      update: {},
+      create: { schoolId: school.id, fullName: t.name, email: t.email, phone: "0803000000X" },
+    });
+    staffById[t.email] = s.id;
+    await prisma.user.upsert({
+      where: { email: t.email },
+      update: {},
+      create: { email: t.email, passwordHash: teacherPassword, role: "staff", schoolId: school.id, staffId: s.id },
+    });
+  }
+
+  // --- Subject-Teacher assignments ---------------------------------
+  const subjAssignments: { teacherEmail: string; subjectName: string; classLevel: string }[] = [
+    { teacherEmail: "j.bello@ums.edu.ng", subjectName: "Mathematics", classLevel: "SSS1" },
+    { teacherEmail: "j.bello@ums.edu.ng", subjectName: "Mathematics", classLevel: "SSS2" },
+    { teacherEmail: "f.okeke@ums.edu.ng", subjectName: "Mathematics", classLevel: "SSS3" },
+    { teacherEmail: "f.okeke@ums.edu.ng", subjectName: "Further Mathematics", classLevel: "SSS1" },
+    { teacherEmail: "f.okeke@ums.edu.ng", subjectName: "Further Mathematics", classLevel: "SSS2" },
+    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "English Language", classLevel: "SSS1" },
+    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "English Language", classLevel: "SSS2" },
+    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "Literature in English", classLevel: "SSS1" },
+    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "Literature in English", classLevel: "SSS2" },
+    { teacherEmail: "n.chiamaka@ums.edu.ng", subjectName: "Biology", classLevel: "SSS1" },
+    { teacherEmail: "n.chiamaka@ums.edu.ng", subjectName: "Biology", classLevel: "SSS2" },
+    { teacherEmail: "n.chiamaka@ums.edu.ng", subjectName: "Biology", classLevel: "SSS3" },
+    { teacherEmail: "n.chiamaka@ums.edu.ng", subjectName: "Health Education", classLevel: "SSS1" },
+    { teacherEmail: "i.samuel@ums.edu.ng", subjectName: "Physics", classLevel: "SSS1" },
+    { teacherEmail: "i.samuel@ums.edu.ng", subjectName: "Physics", classLevel: "SSS2" },
+    { teacherEmail: "i.samuel@ums.edu.ng", subjectName: "Physics", classLevel: "SSS3" },
+    { teacherEmail: "i.samuel@ums.edu.ng", subjectName: "Chemistry", classLevel: "SSS1" },
+    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Chemistry", classLevel: "SSS2" },
+    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Chemistry", classLevel: "SSS3" },
+    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Computer Science", classLevel: "SSS1" },
+    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Computer Science", classLevel: "SSS2" },
+    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Economics", classLevel: "SSS1" },
+    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Economics", classLevel: "SSS2" },
+    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Government", classLevel: "SSS1" },
+    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Government", classLevel: "SSS2" },
+    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Accounting", classLevel: "SSS1" },
+    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Accounting", classLevel: "SSS2" },
+    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Commerce", classLevel: "SSS1" },
+    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Commerce", classLevel: "SSS2" },
+    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "Civic Education", classLevel: "SSS1" },
+    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "Civic Education", classLevel: "SSS2" },
+    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "CRS", classLevel: "SSS1" },
+    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "CRS", classLevel: "SSS2" },
+    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "English Language", classLevel: "SSS3" },
+    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "Literature in English", classLevel: "SSS3" },
+    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Economics", classLevel: "SSS3" },
+    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Accounting", classLevel: "SSS3" },
+    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "Civic Education", classLevel: "SSS3" },
+    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "CRS", classLevel: "SSS3" },
+    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Government", classLevel: "SSS3" },
+    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Computer Science", classLevel: "SSS3" },
+    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Commerce", classLevel: "SSS3" },
+  ];
+
+  const existingSubjectAssignments = await prisma.assignment.count({
+    where: { schoolId: school.id, sessionId: session.id, assignmentType: "subject_teacher" },
+  });
+  if (existingSubjectAssignments <= 2) {
+    for (const a of subjAssignments) {
+      const staffId = staffById[a.teacherEmail];
+      const subjectId = subjects[a.subjectName];
+      const classId = classes[a.classLevel];
+      if (!staffId || !subjectId || !classId) continue;
+      const existing = await prisma.assignment.findFirst({
+        where: { staffId, subjectId, classId, sessionId: session.id, assignmentType: "subject_teacher" },
+      });
+      if (!existing) {
+        await prisma.assignment.create({
+          data: {
+            schoolId: school.id, staffId, subjectId, classId,
+            sessionId: session.id, termId: firstTerm?.id,
+            assignmentType: "subject_teacher",
+            isTemporary: false,
+          },
+        });
+      }
+    }
+  }
+
+  // --- ClassSubject links (SSS1-SSS3) ----------------------------
+  const sssSubjects = [
+    "Mathematics", "English Language", "Biology", "Civic Education",
+    "Computer Science", "Health Education", "CRS",
+    "Physics", "Chemistry", "Further Mathematics",
+    "Literature in English", "Government",
+    "Economics", "Commerce", "Accounting",
+  ];
+  for (const level of ["SSS1", "SSS2", "SSS3"]) {
+    const classId = classes[level];
+    if (!classId) continue;
+    for (const subjName of sssSubjects) {
+      const subjectId = subjects[subjName];
+      if (!subjectId) continue;
+      await prisma.classSubject.upsert({
+        where: { classId_subjectId: { classId, subjectId } },
+        update: {},
+        create: { schoolId: school.id, classId, subjectId, department: "general" },
+      });
+    }
+  }
+
+  // --- Timetable Template ----------------------------------------
+  const template = await prisma.timetableTemplate.upsert({
+    where: { schoolId_name: { schoolId: school.id, name: "Default Timetable" } },
+    update: {},
+    create: {
+      schoolId: school.id, name: "Default Timetable",
+      appliesTo: ["SSS1", "SSS2", "SSS3"],
+    },
+  });
+  console.log(`  Template: "${template.name}" (${template.id})`);
+
+  // --- School Days -------------------------------------------------
+  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  for (let i = 0; i < dayNames.length; i++) {
+    const existing = await prisma.schoolDay.findFirst({ where: { templateId: template.id, dayIndex: i } });
+    if (!existing) {
+      await prisma.schoolDay.create({ data: { templateId: template.id, dayName: dayNames[i], dayIndex: i, isTeachingDay: true } });
+    }
+  }
+
+  // --- Periods ----------------------------------------------------
+  const periodDefs = [
+    { num: 1, start: "08:00", end: "08:40" },
+    { num: 2, start: "08:40", end: "09:20" },
+    { num: 3, start: "09:20", end: "10:00" },
+    { num: 4, start: "10:00", end: "10:40" },
+    { num: 5, start: "11:00", end: "11:40" },   // after break
+    { num: 6, start: "11:40", end: "12:20" },
+    { num: 7, start: "12:20", end: "13:00" },
+    { num: 8, start: "13:00", end: "13:40" },
+  ];
+  for (const p of periodDefs) {
+    const existing = await prisma.addonPeriod.findFirst({ where: { templateId: template.id, periodNumber: p.num } });
+    if (!existing) {
+      await prisma.addonPeriod.create({ data: { templateId: template.id, periodNumber: p.num, startTime: p.start, endTime: p.end, periodType: "teaching" } });
+    }
+  }
+
+  // --- Subject Timetable Requirements ----------------------------
+  const reqDefs: { classLevel: string; subjectName: string; periods: number; double: boolean; practical: boolean; timePref: string }[] = [
+    { classLevel: "SSS1", subjectName: "Mathematics", periods: 5, double: true, practical: false, timePref: "morning" },
+    { classLevel: "SSS1", subjectName: "English Language", periods: 5, double: false, practical: false, timePref: "morning" },
+    { classLevel: "SSS1", subjectName: "Biology", periods: 4, double: true, practical: true, timePref: "morning" },
+    { classLevel: "SSS1", subjectName: "Civic Education", periods: 2, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS1", subjectName: "Computer Science", periods: 2, double: true, practical: true, timePref: "afternoon" },
+    { classLevel: "SSS1", subjectName: "Health Education", periods: 1, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS1", subjectName: "CRS", periods: 2, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS1", subjectName: "Physics", periods: 4, double: true, practical: true, timePref: "morning" },
+    { classLevel: "SSS1", subjectName: "Chemistry", periods: 4, double: true, practical: true, timePref: "morning" },
+    { classLevel: "SSS1", subjectName: "Further Mathematics", periods: 3, double: false, practical: false, timePref: "morning" },
+    { classLevel: "SSS1", subjectName: "Literature in English", periods: 3, double: false, practical: false, timePref: "afternoon" },
+    { classLevel: "SSS1", subjectName: "Government", periods: 2, double: false, practical: false, timePref: "afternoon" },
+    { classLevel: "SSS1", subjectName: "Economics", periods: 3, double: false, practical: false, timePref: "afternoon" },
+    { classLevel: "SSS1", subjectName: "Commerce", periods: 2, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS1", subjectName: "Accounting", periods: 3, double: false, practical: false, timePref: "morning" },
+    { classLevel: "SSS2", subjectName: "Mathematics", periods: 5, double: true, practical: false, timePref: "morning" },
+    { classLevel: "SSS2", subjectName: "English Language", periods: 5, double: false, practical: false, timePref: "morning" },
+    { classLevel: "SSS2", subjectName: "Biology", periods: 4, double: true, practical: true, timePref: "morning" },
+    { classLevel: "SSS2", subjectName: "Civic Education", periods: 2, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS2", subjectName: "Computer Science", periods: 2, double: true, practical: true, timePref: "afternoon" },
+    { classLevel: "SSS2", subjectName: "CRS", periods: 2, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS2", subjectName: "Physics", periods: 4, double: true, practical: true, timePref: "morning" },
+    { classLevel: "SSS2", subjectName: "Chemistry", periods: 4, double: true, practical: true, timePref: "morning" },
+    { classLevel: "SSS2", subjectName: "Further Mathematics", periods: 3, double: false, practical: false, timePref: "morning" },
+    { classLevel: "SSS2", subjectName: "Literature in English", periods: 3, double: false, practical: false, timePref: "afternoon" },
+    { classLevel: "SSS2", subjectName: "Government", periods: 2, double: false, practical: false, timePref: "afternoon" },
+    { classLevel: "SSS2", subjectName: "Economics", periods: 3, double: false, practical: false, timePref: "afternoon" },
+    { classLevel: "SSS2", subjectName: "Commerce", periods: 2, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS2", subjectName: "Accounting", periods: 3, double: false, practical: false, timePref: "morning" },
+    { classLevel: "SSS3", subjectName: "Mathematics", periods: 5, double: true, practical: false, timePref: "morning" },
+    { classLevel: "SSS3", subjectName: "English Language", periods: 5, double: false, practical: false, timePref: "morning" },
+    { classLevel: "SSS3", subjectName: "Biology", periods: 4, double: true, practical: true, timePref: "morning" },
+    { classLevel: "SSS3", subjectName: "Civic Education", periods: 2, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS3", subjectName: "Computer Science", periods: 2, double: true, practical: true, timePref: "afternoon" },
+    { classLevel: "SSS3", subjectName: "CRS", periods: 2, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS3", subjectName: "Physics", periods: 4, double: true, practical: true, timePref: "morning" },
+    { classLevel: "SSS3", subjectName: "Chemistry", periods: 4, double: true, practical: true, timePref: "morning" },
+    { classLevel: "SSS3", subjectName: "Literature in English", periods: 3, double: false, practical: false, timePref: "afternoon" },
+    { classLevel: "SSS3", subjectName: "Government", periods: 2, double: false, practical: false, timePref: "afternoon" },
+    { classLevel: "SSS3", subjectName: "Economics", periods: 3, double: false, practical: false, timePref: "afternoon" },
+    { classLevel: "SSS3", subjectName: "Commerce", periods: 2, double: false, practical: false, timePref: "none" },
+    { classLevel: "SSS3", subjectName: "Accounting", periods: 3, double: false, practical: false, timePref: "morning" },
+  ];
+
+  let reqCount = 0;
+  for (const r of reqDefs) {
+    const classId = classes[r.classLevel];
+    const subjectId = subjects[r.subjectName];
+    if (!classId || !subjectId) continue;
+    const existingReq = await prisma.subjectTimetableRequirement.findFirst({
+      where: { schoolId: school.id, subjectId, classId },
+    });
+    if (!existingReq) {
+      await prisma.subjectTimetableRequirement.create({
+        data: {
+          schoolId: school.id, subjectId, classId, classLevel: r.classLevel,
+          weeklyPeriodsRequired: r.periods, doublePeriodAllowed: r.double,
+          preferredTimeOfDay: r.timePref, isPractical: r.practical,
+        },
+      });
+      reqCount++;
+    }
+  }
+  console.log(`  Created ${reqCount} subject timetable requirements.`);
+
+  // --- Staff Availability ------------------------------------------
+  let availCount = 0;
+  for (const [, staffId] of Object.entries(staffById)) {
+    for (let day = 0; day < 5; day++) {
+      const existing = await prisma.staffAvailability.findUnique({
+        where: { staffId_day: { staffId, day } },
+      });
+      if (!existing) {
+        await prisma.staffAvailability.create({
+          data: { schoolId: school.id, staffId, day, maxPeriodsPerDay: 8, maxPeriodsPerWeek: 40 },
+        });
+        availCount++;
+      }
+    }
+  }
+  // Also add availability for James Bello (existing teacher)
+  for (let day = 0; day < 5; day++) {
+    const existing = await prisma.staffAvailability.findUnique({
+      where: { staffId_day: { staffId: teacher.id, day } },
+    });
+    if (!existing) {
+      await prisma.staffAvailability.create({
+        data: { schoolId: school.id, staffId: teacher.id, day, maxPeriodsPerDay: 8, maxPeriodsPerWeek: 40 },
+      });
+      availCount++;
+    }
+  }
+  console.log(`  Created ${availCount} staff availability records.`);
+
+  // --- Timetable Rules ---------------------------------------------
+  const ruleDefs: { ruleType: string; parameters: any; isHard: boolean; weight: number }[] = [
+    { ruleType: "max_consecutive_periods", parameters: { max: 3 }, isHard: true, weight: 100 },
+    { ruleType: "max_subject_periods_per_day", parameters: { max: 2 }, isHard: true, weight: 100 },
+  ];
+  let ruleCount = 0;
+  for (const rule of ruleDefs) {
+    const existing = await prisma.schoolTimetableRule.findFirst({
+      where: { schoolId: school.id, ruleType: rule.ruleType },
+    });
+    if (!existing) {
+      await prisma.schoolTimetableRule.create({
+        data: { schoolId: school.id, ...rule, parameters: rule.parameters },
+      });
+      ruleCount++;
+    }
+  }
+  console.log(`  Created ${ruleCount} timetable rules.`);
+
+  // --- Room Types & Rooms ------------------------------------------
+  let roomType = await prisma.roomType.findFirst({ where: { schoolId: school.id, name: "Science Lab" } });
+  if (!roomType) roomType = await prisma.roomType.create({ data: { schoolId: school.id, name: "Science Lab" } });
+  let compLab = await prisma.roomType.findFirst({ where: { schoolId: school.id, name: "Computer Lab" } });
+  if (!compLab) compLab = await prisma.roomType.create({ data: { schoolId: school.id, name: "Computer Lab" } });
+  const roomDefs = [
+    { name: "Lab 1", typeId: roomType.id, capacity: 40 },
+    { name: "Lab 2", typeId: roomType.id, capacity: 30 },
+    { name: "ICT Hub", typeId: compLab.id, capacity: 25 },
+  ];
+  for (const rm of roomDefs) {
+    const existing = await prisma.room.findFirst({ where: { schoolId: school.id, name: rm.name } });
+    if (!existing) {
+      await prisma.room.create({ data: { schoolId: school.id, name: rm.name, roomTypeId: rm.typeId, capacity: rm.capacity } });
+    }
+  }
+  console.log("  Created room types and rooms.");
+
+  // ======================================================================
+
   console.log("Seed complete.");
   console.log("Logins:");
   console.log("  Super Admin: super@marksheet.dev / superadmin123");
   console.log("  School Admin: admin@ums.edu.ng / admin123");
-  console.log("  Teacher:     j.bello@ums.edu.ng / teacher123");
+  console.log("  Teachers:");
+  for (const t of teacherDefs) {
+    console.log(`    ${t.name}: ${t.email} / teacher123`);
+  }
 
   // --- NERDC Curriculum Seed (system defaults) ---------------------------
   const existingTopics = await prisma.curriculumTopic.count({ where: { schoolId: null, isSystem: true } });

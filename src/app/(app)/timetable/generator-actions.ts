@@ -146,21 +146,26 @@ export async function upsertStaffAvailabilityAction(_prev: ActionResult, formDat
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardGenerator(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
   const staffId = formData.get("staffId") as string;
-  const day = parseInt(formData.get("day") as string);
+  const daysRaw = formData.get("days") as string;
   const maxPeriodsPerDay = parseInt(formData.get("maxPeriodsPerDay") as string) || 8;
   const maxPeriodsPerWeek = parseInt(formData.get("maxPeriodsPerWeek") as string) || 40;
-  if (!staffId || isNaN(day)) return { error: "Missing required fields." };
-  const existing = await prisma.staffAvailability.findUnique({
-    where: { staffId_day: { staffId, day } },
-  });
-  const data = { schoolId: ctx.schoolId, staffId, day, maxPeriodsPerDay, maxPeriodsPerWeek };
-  if (existing) {
-    await prisma.staffAvailability.update({ where: { id: existing.id }, data });
-  } else {
-    await prisma.staffAvailability.create({ data });
+  if (!staffId || !daysRaw) return { error: "Missing required fields." };
+  let days: number[];
+  try { days = JSON.parse(daysRaw); } catch { return { error: "Invalid days value." }; }
+  if (!Array.isArray(days) || days.length === 0) return { error: "Select at least one day." };
+  for (const day of days) {
+    const existing = await prisma.staffAvailability.findUnique({
+      where: { staffId_day: { staffId, day } },
+    });
+    const data = { schoolId: ctx.schoolId, staffId, day, maxPeriodsPerDay, maxPeriodsPerWeek };
+    if (existing) {
+      await prisma.staffAvailability.update({ where: { id: existing.id }, data });
+    } else {
+      await prisma.staffAvailability.create({ data });
+    }
   }
   revalidatePath("/timetable");
-  return { success: "Availability saved." };
+  return { success: `Availability saved for ${days.length} day(s).` };
 }
 
 // ─── Rules ───

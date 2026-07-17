@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { exportSchoolData } from "@/lib/backup/export";
 
 export interface SchoolActionResult {
   error?: string;
@@ -188,4 +189,16 @@ export async function toggleSuspendSchoolAction(schoolId: string): Promise<Schoo
   });
   revalidatePath(`/console/schools/${schoolId}`);
   return { success: `School ${newValue ? "suspended" : "unsuspended"}.` };
+}
+
+export async function exportSchoolBackupConsoleAction(schoolId: string, mode: "config" | "full"): Promise<{ data?: string; filename?: string; error?: string }> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  try {
+    const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } });
+    const backup = await exportSchoolData(schoolId, mode);
+    const slug = school?.name?.replace(/\s+/g, "-").toLowerCase() ?? "school";
+    return { data: JSON.stringify(backup, null, 2), filename: `${slug}-${mode}-backup-${new Date().toISOString().split("T")[0]}.json` };
+  } catch (e: any) {
+    return { error: `Export failed: ${e.message}` };
+  }
 }

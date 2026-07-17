@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction, updateSchoolAction, toggleSuspendSchoolAction, setSchoolStageAction } from "./actions";
+import { useActionState, useState, useTransition } from "react";
+import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction, updateSchoolAction, toggleSuspendSchoolAction, setSchoolStageAction, exportSchoolBackupConsoleAction } from "./actions";
 
 interface SchoolVM {
   id: string;
@@ -173,6 +173,19 @@ export function SchoolDetailClient({
         <StatBox label="Subjects" value={school._count.subjects} />
       </div>
 
+      {/* Backup & Restore */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Backup &amp; Restore</h2>
+        <p className="text-xs text-white/30 mb-4">Download a JSON backup of this school's data, or restore a previous backup.</p>
+        <div className="flex flex-wrap gap-2">
+          <BackupButton schoolId={school.id} mode="config" label="Download Config Backup" />
+          <BackupButton schoolId={school.id} mode="full" label="Download Full Backup" />
+          <a href={`/console/schools/${school.id}/backup`}
+            className="text-xs text-white/70 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30"
+          >Restore Backup</a>
+        </div>
+      </div>
+
       {/* Current license card */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-5">
         <div className="flex items-start justify-between gap-4">
@@ -285,6 +298,30 @@ function SuspendButton({ licenseId }: { licenseId: string }) {
       <button type="submit" disabled={pending} className="text-xs text-red-400 hover:text-red-300 transition-colors px-3 py-1.5 rounded-lg border border-red-800/30 hover:bg-red-900/20">{pending ? "..." : "Suspend"}</button>
       {state.success && <p className="text-emerald-400 text-xs mt-1">{state.success}</p>}
     </form>
+  );
+}
+
+function BackupButton({ schoolId, mode, label }: { schoolId: string; mode: "config" | "full"; label: string }) {
+  const [pending, startTransition] = useTransition();
+
+  const handleDownload = () => {
+    startTransition(async () => {
+      const result = await exportSchoolBackupConsoleAction(schoolId, mode);
+      if (result.error) { alert(result.error); return; }
+      const blob = new Blob([result.data!], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename!;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  };
+
+  return (
+    <button type="button" onClick={handleDownload} disabled={pending}
+      className="text-xs text-white/70 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30 disabled:opacity-60"
+    >{pending ? "Downloading..." : label}</button>
   );
 }
 

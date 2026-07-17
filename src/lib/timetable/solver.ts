@@ -5,7 +5,7 @@ export interface SolverInput {
   periods: { id: string; periodNumber: number; periodType: string }[];
   days: number[]; // day indices (0-4)
   requirements: {
-    subjectId: string; classLevel: string | null; weeklyPeriodsRequired: number;
+    subjectId: string; classId: string | null; classLevel: string | null; weeklyPeriodsRequired: number;
     doublePeriodAllowed: boolean; preferredTimeOfDay: string; isPractical: boolean;
   }[];
   staffAvailability: {
@@ -15,6 +15,7 @@ export interface SolverInput {
     ruleType: string; parameters: Record<string, any>; isHard: boolean; weight: number;
   }[];
   lockedEntries: { classId: string; day: number; periodId: string; subjectId: string; staffId: string | null }[];
+  classIds?: string[]; // if provided, only generate for these classes
 }
 
 export interface SolverOutput {
@@ -34,15 +35,24 @@ interface Assignment {
 }
 
 export function runSolver(input: SolverInput): SolverOutput {
-  const totalSlots = input.classes.length * input.days.length * input.periods.length;
+  const classesToSolve = input.classIds && input.classIds.length > 0
+    ? input.classes.filter((c) => input.classIds!.includes(c.id))
+    : input.classes;
+
+  const totalSlots = classesToSolve.length * input.days.length * input.periods.length;
   if (totalSlots === 0) return { entries: [], score: 0, violations: ["No classes, days, or periods defined."], iterationsRun: 0, success: false };
 
-  // Build requirement map
+  // Build requirement map — classId takes priority, then classLevel, then generic fallback
   const reqMap = new Map<string, { weeklyPeriodsRequired: number; doublePeriodAllowed: boolean; preferredTimeOfDay: string }>();
   for (const r of input.requirements) {
-    const key = `${r.subjectId}|${r.classLevel ?? ""}`;
-    reqMap.set(key, r);
-    // Also store by subject alone as fallback
+    if (r.classId) {
+      const key = `${r.subjectId}|c:${r.classId}`;
+      if (!reqMap.has(key)) reqMap.set(key, r);
+    } else if (r.classLevel) {
+      const key = `${r.subjectId}|l:${r.classLevel}`;
+      if (!reqMap.has(key)) reqMap.set(key, r);
+    }
+    // Always keep a generic fallback so subjects with ANY requirement can still be placed
     if (!reqMap.has(r.subjectId)) reqMap.set(r.subjectId, r);
   }
 
@@ -56,10 +66,11 @@ export function runSolver(input: SolverInput): SolverOutput {
 
   // Calculate required periods per class
   const requiredPeriods = new Map<string, number>(); // classId -> total periods needed
-  for (const cls of input.classes) {
+  for (const cls of classesToSolve) {
     let total = 0;
     for (const r of input.requirements) {
-      if (r.classLevel && r.classLevel !== cls.level) continue;
+      if (r.classId && r.classId !== cls.id) continue;
+      if (!r.classId && r.classLevel && r.classLevel !== cls.level) continue;
       total += r.weeklyPeriodsRequired;
     }
     // Fallback: count subjects assigned to this class
@@ -84,7 +95,7 @@ export function runSolver(input: SolverInput): SolverOutput {
   const violations: string[] = [];
   let iterations = 0;
 
-  for (const cls of input.classes) {
+  for (const cls of classesToSolve) {
     const needed = requiredPeriods.get(cls.id) ?? 2;
     const classSlots: { day: number; periodId: string }[] = [];
     for (const day of input.days) {
@@ -108,7 +119,7 @@ export function runSolver(input: SolverInput): SolverOutput {
 
       for (const subj of shuffledSubjects) {
         iterations++;
-        const req = reqMap.get(subj.id) ?? reqMap.get(`${subj.id}|${cls.level}`);
+        const req = reqMap.get(`${subj.id}|c:${cls.id}`) ?? reqMap.get(`${subj.id}|l:${cls.level}`) ?? reqMap.get(subj.id);
         if (!req) continue;
 
         // Check if this subject already has enough periods for this class

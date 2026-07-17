@@ -299,7 +299,11 @@ function RequirementsTab({ subjects, classes, requirements, classSubjects }: { s
 function StaffTab({ staff, staffAvail }: { staff: StaffVM[]; staffAvail: StaffAvailVM[] }) {
   const [state, action, pending] = useActionState(upsertStaffAvailabilityAction, {});
   const [selStaff, setSelStaff] = useState(staff[0]?.id ?? "");
-  const [selDay, setSelDay] = useState(0);
+  const [selDays, setSelDays] = useState<number[]>([]);
+
+  const toggleDay = (day: number) => {
+    setSelDays((prev) => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
+  };
 
   return (
     <div className="space-y-4">
@@ -313,10 +317,17 @@ function StaffTab({ staff, staffAvail }: { staff: StaffVM[]; staffAvail: StaffAv
             </select>
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant block mb-1">Day</label>
-            <select name="day" value={selDay} onChange={(e) => setSelDay(parseInt(e.target.value))} className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface">
-              {DAY_NAMES.map((n, i) => <option key={i} value={i}>{n}</option>)}
-            </select>
+            <label className="text-xs text-on-surface-variant block mb-1">Days</label>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <input type="hidden" name="days" value={JSON.stringify(selDays)} />
+              {DAY_NAMES.map((name, idx) => (
+                <label key={idx} className="flex items-center gap-1 text-sm cursor-pointer">
+                  <input type="checkbox" checked={selDays.includes(idx)} onChange={() => toggleDay(idx)} className="accent-[#002046]" />
+                  {name}
+                </label>
+              ))}
+            </div>
+            {selDays.length === 0 && <p className="text-[10px] text-red-600 mt-1">Select at least one day.</p>}
           </div>
           <div>
             <label className="text-xs text-on-surface-variant block mb-1">Max Periods/Day</label>
@@ -327,7 +338,7 @@ function StaffTab({ staff, staffAvail }: { staff: StaffVM[]; staffAvail: StaffAv
             <input name="maxPeriodsPerWeek" type="number" min={1} defaultValue={40} className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface" />
           </div>
         </div>
-        <button type="submit" disabled={pending} className="bg-[#002046] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Save</button>
+        <button type="submit" disabled={pending || selDays.length === 0} className="bg-[#002046] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Save</button>
       </form>
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
@@ -511,13 +522,27 @@ function GenerateTab({
   const [viewTT, setViewTT] = useState(timetables[0]?.id ?? "");
   const [pubState, setPubState] = useState<{ success?: string; error?: string } | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [selectedClasses, setSelectedClasses] = useState<string[]>(classes.map((c) => c.id));
+
+  const toggleClass = (classId: string) => {
+    setSelectedClasses((prev) => prev.includes(classId) ? prev.filter((id) => id !== classId) : [...prev, classId]);
+  };
 
   async function handleGenerate() {
     setGenerating(true);
     try {
-      const res = await fetch("/api/timetable-generate", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const res = await fetch("/api/timetable-generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ classIds: selectedClasses }),
+      });
       const data = await res.json();
-      setGenResult(data);
+      setGenResult({
+        entries: data.entries ?? [],
+        score: data.score ?? 0,
+        violations: data.violations ?? [],
+        success: data.success ?? false,
+        timetableId: data.timetableId,
+      });
       if (data.timetableId) {
         const tt: TimetableVM = { id: data.timetableId, status: "draft", generatedAt: new Date().toISOString(), generationScore: data.score ?? 0 };
         setTimetables((prev) => [tt, ...prev]);
@@ -538,7 +563,22 @@ function GenerateTab({
 
   return (
     <div className="space-y-4">
-      <button onClick={handleGenerate} disabled={generating}
+      {/* Class selection */}
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4">
+        <h3 className="text-sm font-semibold text-on-surface mb-3">Generate For Classes</h3>
+        <div className="flex flex-wrap gap-3">
+          {classes.map((c) => (
+            <label key={c.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="checkbox" checked={selectedClasses.includes(c.id)}
+                onChange={() => toggleClass(c.id)} className="accent-[#002046]" />
+              {c.name}
+            </label>
+          ))}
+        </div>
+        {selectedClasses.length === 0 && <p className="text-xs text-red-600 mt-2">Select at least one class to generate.</p>}
+      </div>
+
+      <button onClick={handleGenerate} disabled={generating || selectedClasses.length === 0}
         className="bg-[#002046] hover:bg-[#003366] text-white text-sm px-6 py-3 rounded-lg disabled:opacity-60 font-semibold">
         {generating ? "Generating..." : "Generate Timetable"}
       </button>
