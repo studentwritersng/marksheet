@@ -355,6 +355,7 @@ function ProvidersTab() {
               <option value="twilio">Twilio</option>
               <option value="africastalking">Africa&apos;s Talking</option>
               <option value="whatsapp_business">WhatsApp Business API</option>
+              <option value="waha">WAHA (WhatsApp HTTP API)</option>
             </select>
           </div>
           <div className="flex flex-col gap-1">
@@ -382,6 +383,8 @@ function ProvidersTab() {
             Africa&apos;s Talking: {`{ "apiKey": "...", "username": "...", "from": "..." }`}
             <br />
             WhatsApp: {`{ "accessToken": "...", "phoneNumberId": "..." }`}
+            <br />
+            WAHA: {`{ "baseUrl": "http://host:3001", "apiKey": "...", "session": "default" }`}
           </p>
         </div>
         <div className="flex gap-2 justify-end">

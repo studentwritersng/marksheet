@@ -267,6 +267,21 @@ async function sendViaProvider(
       if (!resp.ok) { const err = await resp.text(); throw new Error(`WhatsApp error: ${err}`); }
       break;
     }
+    case "waha": {
+      const baseUrl = creds.baseUrl?.replace(/\/+$/, "") ?? "http://localhost:3001";
+      const apiKey = creds.apiKey ?? "";
+      const session = creds.session ?? "default";
+      if (!baseUrl) throw new Error("WAHA base URL required");
+      const chatId = recipient.replace(/\+/g, "") + "@c.us";
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+      const resp = await fetch(`${baseUrl}/api/sendText`, {
+        method: "POST", headers,
+        body: JSON.stringify({ session, chatId, text: message }),
+      });
+      if (!resp.ok) { const err = await resp.text(); throw new Error(`WAHA error: ${err}`); }
+      break;
+    }
     default:
       throw new Error(`Unknown provider: ${provider.provider}`);
   }

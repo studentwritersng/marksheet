@@ -126,6 +126,7 @@ function ProviderForm({ onSaved }: { onSaved: () => void }) {
           <option value="twilio">Twilio</option>
           <option value="africastalking">Africa&apos;s Talking</option>
           <option value="whatsapp_business">WhatsApp Business</option>
+          <option value="waha">WAHA (WhatsApp HTTP API)</option>
         </select>
       </div>
       <input name="label" placeholder="Label (optional)" className="bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm text-white placeholder:text-slate-400" />
