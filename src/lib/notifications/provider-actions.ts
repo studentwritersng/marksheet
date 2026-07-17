@@ -8,10 +8,13 @@ import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { isAddonActive } from "@/lib/addons/check";
 import type { Prisma } from "@prisma/client";
+import type {
+  ProviderConfigVM, TemplateVM, SchoolNotifConfigVM, LogEntryVM, QueueItemVM,
+} from "./types";
 
 const NOTIFY_ADDON = "Notifications (WhatsApp & SMS)";
 
-export interface ActionState { error?: string; success?: string }
+interface ActionState { error?: string; success?: string }
 
 async function guardAddon(schoolId: string) {
   try { await guardActiveLicense(schoolId); } catch (e: unknown) { throw new Error(e instanceof Error ? e.message : "License error"); }
@@ -19,15 +22,6 @@ async function guardAddon(schoolId: string) {
 }
 
 // ── Provider Config ───────────────────────────────────────────────────────
-
-export interface ProviderConfigVM {
-  id: string;
-  channel: string;
-  provider: string;
-  label: string | null;
-  isActive: boolean;
-  sortOrder: number;
-}
 
 export async function getProviderConfigs(): Promise<ProviderConfigVM[]> {
   const user = await getCurrentUser();
@@ -79,23 +73,6 @@ export async function deleteProviderConfigAction(id: string): Promise<ActionStat
 
 // ── Templates ─────────────────────────────────────────────────────────────
 
-export interface TemplateVM {
-  id: string;
-  eventType: string;
-  channel: string;
-  label: string | null;
-  body: string;
-  isActive: boolean;
-}
-
-export const EVENT_TYPE_LABELS: Record<string, string> = {
-  attendance_marked_absent: "Absent from Class",
-  result_published: "Result Published",
-  exam_scheduled: "Exam Scheduled",
-  fee_reminder: "Fee Reminder",
-  general_notice: "General Notice",
-};
-
 export async function getTemplates(): Promise<TemplateVM[]> {
   const user = await getCurrentUser();
   if (!user) return [];
@@ -140,12 +117,6 @@ export async function deleteTemplateAction(id: string): Promise<ActionState> {
 }
 
 // ── School Notification Config ────────────────────────────────────────────
-
-export interface SchoolNotifConfigVM {
-  smsActive: boolean;
-  whatsappActive: boolean;
-  enabledEvents: string[];
-}
 
 export async function getSchoolNotificationConfig(schoolId: string): Promise<SchoolNotifConfigVM | null> {
   const config = await prisma.schoolNotificationConfig.findUnique({
@@ -324,18 +295,6 @@ export async function processNotificationQueueAction(limit = 50): Promise<{ proc
 
 // ── Logs ──────────────────────────────────────────────────────────────────
 
-export interface LogEntryVM {
-  id: string;
-  channel: string;
-  eventType: string;
-  recipient: string;
-  message: string;
-  status: string;
-  provider: string | null;
-  error: string | null;
-  sentAt: Date;
-}
-
 export async function getNotificationLogs(schoolId?: string, limit = 100): Promise<LogEntryVM[]> {
   const user = await getCurrentUser();
   if (!user) return [];
@@ -356,17 +315,6 @@ export async function getNotificationLogs(schoolId?: string, limit = 100): Promi
 }
 
 // ── Queue View ────────────────────────────────────────────────────────────
-
-export interface QueueItemVM {
-  id: string;
-  channel: string;
-  eventType: string;
-  recipient: string;
-  message: string;
-  status: string;
-  scheduledAt: Date;
-  error: string | null;
-}
 
 export async function getQueueItems(schoolId?: string, limit = 50): Promise<QueueItemVM[]> {
   const user = await getCurrentUser();
@@ -389,7 +337,7 @@ export async function getQueueItems(schoolId?: string, limit = 50): Promise<Queu
 
 // ── Template Variable Substitution ────────────────────────────────────────
 
-export function fillTemplate(body: string, vars: Record<string, string>): string {
+export async function fillTemplate(body: string, vars: Record<string, string>): Promise<string> {
   return body.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
 }
 

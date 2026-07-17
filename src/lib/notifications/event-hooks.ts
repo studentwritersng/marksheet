@@ -69,7 +69,7 @@ export async function hookAttendanceAbsent(
     if (!template) continue;
 
     for (const guardian of guardians) {
-      const message = fillTemplate(template.body, {
+      const message = await fillTemplate(template.body, {
         studentName,
         guardianName: guardian.fullName,
         className,
@@ -119,7 +119,7 @@ export async function hookResultPublished(
       if (!template) continue;
 
       for (const guardian of guardians) {
-        const message = fillTemplate(template.body, {
+        const message = await fillTemplate(template.body, {
           studentName,
           guardianName: guardian.fullName,
           className,
@@ -175,7 +175,7 @@ export async function hookExamScheduled(
       if (!template) continue;
 
       for (const guardian of guardians) {
-        const message = fillTemplate(template.body, {
+        const message = await fillTemplate(template.body, {
           studentName,
           guardianName: guardian.fullName,
           className,

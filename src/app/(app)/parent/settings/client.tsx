@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { updateParentNotificationPrefsAction, EVENT_TYPE_LABELS } from "./actions";
+import { updateParentNotificationPrefsAction } from "./actions";
+import { EVENT_TYPE_LABELS } from "@/lib/notifications/types";
 
 interface Props {
   parentAccountId: string;

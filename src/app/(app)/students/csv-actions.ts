@@ -132,7 +132,7 @@ export async function commitStudentCsvAction(
         currentClassId: classId,
         userId: user.id,
         guardians: r.guardianName
-          ? { create: [{ fullName: r.guardianName, phone: r.guardianPhone || null, email: r.guardianEmail || null, relationship: r.guardianRelation || "father" }] }
+          ? { create: [{ fullName: r.guardianName, phone: r.guardianPhone || "", email: r.guardianEmail || null, relationship: r.guardianRelation || "father" }] }
           : undefined,
       },
     });

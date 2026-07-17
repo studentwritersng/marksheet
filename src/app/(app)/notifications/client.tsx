@@ -14,13 +14,15 @@ import {
   getNotificationLogs,
   getQueueItems,
   processNotificationQueueAction,
+} from "@/lib/notifications/provider-actions";
+import {
   EVENT_TYPE_LABELS,
   type ProviderConfigVM,
   type TemplateVM,
   type SchoolNotifConfigVM,
   type LogEntryVM,
   type QueueItemVM,
-} from "@/lib/notifications/provider-actions";
+} from "@/lib/notifications/types";
 
 interface Props {
   schoolId: string;

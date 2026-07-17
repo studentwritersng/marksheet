@@ -279,7 +279,7 @@ export async function importSchoolData(schoolId: string, backup: BackupExport): 
           studentId: remap(g.studentId)!,
           relationship: g.relationship,
           fullName: g.fullName,
-          phone: g.phone,
+          phone: g.phone || "",
           email: g.email,
           address: g.address,
           isPrimaryContact: g.isPrimaryContact,

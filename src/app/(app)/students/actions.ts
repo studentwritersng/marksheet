@@ -107,7 +107,7 @@ export async function createStudentAction(
       currentClassId: classId,
       userId: user.id,
       guardians: guardianName
-        ? { create: [{ fullName: guardianName, phone: guardianPhone || null, email: guardianEmail, relationship: guardianRelation }] }
+        ? { create: [{ fullName: guardianName, phone: guardianPhone || "", email: guardianEmail, relationship: guardianRelation }] }
         : undefined,
     },
   });
