@@ -13,6 +13,7 @@ export function MobileSidebar({
   schoolInfo: { name: string; logo: string | null; motto: string | null; shortcode: string | null } | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [openLabel, setOpenLabel] = useState<string | null>(null);
 
   return (
     <>
@@ -62,7 +63,7 @@ export function MobileSidebar({
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {nav.map((item) => (
-            <MobileNavItem key={item.label} item={item} onNavigate={() => setOpen(false)} />
+            <MobileNavItem key={item.label} item={item} onNavigate={() => setOpen(false)} openLabel={openLabel} onToggle={setOpenLabel} />
           ))}
         </nav>
 
@@ -76,21 +77,29 @@ export function MobileSidebar({
   );
 }
 
-function MobileNavItem({ item, onNavigate, nested }: { item: NavItem; onNavigate: () => void; nested?: boolean }) {
+function MobileNavItem({ item, onNavigate, nested, openLabel, onToggle }: { item: NavItem; onNavigate: () => void; nested?: boolean; openLabel: string | null; onToggle: (label: string | null) => void }) {
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState(
+  const [localExpanded, setLocalExpanded] = useState(
     item.children?.some((c) => c.href && pathname.startsWith(c.href)) ?? false
   );
 
   if (item.children) {
+    const expanded = nested ? localExpanded : openLabel === item.label;
+
     return (
       <div>
         <button
-          onClick={() => setExpanded(!expanded)}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-label-md text-label-md ${
+          onClick={() => {
+            if (nested) {
+              setLocalExpanded(!localExpanded);
+            } else {
+              onToggle(openLabel === item.label ? null : item.label);
+            }
+          }}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
             nested
-              ? "text-blue-300 hover:bg-white/10 hover:text-white"
-              : "text-blue-200 hover:bg-white/10 hover:text-white"
+              ? "text-blue-300 bg-white/5 hover:bg-white/10 hover:text-white font-label-sm text-label-sm"
+              : "text-blue-200 hover:bg-white/10 hover:text-white font-label-md text-label-md"
           }`}
         >
           <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
@@ -102,7 +111,7 @@ function MobileNavItem({ item, onNavigate, nested }: { item: NavItem; onNavigate
         {expanded && (
           <div className="ml-3 mt-0.5 space-y-0.5">
             {item.children.map((child) => (
-              <MobileNavItem key={child.label} item={child} onNavigate={onNavigate} nested />
+              <MobileNavItem key={child.label} item={child} onNavigate={onNavigate} nested openLabel={openLabel} onToggle={onToggle} />
             ))}
           </div>
         )}
@@ -116,12 +125,12 @@ function MobileNavItem({ item, onNavigate, nested }: { item: NavItem; onNavigate
     <Link
       href={item.href ?? "#"}
       onClick={onNavigate}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-label-md text-label-md ${
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
         isActive
           ? "bg-white/15 text-white"
           : nested
-            ? "text-blue-300 hover:bg-white/10 hover:text-white"
-            : "text-blue-200 hover:bg-white/10 hover:text-white"
+            ? "text-blue-300 bg-white/5 hover:bg-white/10 hover:text-white font-label-sm text-label-sm"
+            : "text-blue-200 hover:bg-white/10 hover:text-white font-label-md text-label-md"
       }`}
     >
       <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
