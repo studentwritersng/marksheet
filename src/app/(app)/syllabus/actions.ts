@@ -210,19 +210,23 @@ export async function downloadSyllabusCsvTemplateAction(): Promise<{ csv: string
 // ── CSV Parser ──────────────────────────────────────────────────────────────
 
 function parseCsv(text: string): CsvRow[] {
-  const lines = text.split(/\r?\n/).filter(Boolean);
+  // Strip BOM
+  const clean = text.replace(/^\ufeff/, "");
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
 
   const header = lines[0].toLowerCase().trim();
-  const cols = header.split(",").map((h) => h.trim());
+  const cols = header.split(",").map((h) => h.trim().replace(/^["']|["']$/g, ""));
 
   const termIdx = cols.indexOf("term");
+  const weekIdx = cols.indexOf("week");
+  const weekSuffixIdx = cols.indexOf("weeksuffix");
   const subweekIdx = cols.indexOf("subweek");
   const topicIdx = cols.indexOf("topic");
   const subTopicsIdx = cols.indexOf("subtopics");
   const objectivesIdx = cols.indexOf("objectives");
 
-  if (subweekIdx === -1 || topicIdx === -1) return [];
+  if ((subweekIdx === -1 && weekIdx === -1) || topicIdx === -1) return [];
 
   const result: CsvRow[] = [];
 
@@ -231,8 +235,18 @@ function parseCsv(text: string): CsvRow[] {
     const row: Record<string, string> = {};
     cols.forEach((_, ci) => { row[cols[ci]] = values[ci] ?? ""; });
 
-    const subweekRaw = row[cols[subweekIdx]].trim();
-    const { week, weekSuffix, subweek } = parseSubweek(subweekRaw);
+    let week = 0, weekSuffix = "", subweek = "";
+
+    if (subweekIdx >= 0) {
+      const raw = row[cols[subweekIdx]].trim();
+      const p = parseSubweek(raw);
+      week = p.week; weekSuffix = p.weekSuffix; subweek = p.subweek;
+    } else {
+      week = parseInt(row[cols[weekIdx]]?.trim(), 10);
+      weekSuffix = weekSuffixIdx >= 0 ? row[cols[weekSuffixIdx]]?.trim() ?? "" : "";
+      subweek = weekSuffix ? `${week}.${weekSuffix}` : String(week);
+    }
+
     if (week === 0 && !subweek) continue;
 
     result.push({
