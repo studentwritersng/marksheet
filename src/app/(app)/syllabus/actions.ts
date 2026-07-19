@@ -6,6 +6,8 @@ import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 export interface ActionState {
   error?: string;
@@ -201,15 +203,8 @@ export async function commitSyllabusCsvAction(
 }
 
 export async function downloadSyllabusCsvTemplateAction(): Promise<{ csv: string; filename: string }> {
-  const header = "term,subweek,topic,subTopics,objectives";
-  const sample = [
-    "FIRST,1,Introduction to Numbers,\"Counting; Place values\",\"Identify numbers; Write numbers\"",
-    "FIRST,1.1,Number Recognition,\"Reading numbers; Writing numbers\",\"Read 1-100; Write 1-100\"",
-    "FIRST,2,Addition Basics,\"Simple addition; Word problems\",\"Solve addition problems; Carry over\"",
-    "SECOND,1,Fractions,\"Proper fractions; Improper fractions\",\"Identify fraction types; Compare fractions\"",
-    "SECOND,1.1,Equivalent Fractions,\"Simplifying; Scaling\",\"Find equivalents; Simplify fractions\"",
-  ].join("\n");
-  return { csv: header + "\n" + sample, filename: "syllabus-template.csv" };
+  const csv = readFileSync(join(process.cwd(), "..", "syllabus_template.csv"), "utf-8");
+  return { csv, filename: "syllabus-template.csv" };
 }
 
 // ── CSV Parser ──────────────────────────────────────────────────────────────
