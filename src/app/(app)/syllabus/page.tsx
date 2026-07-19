@@ -8,7 +8,7 @@ export default async function SyllabusPage() {
   const user = await getCurrentUser();
   if (!user || !user.schoolId) redirect("/login");
 
-  const [syllabi, subjects, sessions] = await Promise.all([
+  const [syllabi, subjects, sessions, classes] = await Promise.all([
     prisma.syllabus.findMany({
       where: { schoolId: user.schoolId },
       include: { subject: { select: { id: true, name: true } } },
@@ -24,7 +24,19 @@ export default async function SyllabusPage() {
       select: { id: true, label: true, isCurrent: true },
       orderBy: { isCurrent: "desc" },
     }),
+    prisma.class.findMany({
+      where: { schoolId: user.schoolId, archived: false },
+      select: { id: true, level: true, section: true, department: true },
+      orderBy: [{ level: "asc" }, { section: "asc" }],
+    }),
   ]);
+
+  const sessionMap = Object.fromEntries(sessions.map((s) => [s.id, s.label]));
+
+  const classSubjectLinks = await prisma.classSubject.findMany({
+    where: { schoolId: user.schoolId },
+    select: { classId: true, subjectId: true },
+  });
 
   return (
     <div className="space-y-6">
@@ -35,8 +47,8 @@ export default async function SyllabusPage() {
         </div>
       </div>
 
-      <SyllabusForm subjects={subjects} sessions={sessions} />
-      <SyllabusList syllabi={syllabi} />
+      <SyllabusForm subjects={subjects} sessions={sessions} classes={classes} classSubjectLinks={classSubjectLinks} />
+      <SyllabusList syllabi={syllabi} sessionMap={sessionMap} />
     </div>
   );
 }
