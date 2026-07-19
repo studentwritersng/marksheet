@@ -76,6 +76,7 @@ export async function createSyllabusAction(
     }
   }
 
+  // Upsert syllabus record
   const existing = await prisma.syllabus.findUnique({
     where: { schoolId_subjectId_classLevel_sessionId: { schoolId: ctx.schoolId, subjectId, classLevel, sessionId } },
   });
@@ -91,6 +92,23 @@ export async function createSyllabusAction(
     });
   }
 
+  // Also create curriculum topic entries
+  if (parsedTopics.length > 0 && term) {
+    const subject = await prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } });
+    if (subject) {
+      for (const t of parsedTopics) {
+        const row = t as { week: number; weekSuffix?: string; topic: string; subTopics?: string[]; objectives?: string[] };
+        const weekSuffix = row.weekSuffix ?? "";
+        const curriculumKey = { classLevel, term, subject: subject.name, week: row.week, weekSuffix, schoolId: ctx.schoolId };
+        await prisma.curriculumTopic.upsert({
+          where: { classLevel_term_subject_week_weekSuffix_schoolId: curriculumKey },
+          update: { topic: row.topic, subTopics: row.subTopics ?? [], behaviouralObjectives: row.objectives ?? [], isSystem: false },
+          create: { ...curriculumKey, topic: row.topic, subTopics: row.subTopics ?? [], behaviouralObjectives: row.objectives ?? [], isSystem: false },
+        });
+      }
+    }
+  }
+
   await recordAudit({
     schoolId: ctx.schoolId, actorId: ctx.user.userId,
     action: existing ? "update" : "create",
@@ -99,6 +117,7 @@ export async function createSyllabusAction(
   });
 
   revalidatePath("/syllabus");
+  revalidatePath("/curriculum");
   return { success: existing ? "Syllabus updated." : "Syllabus uploaded." };
 }
 
@@ -163,6 +182,10 @@ export async function commitSyllabusCsvAction(
 
   if (!Array.isArray(rows) || rows.length === 0) return { error: "No rows to import." };
 
+  // Look up subject name for curriculum entries
+  const subject = await prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } });
+  const subjectName = subject?.name ?? "";
+
   const parsedTopics: Prisma.InputJsonValue[] = rows.map((r) => {
     const { week, weekSuffix, subweek } = parseSubweek(r.subweek);
     return {
@@ -176,13 +199,14 @@ export async function commitSyllabusCsvAction(
     } as Prisma.InputJsonValue;
   });
 
-  const existing = await prisma.syllabus.findUnique({
+  // Upsert syllabus record
+  const existingSyllabus = await prisma.syllabus.findUnique({
     where: { schoolId_subjectId_classLevel_sessionId: { schoolId: ctx.schoolId, subjectId, classLevel, sessionId } },
   });
 
-  if (existing) {
+  if (existingSyllabus) {
     await prisma.syllabus.update({
-      where: { id: existing.id },
+      where: { id: existingSyllabus.id },
       data: { parsedTopics },
     });
   } else {
@@ -191,14 +215,32 @@ export async function commitSyllabusCsvAction(
     });
   }
 
+  // Also create curriculum topic entries for each row
+  if (subjectName) {
+    for (const r of rows) {
+      const { week, weekSuffix } = parseSubweek(r.subweek);
+      const rowTerm = r.term || term;
+      if (!rowTerm) continue;
+
+      const curriculumKey = { classLevel, term: rowTerm, subject: subjectName, week, weekSuffix, schoolId: ctx.schoolId };
+
+      await prisma.curriculumTopic.upsert({
+        where: { classLevel_term_subject_week_weekSuffix_schoolId: curriculumKey },
+        update: { topic: r.topic, subTopics: r.subTopics, behaviouralObjectives: r.objectives, isSystem: false },
+        create: { ...curriculumKey, topic: r.topic, subTopics: r.subTopics, behaviouralObjectives: r.objectives, isSystem: false },
+      });
+    }
+  }
+
   await recordAudit({
     schoolId: ctx.schoolId, actorId: ctx.user.userId,
-    action: existing ? "update" : "create",
+    action: existingSyllabus ? "update" : "create",
     entityType: "syllabus",
     afterValue: { subjectId, classLevel, sessionId, topicCount: parsedTopics.length } as never,
   });
 
   revalidatePath("/syllabus");
+  revalidatePath("/curriculum");
   return { success: `Syllabus imported with ${parsedTopics.length} topics.` };
 }
 

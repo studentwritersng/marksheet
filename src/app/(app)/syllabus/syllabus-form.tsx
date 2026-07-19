@@ -46,8 +46,11 @@ export function SyllabusForm({
   const [selectedTerm, setSelectedTerm] = useState("");
   const [selectedClassLevel, setSelectedClassLevel] = useState("");
 
-  // CSV section selections (independent state)
+  // CSV section selections (independent controlled state)
+  const [csvSession, setCsvSession] = useState("");
+  const [csvTerm, setCsvTerm] = useState("");
   const [csvClassLevel, setCsvClassLevel] = useState("");
+  const [csvSubjectId, setCsvSubjectId] = useState("");
 
   // Manual topic rows
   const [topicRows, setTopicRows] = useState<TopicEntry[]>([
@@ -233,12 +236,12 @@ export function SyllabusForm({
 
         <form id="csv-form" action={csvPreviewAction} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <select name="sessionId" required
+            <select name="sessionId" required value={csvSession} onChange={(e) => setCsvSession(e.target.value)}
               className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest">
               <option value="">Session</option>
               {sessions.map((s) => <option key={s.id} value={s.id}>{s.label}{s.isCurrent ? " (current)" : ""}</option>)}
             </select>
-            <select name="term" required
+            <select name="term" required value={csvTerm} onChange={(e) => setCsvTerm(e.target.value)}
               className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest">
               <option value="">Term</option>
               {TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -248,7 +251,7 @@ export function SyllabusForm({
               <option value="">Class Level</option>
               {CLASS_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
-            <select name="subjectId" required
+            <select name="subjectId" required value={csvSubjectId} onChange={(e) => setCsvSubjectId(e.target.value)}
               className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest">
               <option value="">Subject</option>
               {csvFilteredSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
