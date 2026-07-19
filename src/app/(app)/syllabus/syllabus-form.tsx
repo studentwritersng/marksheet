@@ -11,9 +11,16 @@ import {
 } from "./actions";
 
 const TERMS = ["FIRST", "SECOND", "THIRD"];
-const CLASS_LEVELS = ["JSS1", "JSS2", "JSS3", "SS1", "SS2", "SS3"];
+const CLASS_LEVELS = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
 
 const blank: ActionState = {};
+
+interface TopicEntry {
+  subweek: string;
+  topic: string;
+  subTopics: string;
+  objectives: string;
+}
 
 export function SyllabusForm({
   subjects,
@@ -34,33 +41,58 @@ export function SyllabusForm({
   const [commitMsg, setCommitMsg] = useState("");
   const [templateDownloading, setTemplateDownloading] = useState(false);
 
-  // Manual form selections for filtering
+  // Manual form selections
   const [selectedSession, setSelectedSession] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
   const [selectedClassLevel, setSelectedClassLevel] = useState("");
 
-  // Filter subjects by class level
-  const classIdsForLevel = classes
-    .filter((c) => c.level === selectedClassLevel)
-    .map((c) => c.id);
-  const linkedSubjectIds = new Set(
-    classSubjectLinks
-      .filter((l) => classIdsForLevel.includes(l.classId))
-      .map((l) => l.subjectId),
-  );
-  const filteredSubjects = selectedClassLevel
-    ? subjects.filter((s) => linkedSubjectIds.has(s.id))
-    : [];
+  // CSV section selections (independent state)
+  const [csvClassLevel, setCsvClassLevel] = useState("");
+
+  // Manual topic rows
+  const [topicRows, setTopicRows] = useState<TopicEntry[]>([
+    { subweek: "", topic: "", subTopics: "", objectives: "" },
+  ]);
+
+  function filterSubjectsByLevel(level: string) {
+    const ids = classes.filter((c) => c.level === level).map((c) => c.id);
+    const linked = new Set(
+      classSubjectLinks.filter((l) => ids.includes(l.classId)).map((l) => l.subjectId),
+    );
+    return level ? subjects.filter((s) => linked.has(s.id)) : [];
+  }
+
+  const filteredSubjects = filterSubjectsByLevel(selectedClassLevel);
+  const csvFilteredSubjects = filterSubjectsByLevel(csvClassLevel);
 
   const csvRows = csvPreview.preview?.rows ?? [];
 
+  function addTopicRow() {
+    setTopicRows([...topicRows, { subweek: "", topic: "", subTopics: "", objectives: "" }]);
+  }
+
+  function removeTopicRow(i: number) {
+    if (topicRows.length > 1) setTopicRows(topicRows.filter((_, idx) => idx !== i));
+  }
+
+  function updateTopicRow(i: number, field: keyof TopicEntry, value: string) {
+    const next = [...topicRows];
+    next[i] = { ...next[i], [field]: value };
+    setTopicRows(next);
+  }
+
+  function handleManualSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget as HTMLFormElement);
+    fd.delete("topicRows");
+    fd.set("topicRows", JSON.stringify(topicRows.filter((r) => r.topic.trim())));
+    formAction(fd);
+  }
+
   async function handleCommitCsv() {
     if (csvRows.length === 0) return;
-    const fd = new FormData();
-    fd.set("subjectId", (document.getElementById("csv-subjectId") as HTMLSelectElement)?.value ?? "");
-    fd.set("classLevel", (document.getElementById("csv-classLevel") as HTMLSelectElement)?.value ?? "");
-    fd.set("sessionId", (document.getElementById("csv-sessionId") as HTMLSelectElement)?.value ?? "");
-    fd.set("term", (document.getElementById("csv-term") as HTMLSelectElement)?.value ?? "");
+    const form = document.getElementById("csv-form") as HTMLFormElement;
+    const fd = new FormData(form);
     fd.set("rows", JSON.stringify(csvRows));
     startCommit(async () => {
       const res = await commitSyllabusCsvAction(blank, fd);
@@ -84,7 +116,7 @@ export function SyllabusForm({
   return (
     <div className="space-y-6">
       {/* ── Manual Syllabus Form ── */}
-      <form action={formAction} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 space-y-4">
+      <form onSubmit={handleManualSubmit} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 space-y-4">
         <h2 className="font-headline-sm text-headline-sm text-on-surface">Add / Edit Syllabus</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -122,14 +154,58 @@ export function SyllabusForm({
           </div>
         </div>
 
+        {/* Topic entries table */}
         <div>
-          <label htmlFor="file" className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Document URL (optional)</label>
-          <input id="file" name="file" type="text" placeholder="https://example.com/syllabus.pdf" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest" />
-        </div>
-
-        <div>
-          <label htmlFor="topics" className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Topics (one per line)</label>
-          <textarea id="topics" name="topics" rows={6} placeholder="Enter syllabus topics, one per line..." className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest" />
+          <div className="flex items-center justify-between mb-2">
+            <label className="font-label-sm text-label-sm text-on-surface-variant">Topic Entries</label>
+            <button type="button" onClick={addTopicRow}
+              className="text-xs text-primary font-medium hover:underline">+ Add Row</button>
+          </div>
+          <div className="overflow-x-auto border border-outline-variant rounded-lg">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-surface-container-high text-on-surface-variant">
+                <tr>
+                  <th className="p-2 w-[80px]">Subweek</th>
+                  <th className="p-2">Topic</th>
+                  <th className="p-2">Subtopics (; separated)</th>
+                  <th className="p-2">Objectives (; separated)</th>
+                  <th className="p-2 w-[50px]"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {topicRows.map((r, i) => (
+                  <tr key={i} className="border-t border-outline-variant/50">
+                    <td className="p-1">
+                      <input type="text" value={r.subweek} onChange={(e) => updateTopicRow(i, "subweek", e.target.value)}
+                        placeholder="e.g. 1.1"
+                        className="w-full border border-outline-variant rounded p-1.5 font-body-sm text-body-sm bg-surface-container-lowest" />
+                    </td>
+                    <td className="p-1">
+                      <input type="text" value={r.topic} onChange={(e) => updateTopicRow(i, "topic", e.target.value)}
+                        placeholder="Topic name"
+                        className="w-full border border-outline-variant rounded p-1.5 font-body-sm text-body-sm bg-surface-container-lowest" />
+                    </td>
+                    <td className="p-1">
+                      <input type="text" value={r.subTopics} onChange={(e) => updateTopicRow(i, "subTopics", e.target.value)}
+                        placeholder="Subtopics separated by ;"
+                        className="w-full border border-outline-variant rounded p-1.5 font-body-sm text-body-sm bg-surface-container-lowest" />
+                    </td>
+                    <td className="p-1">
+                      <input type="text" value={r.objectives} onChange={(e) => updateTopicRow(i, "objectives", e.target.value)}
+                        placeholder="Objectives separated by ;"
+                        className="w-full border border-outline-variant rounded p-1.5 font-body-sm text-body-sm bg-surface-container-lowest" />
+                    </td>
+                    <td className="p-1">
+                      {topicRows.length > 1 && (
+                        <button type="button" onClick={() => removeTopicRow(i)}
+                          className="text-error text-xs hover:underline">Remove</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {state.error && <p className="text-sm text-error bg-error-container px-3 py-2 rounded">{state.error}</p>}
@@ -149,34 +225,33 @@ export function SyllabusForm({
         </p>
         <div className="bg-surface-container-high rounded-lg p-3 font-mono text-xs text-on-surface-variant space-y-1">
           <div><strong className="text-on-surface">term</strong> — FIRST / SECOND / THIRD</div>
-          <div><strong className="text-on-surface">week</strong> — Week number (1-13)</div>
-          <div><strong className="text-on-surface">weekSuffix</strong> — Optional, e.g. A, B, C for multi-week topics</div>
+          <div><strong className="text-on-surface">subweek</strong> — e.g. 1, 1.1, 1.2, 2, 2.1</div>
           <div><strong className="text-on-surface">topic</strong> — Main topic name</div>
-          <div><strong className="text-on-surface">subTopics</strong> — Semicolon or comma-separated subtopics</div>
-          <div><strong className="text-on-surface">objectives</strong> — Semicolon or comma-separated behavioural objectives</div>
+          <div><strong className="text-on-surface">subTopics</strong> — Semicolon-separated subtopics</div>
+          <div><strong className="text-on-surface">objectives</strong> — Semicolon-separated behavioural objectives</div>
         </div>
 
-        <form action={csvPreviewAction} className="space-y-3">
+        <form id="csv-form" action={csvPreviewAction} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <select id="csv-sessionId" name="sessionId" required
+            <select name="sessionId" required
               className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest">
               <option value="">Session</option>
               {sessions.map((s) => <option key={s.id} value={s.id}>{s.label}{s.isCurrent ? " (current)" : ""}</option>)}
             </select>
-            <select id="csv-term" name="term" required
+            <select name="term" required
               className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest">
               <option value="">Term</option>
               {TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <select id="csv-classLevel" name="classLevel" required
+            <select name="classLevel" required value={csvClassLevel} onChange={(e) => setCsvClassLevel(e.target.value)}
               className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest">
               <option value="">Class Level</option>
               {CLASS_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
-            <select id="csv-subjectId" name="subjectId" required
+            <select name="subjectId" required
               className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest">
               <option value="">Subject</option>
-              {filteredSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {csvFilteredSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-3">
@@ -201,7 +276,7 @@ export function SyllabusForm({
               <table className="w-full text-xs text-left">
                 <thead className="bg-surface-container-high text-on-surface-variant sticky top-0">
                   <tr>
-                    <th className="p-2">Week</th>
+                    <th className="p-2">Subweek</th>
                     <th className="p-2">Topic</th>
                     <th className="p-2">Subtopics</th>
                     <th className="p-2">Objectives</th>
@@ -210,10 +285,10 @@ export function SyllabusForm({
                 <tbody>
                   {csvRows.map((r, i) => (
                     <tr key={i} className="border-t border-outline-variant/50">
-                      <td className="p-2">{r.week}{r.weekSuffix ? ` (${r.weekSuffix})` : ""}</td>
+                      <td className="p-2">{r.subweek}</td>
                       <td className="p-2">{r.topic}</td>
-                      <td className="p-2 text-on-surface-variant">{(r.subTopics || []).join(", ")}</td>
-                      <td className="p-2 text-on-surface-variant">{(r.objectives || []).join(", ")}</td>
+                      <td className="p-2 text-on-surface-variant">{(r.subTopics || []).join("; ")}</td>
+                      <td className="p-2 text-on-surface-variant">{(r.objectives || []).join("; ")}</td>
                     </tr>
                   ))}
                 </tbody>

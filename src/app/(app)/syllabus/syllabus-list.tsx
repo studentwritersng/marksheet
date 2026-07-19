@@ -58,10 +58,10 @@ export function SyllabusList({
               <div className="mt-3 space-y-2">
                 {topics.map((t, i) => (
                   <div key={i} className="text-xs bg-surface-container-high text-on-surface-variant px-2 py-1 rounded">
-                    <span className="font-medium">Wk {String(t.week)}{t.weekSuffix ? ` (${String(t.weekSuffix)})` : ""}</span>
+                    {t.subweek ? <span className="font-medium">{String(t.subweek)}</span> : <span className="font-medium">Wk {String(t.week)}</span>}
                     {" — "}{String(t.topic ?? "")}
                     {Array.isArray(t.subTopics) && (t.subTopics as string[]).length > 0 && (
-                      <span className="block mt-0.5 text-on-surface-variant/70">Sub: {(t.subTopics as string[]).join(", ")}</span>
+                      <span className="block mt-0.5 text-on-surface-variant/70">Sub: {(t.subTopics as string[]).join("; ")}</span>
                     )}
                   </div>
                 ))}

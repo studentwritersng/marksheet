@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
+import type { Prisma } from "@prisma/client";
 
 export interface ActionState {
   error?: string;
@@ -14,11 +15,21 @@ export interface ActionState {
 
 export interface CsvRow {
   term: string;
+  subweek: string;
   week: number;
   weekSuffix: string;
   topic: string;
   subTopics: string[];
   objectives: string[];
+}
+
+function parseSubweek(val: string): { week: number; weekSuffix: string; subweek: string } {
+  const s = val.trim();
+  if (!s) return { week: 0, weekSuffix: "", subweek: "" };
+  const parts = s.split(".");
+  const week = parseInt(parts[0], 10);
+  if (isNaN(week)) return { week: 0, weekSuffix: "", subweek: s };
+  return { week, weekSuffix: parts[1] ?? "", subweek: s };
 }
 
 export async function createSyllabusAction(
@@ -33,20 +44,35 @@ export async function createSyllabusAction(
   const classLevel = String(formData.get("classLevel") ?? "").trim();
   const sessionId = String(formData.get("sessionId") ?? "");
   const term = String(formData.get("term") ?? "").trim();
-  const file = String(formData.get("file") ?? "").trim() || null;
-  const topicsRaw = String(formData.get("topics") ?? "").trim();
 
   if (!subjectId || !classLevel || !sessionId) {
     return { error: "Subject, class level, and session are required." };
   }
 
-  const topics = topicsRaw
-    ? topicsRaw.split("\n").map((t) => t.trim()).filter(Boolean)
-    : [];
+  const topicRowsRaw = String(formData.get("topicRows") ?? "");
+  let parsedTopics: Prisma.InputJsonValue[] = [];
 
-  const parsedTopics = topics.length > 0
-    ? topics.map((t) => ({ term: term || undefined, topic: t }))
-    : undefined;
+  if (topicRowsRaw) {
+    try {
+      const rows: { subweek: string; topic: string; subTopics: string; objectives: string }[] = JSON.parse(topicRowsRaw);
+      parsedTopics = rows
+        .filter((r) => r.topic.trim())
+        .map((r) => {
+          const { week, weekSuffix, subweek } = parseSubweek(r.subweek);
+          return {
+            term: term || undefined,
+            subweek,
+            week,
+            weekSuffix: weekSuffix || undefined,
+            topic: r.topic.trim(),
+            subTopics: r.subTopics ? splitSemicolon(r.subTopics) : [],
+            objectives: r.objectives ? splitSemicolon(r.objectives) : [],
+          } as Prisma.InputJsonValue;
+        });
+    } catch {
+      return { error: "Invalid topic entries." };
+    }
+  }
 
   const existing = await prisma.syllabus.findUnique({
     where: { schoolId_subjectId_classLevel_sessionId: { schoolId: ctx.schoolId, subjectId, classLevel, sessionId } },
@@ -55,11 +81,11 @@ export async function createSyllabusAction(
   if (existing) {
     await prisma.syllabus.update({
       where: { id: existing.id },
-      data: { file, parsedTopics },
+      data: { parsedTopics: parsedTopics.length > 0 ? parsedTopics : undefined },
     });
   } else {
     await prisma.syllabus.create({
-      data: { schoolId: ctx.schoolId, subjectId, classLevel, sessionId, file, parsedTopics },
+      data: { schoolId: ctx.schoolId, subjectId, classLevel, sessionId, parsedTopics: parsedTopics.length > 0 ? parsedTopics : undefined },
     });
   }
 
@@ -67,7 +93,7 @@ export async function createSyllabusAction(
     schoolId: ctx.schoolId, actorId: ctx.user.userId,
     action: existing ? "update" : "create",
     entityType: "syllabus",
-    afterValue: { subjectId, classLevel, sessionId, topicCount: topics.length } as never,
+    afterValue: { subjectId, classLevel, sessionId, topicCount: parsedTopics.length } as never,
   });
 
   revalidatePath("/syllabus");
@@ -135,14 +161,18 @@ export async function commitSyllabusCsvAction(
 
   if (!Array.isArray(rows) || rows.length === 0) return { error: "No rows to import." };
 
-  const parsedTopics = rows.map((r) => ({
-    term: r.term || term || undefined,
-    week: r.week,
-    weekSuffix: r.weekSuffix || undefined,
-    topic: r.topic,
-    subTopics: r.subTopics || [],
-    objectives: r.objectives || [],
-  }));
+  const parsedTopics: Prisma.InputJsonValue[] = rows.map((r) => {
+    const { week, weekSuffix, subweek } = parseSubweek(r.subweek);
+    return {
+      term: r.term || term || undefined,
+      subweek,
+      week,
+      weekSuffix: weekSuffix || undefined,
+      topic: r.topic,
+      subTopics: r.subTopics || [],
+      objectives: r.objectives || [],
+    } as Prisma.InputJsonValue;
+  });
 
   const existing = await prisma.syllabus.findUnique({
     where: { schoolId_subjectId_classLevel_sessionId: { schoolId: ctx.schoolId, subjectId, classLevel, sessionId } },
@@ -171,11 +201,13 @@ export async function commitSyllabusCsvAction(
 }
 
 export async function downloadSyllabusCsvTemplateAction(): Promise<{ csv: string; filename: string }> {
-  const header = "term,week,weekSuffix,topic,subTopics,objectives";
+  const header = "term,subweek,topic,subTopics,objectives";
   const sample = [
-    "FIRST,1,,Introduction to Numbers,\"Counting, Place values\",\"Identify numbers, Write numbers\"",
-    "FIRST,2,A,Addition Basics,\"Simple addition, Word problems\",\"Solve addition problems\"",
-    "SECOND,1,,Fractions,\"Proper fractions, Improper fractions\",\"Identify fraction types\"",
+    "FIRST,1,Introduction to Numbers,\"Counting; Place values\",\"Identify numbers; Write numbers\"",
+    "FIRST,1.1,Number Recognition,\"Reading numbers; Writing numbers\",\"Read 1-100; Write 1-100\"",
+    "FIRST,2,Addition Basics,\"Simple addition; Word problems\",\"Solve addition problems; Carry over\"",
+    "SECOND,1,Fractions,\"Proper fractions; Improper fractions\",\"Identify fraction types; Compare fractions\"",
+    "SECOND,1.1,Equivalent Fractions,\"Simplifying; Scaling\",\"Find equivalents; Simplify fractions\"",
   ].join("\n");
   return { csv: header + "\n" + sample, filename: "syllabus-template.csv" };
 }
@@ -190,13 +222,12 @@ function parseCsv(text: string): CsvRow[] {
   const cols = header.split(",").map((h) => h.trim());
 
   const termIdx = cols.indexOf("term");
-  const weekIdx = cols.indexOf("week");
-  const weekSuffixIdx = cols.indexOf("weeksuffix");
+  const subweekIdx = cols.indexOf("subweek");
   const topicIdx = cols.indexOf("topic");
   const subTopicsIdx = cols.indexOf("subtopics");
   const objectivesIdx = cols.indexOf("objectives");
 
-  if (weekIdx === -1 || topicIdx === -1) return [];
+  if (subweekIdx === -1 || topicIdx === -1) return [];
 
   const result: CsvRow[] = [];
 
@@ -205,16 +236,18 @@ function parseCsv(text: string): CsvRow[] {
     const row: Record<string, string> = {};
     cols.forEach((_, ci) => { row[cols[ci]] = values[ci] ?? ""; });
 
-    const week = parseInt(row[cols[weekIdx]], 10);
-    if (isNaN(week)) continue;
+    const subweekRaw = row[cols[subweekIdx]].trim();
+    const { week, weekSuffix, subweek } = parseSubweek(subweekRaw);
+    if (week === 0 && !subweek) continue;
 
     result.push({
       term: termIdx >= 0 ? row[cols[termIdx]].trim().toUpperCase() : "",
+      subweek,
       week,
-      weekSuffix: weekSuffixIdx >= 0 ? row[cols[weekSuffixIdx]].trim() : "",
+      weekSuffix,
       topic: row[cols[topicIdx]].trim(),
-      subTopics: subTopicsIdx >= 0 ? splitList(row[cols[subTopicsIdx]]) : [],
-      objectives: objectivesIdx >= 0 ? splitList(row[cols[objectivesIdx]]) : [],
+      subTopics: subTopicsIdx >= 0 ? splitSemicolon(row[cols[subTopicsIdx]]) : [],
+      objectives: objectivesIdx >= 0 ? splitSemicolon(row[cols[objectivesIdx]]) : [],
     });
   }
 
@@ -245,9 +278,10 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
-function splitList(value: string): string[] {
+function splitSemicolon(value: string): string[] {
+  if (!value.trim()) return [];
   return value
-    .split(/[,;]/)
+    .split(";")
     .map((s) => s.trim().replace(/^["']|["']$/g, ""))
     .filter(Boolean);
 }
