@@ -19,7 +19,11 @@ export default async function ConsoleAddonsPage() {
         name: a.name,
         description: a.description,
         features: a.features as string[] | null,
-        price: a.price?.toNumber(),
+        basicPrice: a.basicPrice?.toNumber() ?? null,
+        standardPrice: a.standardPrice?.toNumber() ?? null,
+        premiumPrice: a.premiumPrice?.toNumber() ?? null,
+        // Legacy field kept for backwards compatibility display
+        price: a.price?.toNumber() ?? null,
         durationDays: a.durationDays,
         isActive: a.isActive,
       }))}

@@ -29,8 +29,9 @@ export async function verifyPaymentAction(paymentId: string, days: number): Prom
     orderBy: { endDate: "desc" },
   });
 
-  // Look up school's stage for this license snapshot
-  const school = await prisma.school.findUnique({ where: { id: payment.schoolId }, select: { stage: true } });
+  // Look up school's effective stage for this license snapshot (group override if applicable)
+  const { resolveEffectiveStage } = await import("@/lib/license/stage-resolver");
+  const effectiveStage = await resolveEffectiveStage(payment.schoolId);
 
   if (existing) {
     // Extend the current license
@@ -47,13 +48,13 @@ export async function verifyPaymentAction(paymentId: string, days: number): Prom
       data: {
         schoolId: payment.schoolId,
         planId: payment.planId,
-        stage: school?.stage ?? null,
+        stage: effectiveStage.stage,
         startDate: new Date(),
         endDate: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
         status: "active",
         paymentReference: payment.reference ?? `payment-${payment.id}`,
         setBy: user.userId,
-        notes: `Auto-created from verified payment ${payment.id}`,
+        notes: `Auto-created from verified payment ${payment.id}${effectiveStage.overridden ? ` [Stage overridden by group "${effectiveStage.groupName}": ${effectiveStage.stage}]` : ""}`,
       },
     });
   }

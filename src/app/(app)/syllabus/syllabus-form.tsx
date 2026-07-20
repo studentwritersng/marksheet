@@ -94,8 +94,11 @@ export function SyllabusForm({
 
   async function handleCommitCsv() {
     if (csvRows.length === 0) return;
-    const form = document.getElementById("csv-form") as HTMLFormElement;
-    const fd = new FormData(form);
+    const fd = new FormData();
+    fd.set("subjectId", csvSubjectId);
+    fd.set("classLevel", csvClassLevel);
+    fd.set("sessionId", csvSession);
+    fd.set("term", csvTerm);
     fd.set("rows", JSON.stringify(csvRows));
     startCommit(async () => {
       const res = await commitSyllabusCsvAction(blank, fd);
@@ -274,6 +277,12 @@ export function SyllabusForm({
 
         {csvRows.length > 0 && !committing && !commitMsg && (
           <div className="space-y-3">
+            {csvPreview.existing && (
+              <div className="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded-xl font-body-sm text-body-sm">
+                ⚠ A syllabus and/or curriculum already exists for this subject/class/session/term.
+                Importing will <strong>overwrite</strong> the existing data.
+              </div>
+            )}
             <p className="font-label-sm text-label-sm text-on-surface-variant">{csvRows.length} topics found.</p>
             <div className="max-h-48 overflow-y-auto border border-outline-variant rounded-lg">
               <table className="w-full text-xs text-left">

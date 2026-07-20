@@ -18,74 +18,79 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model School {
-  id                 String     @id @default(cuid())
-  name               String
-  address            String?
-  logo               String?
-  signature          String? // principal/rector signature image URL
-  stamp              String? // school stamp image URL
-  phone              String?
-  email              String?
-  motto              String?
-  letterheadSettings Json?
+  id                      String           @id @default(cuid())
+  name                    String
+  address                 String?
+  logo                    String?
+  signature               String? // principal/rector signature image URL
+  stamp                   String? // school stamp image URL
+  phone                   String?
+  email                   String?
+  motto                   String?
+  letterheadSettings      Json?
   // Configurable grading scale (e.g. A1-F9 bands). Stored as ordered JSON bands.
-  gradingScale       Json?
+  gradingScale            Json?
   // Admission number format template, e.g. "SCH/{year}/{seq:4}"
-  admissionFormat    String?
+  admissionFormat         String?
   // Shortcode for auto-generating student IDs, e.g. "TDC" → "TDC00123"
-  shortcode          String?  @unique
+  shortcode               String?          @unique
   // Auto-incrementing counter for student numbers
-  studentSequence    Int      @default(0)
+  studentSequence         Int              @default(0)
   // Maintenance mode — when true, non-admin users see a maintenance page
-  maintenanceMode    Boolean  @default(false)
+  maintenanceMode         Boolean          @default(false)
   // Suspended by platform owner — when true, all school users are blocked
-  suspended          Boolean  @default(false)
+  suspended               Boolean          @default(false)
   // Fee gating configuration (PRD 12 §3.2)
-  feeGateExams       Boolean  @default(false) // block exam access if fee not cleared
-  feeGateResults     Boolean  @default(false) // block result release if fee not cleared
+  feeGateExams            Boolean          @default(false) // block exam access if fee not cleared
+  feeGateResults          Boolean          @default(false) // block result release if fee not cleared
   // Attendance period toggle — if false, attendance is once per day (morning sign-in)
-  attendancePeriodEnabled Boolean @default(false)
+  attendancePeriodEnabled Boolean          @default(false)
   // Time after which sign-in is considered late, e.g. "08:30"
   attendanceLateCutoff    String?
   // Pricing stage for this school (Basic / Standard / Premium)
-  stage LicenseStageName @default(basic)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  stage                   LicenseStageName @default(basic)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
 
-  sessions             Session[]
-  subjects             Subject[]
-  staff                Staff[]
-  students             Student[]
-  users                User[]
-  auditLogs            AuditLog[]
-  syllabi              Syllabus[]
-  lessonNotes          LessonNote[]
-  questions            Question[]
-  exams                Exam[]
-  assessmentWeightings AssessmentWeighting[]
-  assessmentTypes      AssessmentType[]
-  reportCardTemplates  ReportCardTemplate[]
-  timetablePeriods     TimetablePeriod[]
-  timetableEntries     TimetableEntry[]
-  classSubjects        ClassSubject[]
-  announcements        Announcement[]
-  licenses             SchoolLicense[]
-  payments             Payment[]
-  tickets              Ticket[]
-  consentRecords       ConsentRecord[]
-  schoolAddons         SchoolAddon[]
-  subjectRequirements  SubjectTimetableRequirement[]
-  staffAvailability    StaffAvailability[]
-  timetableTemplates   TimetableTemplate[]
-  timetableRules       SchoolTimetableRule[]
-  addonTimetables      AddonTimetable[]
-  taughtTopics         TaughtTopic[]
-  attendanceRecords    AttendanceRecord[]
-  staffAttendance      StaffAttendanceRecord[]
-  idCardTemplate       IDCardTemplate?
-  notificationLogs     NotificationLog[]
-  notificationQueue    NotificationQueue[]
+  sessions                 Session[]
+  subjects                 Subject[]
+  staff                    Staff[]
+  students                 Student[]
+  users                    User[]
+  auditLogs                AuditLog[]
+  syllabi                  Syllabus[]
+  lessonNotes              LessonNote[]
+  questions                Question[]
+  exams                    Exam[]
+  assessmentWeightings     AssessmentWeighting[]
+  assessmentTypes          AssessmentType[]
+  reportCardTemplates      ReportCardTemplate[]
+  timetablePeriods         TimetablePeriod[]
+  timetableEntries         TimetableEntry[]
+  classSubjects            ClassSubject[]
+  announcements            Announcement[]
+  licenses                 SchoolLicense[]
+  payments                 Payment[]
+  tickets                  Ticket[]
+  consentRecords           ConsentRecord[]
+  schoolAddons             SchoolAddon[]
+  subjectRequirements      SubjectTimetableRequirement[]
+  staffAvailability        StaffAvailability[]
+  timetableTemplates       TimetableTemplate[]
+  timetableRules           SchoolTimetableRule[]
+  addonTimetables          AddonTimetable[]
+  timetableWizards         TimetableWizard[]
+  taughtTopics             TaughtTopic[]
+  attendanceRecords        AttendanceRecord[]
+  staffAttendance          StaffAttendanceRecord[]
+  idCardTemplate           IDCardTemplate?
+  notificationLogs         NotificationLog[]
+  notificationQueue        NotificationQueue[]
   schoolNotificationConfig SchoolNotificationConfig?
+  groupMembership          GroupMembership?
+
+  originTransfers      GroupStudentTransferRecord[] @relation("TransferOriginSchool")
+  destinationTransfers GroupStudentTransferRecord[] @relation("TransferDestinationSchool")
 
   @@map("schools")
 }
@@ -154,17 +159,17 @@ model Class {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  session          Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  assignments      Assignment[]
-  students         Student[]
-  promotionsFrom   PromotionRecord[] @relation("PromotionFromClass")
-  promotionsTo     PromotionRecord[] @relation("PromotionToClass")
-  lessonNotes      LessonNote[]
-  exams            Exam[]
-  examClasses      ExamClass[]
-  timetableEntries     TimetableEntry[]
-  classSubjects        ClassSubject[]
-  subjectRequirements  SubjectTimetableRequirement[]
+  session               Session                       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  assignments           Assignment[]
+  students              Student[]
+  promotionsFrom        PromotionRecord[]             @relation("PromotionFromClass")
+  promotionsTo          PromotionRecord[]             @relation("PromotionToClass")
+  lessonNotes           LessonNote[]
+  exams                 Exam[]
+  examClasses           ExamClass[]
+  timetableEntries      TimetableEntry[]
+  classSubjects         ClassSubject[]
+  subjectRequirements   SubjectTimetableRequirement[]
   addonTimetableEntries AddonTimetableEntry[]
   taughtTopics          TaughtTopic[]
   attendanceRecords     AttendanceRecord[]
@@ -209,17 +214,21 @@ model Staff {
   signature     String? // signature image URL for report cards
   bioData       Json?
   accountStatus String   @default("active") // active / suspended
+  partTime      Boolean  @default(false)
+  workDays      Int[] // 0=Mon .. 4=Fri
+  dayStartTime  String? // e.g. "08:00"
+  dayEndTime    String? // e.g. "15:00"
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  school           School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  assignments      Assignment[]
-  user             User?
-  timetableEntries TimetableEntry[]
-  staffAvailabilities    StaffAvailability[]
-  addonTimetableEntries  AddonTimetableEntry[]
-  taughtTopics           TaughtTopic[]
-  attendanceRecords      StaffAttendanceRecord[]
+  school                School                  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  assignments           Assignment[]
+  user                  User?
+  timetableEntries      TimetableEntry[]
+  staffAvailabilities   StaffAvailability[]
+  addonTimetableEntries AddonTimetableEntry[]
+  taughtTopics          TaughtTopic[]
+  attendanceRecords     StaffAttendanceRecord[]
 
   @@unique([schoolId, email])
   @@index([schoolId])
@@ -254,18 +263,18 @@ model Subject {
   name     String
   code     String? // WAEC/NECO alignment, optional
 
-  school           School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  assignments      Assignment[]
-  questions        Question[]
-  stimuli          Stimulus[]
-  questionGroups   QuestionGroup[]
-  syllabi          Syllabus[]
-  lessonNotes      LessonNote[]
-  exams            Exam[]
-  subjectResults   SubjectResult[]
-  timetableEntries TimetableEntry[]
-  classSubjects    ClassSubject[]
-  subjectRequirements  SubjectTimetableRequirement[]
+  school                School                        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  assignments           Assignment[]
+  questions             Question[]
+  stimuli               Stimulus[]
+  questionGroups        QuestionGroup[]
+  syllabi               Syllabus[]
+  lessonNotes           LessonNote[]
+  exams                 Exam[]
+  subjectResults        SubjectResult[]
+  timetableEntries      TimetableEntry[]
+  classSubjects         ClassSubject[]
+  subjectRequirements   SubjectTimetableRequirement[]
   addonTimetableEntries AddonTimetableEntry[]
   taughtTopics          TaughtTopic[]
 
@@ -323,39 +332,42 @@ enum StudentStatus {
 }
 
 model Student {
-  id              String        @id @default(cuid())
-  schoolId        String
-  admissionNumber String // unique per school, human-readable key
-  firstName       String
-  middleName      String?
-  lastName        String
-  email           String? // student email
-  dateOfBirth     DateTime?
-  ethnicity       String?
-  religion        String?
-  gender          String?
-  passportPhoto   String?
-  currentClassId  String?
-  admissionDate   DateTime?
-  status          StudentStatus @default(active)
-  userId          String?       @unique // links to User for student login
+  id                 String        @id @default(cuid())
+  schoolId           String
+  admissionNumber    String // unique per school, human-readable key
+  firstName          String
+  middleName         String?
+  lastName           String
+  email              String? // student email
+  dateOfBirth        DateTime?
+  ethnicity          String?
+  religion           String?
+  gender             String?
+  passportPhoto      String?
+  currentClassId     String?
+  admissionDate      DateTime?
+  status             StudentStatus @default(active)
+  userId             String?       @unique // links to User for student login
   // Extended bio-data (blood_group, genotype, previous_school, etc.) — school-configurable
-  bioData         Json?
-  isClassCaptain  Boolean       @default(false)
-  isViceClassCaptain Boolean   @default(false)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  bioData            Json?
+  isClassCaptain     Boolean       @default(false)
+  isViceClassCaptain Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
-  school         School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  currentClass   Class?          @relation(fields: [currentClassId], references: [id])
-  user           User?           @relation(fields: [userId], references: [id])
-  guardians      Guardian[]
-  subjectResults SubjectResult[]
-  termResults    TermResult[]
-  examAttempts   ExamAttempt[]
-  consentRecords ConsentRecord[]
+  school            School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  currentClass      Class?             @relation(fields: [currentClassId], references: [id])
+  user              User?              @relation(fields: [userId], references: [id])
+  guardians         Guardian[]
+  subjectResults    SubjectResult[]
+  termResults       TermResult[]
+  examAttempts      ExamAttempt[]
+  consentRecords    ConsentRecord[]
   taughtTopics      TaughtTopic[]
   attendanceRecords AttendanceRecord[]
+
+  originTransfers      GroupStudentTransferRecord[] @relation("TransferOriginStudent")
+  destinationTransfers GroupStudentTransferRecord[] @relation("TransferDestinationStudent")
 
   @@unique([schoolId, admissionNumber])
   @@index([schoolId])
@@ -368,7 +380,7 @@ model Guardian {
   studentId        String
   relationship     String // father / mother / guardian / other
   fullName         String
-  phone            String  // required for notification addon (must be WhatsApp-capable)
+  phone            String // required for notification addon (must be WhatsApp-capable)
   email            String? // required for notification addon in production
   address          String?
   isPrimaryContact Boolean @default(false)
@@ -388,6 +400,7 @@ model Guardian {
 enum UserRole {
   super_admin
   platform_owner
+  proprietor
   staff
   student
   parent
@@ -395,25 +408,32 @@ enum UserRole {
 
 model User {
   id                 String   @id @default(cuid())
-  schoolId           String? // null for super_admin (platform-level)
+  schoolId           String? // null for super_admin / platform_owner / proprietor
   email              String   @unique
   passwordHash       String
   role               UserRole
   staffId            String?  @unique // link when role = staff
   isActive           Boolean  @default(true)
   mustChangePassword Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+
+  // Proprietor-only fields (PRD 19) — null for all other roles
+  proprietorGroupId         String?
+  proprietorPermissionLevel String? // "full" / "view_only"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   school           School?         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   staff            Staff?          @relation(fields: [staffId], references: [id])
   student          Student?
+  proprietorGroup  SchoolGroup?    @relation("ProprietorGroup", fields: [proprietorGroupId], references: [id])
   verifiedPayments Payment[]
   createdTickets   Ticket[]        @relation("TicketCreator")
   assignedTickets  Ticket[]        @relation("TicketAssignee")
   ticketMessages   TicketMessage[]
 
   @@index([schoolId])
+  @@index([proprietorGroupId])
   @@map("users")
 }
 
@@ -964,11 +984,12 @@ model VerificationCode {
 // ---------------------------------------------------------------------------
 
 model TimetablePeriod {
-  id        String @id @default(cuid())
-  schoolId  String
-  name      String // e.g. "Period 1"
-  startTime String // e.g. "08:00"
-  endTime   String // e.g. "08:40"
+  id         String @id @default(cuid())
+  schoolId   String
+  name       String // e.g. "Period 1"
+  startTime  String // e.g. "08:00"
+  endTime    String // e.g. "08:40"
+  periodType String @default("period") // assembly / period / break / closing
 
   school  School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   entries TimetableEntry[]
@@ -1004,32 +1025,32 @@ model TimetableEntry {
 // ---------------------------------------------------------------------------
 
 model SubjectTimetableRequirement {
-  id                    String @id @default(cuid())
+  id                    String  @id @default(cuid())
   schoolId              String
   subjectId             String
   classId               String? // null if applied level-wide
   classLevel            String? // e.g. "JSS1"
   weeklyPeriodsRequired Int
   doublePeriodAllowed   Boolean @default(true)
-  preferredTimeOfDay    String @default("none") // morning / afternoon / none
+  preferredTimeOfDay    String  @default("none") // morning / afternoon / none
   isPractical           Boolean @default(false)
   requiresRoomTypeId    String?
 
-  school  School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  subject Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  class   Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  class   Class?  @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@map("subject_timetable_requirements")
 }
 
 model StaffAvailability {
-  id                 String  @id @default(cuid())
+  id                 String   @id @default(cuid())
   schoolId           String
   staffId            String
-  day                Int     // 0=Monday .. 4=Friday
+  day                Int // 0=Monday .. 4=Friday
   availablePeriodIds String[] // array of period IDs or names
-  maxPeriodsPerDay   Int     @default(8)
-  maxPeriodsPerWeek  Int     @default(40)
+  maxPeriodsPerDay   Int      @default(8)
+  maxPeriodsPerWeek  Int      @default(40)
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   staff  Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
@@ -1044,10 +1065,10 @@ model TimetableTemplate {
   name      String
   appliesTo String[] // e.g. ["JSS1", "JSS2"] or ["all"]
 
-  school      School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  schoolDays  SchoolDay[]
-  periods     AddonPeriod[]
-  timetables  AddonTimetable[]
+  school     School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolDays SchoolDay[]
+  periods    AddonPeriod[]
+  timetables AddonTimetable[]
 
   @@unique([schoolId, name])
   @@map("timetable_templates")
@@ -1056,8 +1077,8 @@ model TimetableTemplate {
 model SchoolDay {
   id            String  @id @default(cuid())
   templateId    String
-  dayName       String  // e.g. "Monday"
-  dayIndex      Int     // 0=Monday .. 4=Friday
+  dayName       String // e.g. "Monday"
+  dayIndex      Int // 0=Monday .. 4=Friday
   isTeachingDay Boolean @default(true)
 
   template TimetableTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
@@ -1081,8 +1102,8 @@ model AddonPeriod {
 model SchoolTimetableRule {
   id         String  @id @default(cuid())
   schoolId   String
-  ruleType   String  // max_consecutive_periods, max_subject_periods_per_day, fixed_period_assignment, room_exclusivity, subject_time_preference, max_teacher_subjects, practical_double_period, etc.
-  parameters Json    // rule configuration parameters
+  ruleType   String // max_consecutive_periods, max_subject_periods_per_day, fixed_period_assignment, room_exclusivity, subject_time_preference, max_teacher_subjects, practical_double_period, etc.
+  parameters Json // rule configuration parameters
   isHard     Boolean @default(true)
   weight     Int     @default(100)
 
@@ -1122,8 +1143,8 @@ model AddonTimetable {
   generatedAt     DateTime @default(now())
   generationScore Int      @default(0)
 
-  school   School                @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  template TimetableTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  school   School                   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  template TimetableTemplate        @relation(fields: [templateId], references: [id], onDelete: Cascade)
   entries  AddonTimetableEntry[]
   runs     TimetableGenerationRun[]
 
@@ -1134,8 +1155,8 @@ model AddonTimetableEntry {
   id          String  @id @default(cuid())
   timetableId String
   classId     String
-  periodId    String  // references AddonPeriod
-  day         Int     // 0=Monday .. 4=Friday
+  periodId    String // references AddonPeriod
+  day         Int // 0=Monday .. 4=Friday
   subjectId   String
   staffId     String?
   roomId      String?
@@ -1155,15 +1176,30 @@ model TimetableGenerationRun {
   triggeredBy              String
   startedAt                DateTime  @default(now())
   completedAt              DateTime?
-  status                   String    // success / partial / failed
+  status                   String // success / partial / failed
   finalScore               Int       @default(0)
-  hardConstraintViolations String[]  // list of conflict descriptions
+  hardConstraintViolations String[] // list of conflict descriptions
   iterationsRun            Int       @default(0)
 
   timetable AddonTimetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
 
   @@map("timetable_generation_runs")
 }
+
+model TimetableWizard {
+  id          String   @id @default(cuid())
+  schoolId    String   @unique
+  currentStep Int      @default(1) // 1..7
+  stepData    Json? // accumulated answers {classes, teacherAvailability, periods, subjectFrequency, teacherLoad}
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@map("timetable_wizards")
+}
+
 // ---------------------------------------------------------------------------
 
 model FeeStatus {
@@ -1248,17 +1284,17 @@ enum LicenseStageName {
 }
 
 model LicensePlan {
-  id             String              @id @default(cuid())
-  name           String              @unique // e.g. "Monthly", "Termly"
-  durationType   LicenseDurationType
-  price          Decimal? // deprecated — use stage-specific prices below
-  basicPrice     Decimal? // price for Basic-stage schools
-  standardPrice  Decimal? // price for Standard-stage schools
-  premiumPrice   Decimal? // price for Premium-stage schools
-  durationDays   Int? // e.g. 30 or 90
-  isActive       Boolean             @default(true) // can this plan be assigned to new schools?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id            String              @id @default(cuid())
+  name          String              @unique // e.g. "Monthly", "Termly"
+  durationType  LicenseDurationType
+  price         Decimal? // deprecated — use stage-specific prices below
+  basicPrice    Decimal? // price for Basic-stage schools
+  standardPrice Decimal? // price for Standard-stage schools
+  premiumPrice  Decimal? // price for Premium-stage schools
+  durationDays  Int? // e.g. 30 or 90
+  isActive      Boolean             @default(true) // can this plan be assigned to new schools?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
   schoolLicenses SchoolLicense[]
   payments       Payment[]
@@ -1339,19 +1375,25 @@ model CashCode {
 }
 
 model Addon {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  description  String?
-  features     Json?   // array of feature descriptions
-  price        Decimal? // null = free
-  durationDays Int?    // null = one-time/permanent, set = renewable
-  isActive     Boolean  @default(true)
-  sortOrder    Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  features      Json? // array of feature descriptions
+  // Stage-specific pricing — mirrors LicensePlan; one of basic/standard/premium is required
+  basicPrice    Decimal? // price for Basic-stage schools
+  standardPrice Decimal? // price for Standard-stage schools
+  premiumPrice  Decimal? // price for Premium-stage schools
+  // Legacy single-price field — kept for backwards compatibility
+  price         Decimal? // deprecated — use stage-specific prices above
+  durationDays  Int? // null = one-time/permanent, set = renewable
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   schoolAddons    SchoolAddon[]
   activationCodes AddonCode[]
+  groupAddons     GroupAddonSubscription[]
 
   @@map("addons")
 }
@@ -1360,7 +1402,7 @@ model AddonCode {
   id             String    @id @default(cuid())
   code           String    @unique // e.g. "ADDON-A3B7K9"
   addonId        String
-  schoolId       String?   // pre-assigned to a school (optional)
+  schoolId       String? // pre-assigned to a school (optional)
   isUsed         Boolean   @default(false)
   usedAt         DateTime?
   usedBySchoolId String?
@@ -1379,9 +1421,9 @@ model SchoolAddon {
   status         String    @default("active") // active, expired, suspended
   activatedAt    DateTime  @default(now())
   expiresAt      DateTime? // null = permanent
-  activatedVia   String    // "purchase" or "code"
-  activationCode String?   // the code used (if via code)
-  paymentId      String?   // the payment (if via purchase)
+  activatedVia   String // "purchase" or "code"
+  activationCode String? // the code used (if via code)
+  paymentId      String? // the payment (if via purchase)
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   addon  Addon  @relation(fields: [addonId], references: [id])
@@ -1484,20 +1526,20 @@ model TaughtTopic {
   subjectId         String
   curriculumTopicId String?
   termId            String?
-  teacherId         String    // Staff id
+  teacherId         String // Staff id
   teacherMarked     Boolean   @default(false)
   captainMarked     Boolean   @default(false)
-  studentId         String?   // Student (captain/vice) who marked
+  studentId         String? // Student (captain/vice) who marked
   teacherMarkedAt   DateTime?
   captainMarkedAt   DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  class    Class     @relation(fields: [classId], references: [id])
-  subject  Subject   @relation(fields: [subjectId], references: [id])
-  teacher  Staff     @relation(fields: [teacherId], references: [id])
-  student  Student?  @relation(fields: [studentId], references: [id])
+  school  School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class   Class    @relation(fields: [classId], references: [id])
+  subject Subject  @relation(fields: [subjectId], references: [id])
+  teacher Staff    @relation(fields: [teacherId], references: [id])
+  student Student? @relation(fields: [studentId], references: [id])
 
   @@unique([classId, subjectId, curriculumTopicId, teacherId])
   @@index([schoolId])
@@ -1511,17 +1553,17 @@ model TaughtTopic {
 // ---------------------------------------------------------------------------
 
 model AttendanceRecord {
-  id         String     @id @default(cuid())
-  schoolId   String
-  studentId  String
-  classId    String
-  date       DateTime   @db.Date
-  periodId   String?    // null if period attendance is disabled by school
-  status     String     // present / absent / late / excused
-  signInAt   DateTime?  // exact time student signed in (scan or manual)
-  signOutAt  DateTime?  // exact time student signed out (scan)
-  scannedBy  String     // staffId of the person who scanned
-  scannedAt  DateTime   @default(now())
+  id        String    @id @default(cuid())
+  schoolId  String
+  studentId String
+  classId   String
+  date      DateTime  @db.Date
+  periodId  String? // null if period attendance is disabled by school
+  status    String // present / absent / late / excused
+  signInAt  DateTime? // exact time student signed in (scan or manual)
+  signOutAt DateTime? // exact time student signed out (scan)
+  scannedBy String // staffId of the person who scanned
+  scannedAt DateTime  @default(now())
 
   school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student Student @relation(fields: [studentId], references: [id])
@@ -1533,15 +1575,15 @@ model AttendanceRecord {
 }
 
 model StaffAttendanceRecord {
-  id         String     @id @default(cuid())
-  schoolId   String
-  staffId    String
-  date       DateTime   @db.Date
-  status     String     // present / absent / late
-  signInAt   DateTime?  // exact time staff signed in
-  signOutAt  DateTime?  // exact time staff signed out
-  scannedBy  String     // staffId of the scanner
-  scannedAt  DateTime   @default(now())
+  id        String    @id @default(cuid())
+  schoolId  String
+  staffId   String
+  date      DateTime  @db.Date
+  status    String // present / absent / late
+  signInAt  DateTime? // exact time staff signed in
+  signOutAt DateTime? // exact time staff signed out
+  scannedBy String // staffId of the scanner
+  scannedAt DateTime  @default(now())
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   staff  Staff  @relation(fields: [staffId], references: [id])
@@ -1567,10 +1609,10 @@ model IDCardTemplate {
 
 model NotificationProviderConfig {
   id          String   @id @default(cuid())
-  channel     String   // whatsapp / sms
-  provider    String   // twilio / africastalking / custom
+  channel     String // whatsapp / sms
+  provider    String // twilio / africastalking / custom
   label       String?
-  credentials Json     // API keys, endpoints, sender IDs
+  credentials Json // API keys, endpoints, sender IDs
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
@@ -1581,10 +1623,10 @@ model NotificationProviderConfig {
 
 model NotificationTemplate {
   id        String   @id @default(cuid())
-  eventType String   // attendance_marked_absent / result_published / exam_scheduled / fee_reminder
-  channel   String   // whatsapp / sms
+  eventType String // attendance_marked_absent / result_published / exam_scheduled / fee_reminder
+  channel   String // whatsapp / sms
   label     String?
-  body      String   // template with {{variables}}
+  body      String // template with {{variables}}
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1597,11 +1639,11 @@ model NotificationQueue {
   id          String    @id @default(cuid())
   schoolId    String
   eventType   String
-  channel     String    // whatsapp / sms
-  recipient   String    // phone number
+  channel     String // whatsapp / sms
+  recipient   String // phone number
   message     String
   status      String    @default("pending") // pending / sent / failed
-  scheduledAt DateTime  // when to send (for random delay 5-50s)
+  scheduledAt DateTime // when to send (for random delay 5-50s)
   sentAt      DateTime?
   error       String?
   createdAt   DateTime  @default(now())
@@ -1616,10 +1658,10 @@ model NotificationLog {
   id        String   @id @default(cuid())
   schoolId  String
   eventType String
-  channel   String   // whatsapp / sms
-  recipient String   // phone number
+  channel   String // whatsapp / sms
+  recipient String // phone number
   message   String
-  status    String   // sent / failed
+  status    String // sent / failed
   provider  String?
   error     String?
   sentAt    DateTime @default(now())
@@ -1631,14 +1673,101 @@ model NotificationLog {
 }
 
 model SchoolNotificationConfig {
-  id              String   @id @default(cuid())
-  schoolId        String   @unique
-  smsActive       Boolean  @default(false)
-  whatsappActive  Boolean  @default(false)
-  enabledEvents   Json     @default("[]") // array of event type strings
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  schoolId       String   @unique
+  smsActive      Boolean  @default(false)
+  whatsappActive Boolean  @default(false)
+  enabledEvents  Json     @default("[]") // array of event type strings
+  updatedAt      DateTime @updatedAt
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@map("school_notification_configs")
+}
+
+// ---------------------------------------------------------------------------
+// PRD 19: Multi-Branch / Group of Schools Management (Addon)
+// ---------------------------------------------------------------------------
+
+// A School Group groups multiple school branches under a single proprietor.
+// Only Platform Owner can create/modify School Groups and memberships.
+model SchoolGroup {
+  id            String            @id @default(cuid())
+  name          String            @unique // e.g. "XYZ Group of Schools"
+  // The fee group (basic/standard/premium) all member schools will use for license pricing.
+  // When set, it overrides each member school's individual stage for license computation.
+  feeGroupStage LicenseStageName?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  createdBy     String? // Platform Owner user id
+
+  memberships        GroupMembership[]
+  proprietors        User[]                       @relation("ProprietorGroup")
+  addonSubscriptions GroupAddonSubscription[]
+  transferRecords    GroupStudentTransferRecord[]
+
+  @@map("school_groups")
+}
+
+// Links a school to a School Group. A school belongs to at most one group.
+model GroupMembership {
+  id       String   @id @default(cuid())
+  groupId  String
+  schoolId String   @unique // a school can be in at most one group at a time
+  addedAt  DateTime @default(now())
+  addedBy  String? // Platform Owner user id
+
+  group  SchoolGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  school School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@map("group_memberships")
+}
+
+// Group-level addon subscription (e.g. Multi-Branch addon is billed at group level, not per school).
+// Mirrors SchoolAddon but scoped to a School Group rather than a School.
+model GroupAddonSubscription {
+  id               String    @id @default(cuid())
+  groupId          String
+  addonId          String
+  status           String    @default("active") // active, expired, suspended
+  startDate        DateTime  @default(now())
+  endDate          DateTime? // null = permanent
+  paymentReference String?
+  setBy            String? // Platform Owner user id
+  notes            String?
+
+  group SchoolGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  addon Addon       @relation(fields: [addonId], references: [id])
+
+  @@unique([groupId, addonId])
+  @@index([groupId])
+  @@map("group_addon_subscriptions")
+}
+
+// Tracks cross-branch student transfers between member schools of the same group.
+// Origin student record remains untouched; destination gets a new Student record.
+model GroupStudentTransferRecord {
+  id                   String   @id @default(cuid())
+  groupId              String
+  originSchoolId       String
+  originStudentId      String
+  destinationSchoolId  String
+  destinationStudentId String
+  transferredAt        DateTime @default(now())
+  initiatedBy          String? // staff id at destination branch, or proprietor user id
+  notes                String?
+
+  group              SchoolGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  originSchool       School      @relation("TransferOriginSchool", fields: [originSchoolId], references: [id])
+  originStudent      Student     @relation("TransferOriginStudent", fields: [originStudentId], references: [id])
+  destinationSchool  School      @relation("TransferDestinationSchool", fields: [destinationSchoolId], references: [id])
+  destinationStudent Student     @relation("TransferDestinationStudent", fields: [destinationStudentId], references: [id])
+
+  @@index([groupId])
+  @@index([originSchoolId])
+  @@index([destinationSchoolId])
+  @@index([originStudentId])
+  @@index([destinationStudentId])
+  @@map("group_student_transfer_records")
 }

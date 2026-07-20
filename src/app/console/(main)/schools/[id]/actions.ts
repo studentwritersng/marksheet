@@ -51,19 +51,22 @@ export async function updateLicenseAction(schoolId: string, formData: FormData):
     data: { status: "expired" },
   });
 
-  // Snapshot the school's current stage
-  const schoolRec = await prisma.school.findUnique({ where: { id: schoolId }, select: { stage: true } });
+  // Snapshot the school's effective stage (group fee-group override if applicable)
+  const { resolveEffectiveStage } = await import("@/lib/license/stage-resolver");
+  const effectiveStage = await resolveEffectiveStage(schoolId);
 
   await prisma.schoolLicense.create({
     data: {
       schoolId,
       planId,
-      stage: schoolRec?.stage ?? null,
+      stage: effectiveStage.stage,
       startDate,
       endDate,
       status: "active",
       paymentReference,
-      notes,
+      notes: effectiveStage.overridden
+        ? `${notes ?? ""} [Stage overridden by group "${effectiveStage.groupName}": ${effectiveStage.stage}]`.trim()
+        : notes,
       setBy: user!.userId,
     },
   });

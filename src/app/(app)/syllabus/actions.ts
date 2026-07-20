@@ -13,6 +13,7 @@ export interface ActionState {
   error?: string;
   success?: string;
   preview?: { rows: CsvRow[] };
+  existing?: boolean;
 }
 
 export interface CsvRow {
@@ -99,12 +100,45 @@ export async function createSyllabusAction(
       for (const t of parsedTopics) {
         const row = t as { week: number; weekSuffix?: string; topic: string; subTopics?: string[]; objectives?: string[] };
         const weekSuffix = row.weekSuffix ?? "";
-        const curriculumKey = { classLevel, term, subject: subject.name, week: row.week, weekSuffix, schoolId: ctx.schoolId };
-        await prisma.curriculumTopic.upsert({
-          where: { classLevel_term_subject_week_weekSuffix_schoolId: curriculumKey },
-          update: { topic: row.topic, subTopics: row.subTopics ?? [], behaviouralObjectives: row.objectives ?? [], isSystem: false },
-          create: { ...curriculumKey, topic: row.topic, subTopics: row.subTopics ?? [], behaviouralObjectives: row.objectives ?? [], isSystem: false },
+
+        const existingCurriculum = await prisma.curriculumTopic.findFirst({
+          where: {
+            classLevel,
+            term,
+            subject: subject.name,
+            week: row.week,
+            weekSuffix,
+            OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
+          },
         });
+
+        if (existingCurriculum) {
+          await prisma.curriculumTopic.update({
+            where: { id: existingCurriculum.id },
+            data: {
+              topic: row.topic,
+              subTopics: row.subTopics ?? [],
+              behaviouralObjectives: row.objectives ?? [],
+              isSystem: false,
+              schoolId: ctx.schoolId,
+            },
+          });
+        } else {
+          await prisma.curriculumTopic.create({
+            data: {
+              classLevel,
+              term,
+              subject: subject.name,
+              week: row.week,
+              weekSuffix,
+              topic: row.topic,
+              subTopics: row.subTopics ?? [],
+              behaviouralObjectives: row.objectives ?? [],
+              isSystem: false,
+              schoolId: ctx.schoolId,
+            },
+          });
+        }
       }
     }
   }
@@ -141,6 +175,127 @@ export async function deleteSyllabusAction(syllabusId: string): Promise<ActionSt
   return { success: "Syllabus deleted." };
 }
 
+export async function deleteSyllabusBulkAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const classLevel = String(formData.get("classLevel") ?? "").trim();
+  const subjectId = String(formData.get("subjectId") ?? "");
+
+  const where: Record<string, unknown> = { schoolId: ctx.schoolId };
+  if (sessionId) where.sessionId = sessionId;
+  if (classLevel) where.classLevel = classLevel;
+  if (subjectId) where.subjectId = subjectId;
+
+  if (!sessionId && !classLevel && !subjectId) {
+    return { error: "Select at least one filter." };
+  }
+
+  const count = await prisma.syllabus.count({ where: where as any });
+  if (count === 0) return { error: "No matching syllabi found." };
+
+  await prisma.syllabus.deleteMany({ where: where as any });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "bulk_delete", entityType: "syllabus",
+    afterValue: { filter: { sessionId, classLevel, subjectId }, count } as never,
+  });
+
+  revalidatePath("/syllabus");
+  return { success: `${count} syllabus record(s) deleted.` };
+}
+
+export async function deleteCurriculumBulkAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const classLevel = String(formData.get("classLevel") ?? "").trim();
+  const term = String(formData.get("term") ?? "").trim();
+  const subject = String(formData.get("subject") ?? "").trim();
+
+  const where: Record<string, unknown> = { schoolId: ctx.schoolId };
+  if (classLevel) where.classLevel = classLevel;
+  if (term) where.term = term;
+  if (subject) where.subject = subject;
+
+  if (!classLevel && !term && !subject) {
+    return { error: "Select at least one filter." };
+  }
+
+  const count = await prisma.curriculumTopic.count({ where: where as any });
+  if (count === 0) return { error: "No matching curriculum entries found." };
+
+  await prisma.curriculumTopic.deleteMany({ where: where as any });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "bulk_delete", entityType: "curriculum_topic",
+    afterValue: { filter: { classLevel, term, subject }, count } as never,
+  });
+
+  revalidatePath("/curriculum");
+  return { success: `${count} curriculum topic(s) deleted.` };
+}
+
+// ── Get syllabi by class (for the filterable list) ────────────────────────
+
+export async function getSyllabiByClassAction(
+  classLevel: string,
+  schoolId: string,
+): Promise<{ id: string; subjectId: string; subjectName: string; sessionLabel: string; createdAt: Date; parsedTopics: Record<string, unknown>[] | null }[]> {
+  const [syllabi, sessions] = await Promise.all([
+    prisma.syllabus.findMany({
+      where: { schoolId, classLevel },
+      include: { subject: { select: { id: true, name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.session.findMany({ where: { schoolId }, select: { id: true, label: true } }),
+  ]);
+  const sessionMap = Object.fromEntries(sessions.map((s) => [s.id, s.label]));
+  return syllabi.map((s) => ({
+    id: s.id,
+    subjectId: s.subjectId,
+    subjectName: s.subject.name,
+    sessionLabel: sessionMap[s.sessionId] ?? s.sessionId,
+    createdAt: s.createdAt,
+    parsedTopics: s.parsedTopics as Record<string, unknown>[] | null,
+  }));
+}
+
+// ── Check if syllabus exists for the CSV target ──────────────────────────
+
+export async function checkSyllabusExistsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  const subjectId = String(formData.get("subjectId") ?? "");
+  const classLevel = String(formData.get("classLevel") ?? "").trim();
+  const sessionId = String(formData.get("sessionId") ?? "");
+
+  if (!subjectId || !classLevel || !sessionId) return { existing: false };
+
+  const existing = await prisma.syllabus.findUnique({
+    where: { schoolId_subjectId_classLevel_sessionId: { schoolId: ctx.schoolId, subjectId, classLevel, sessionId } },
+  });
+
+  return { existing: !!existing };
+}
+
+// ── CSV Preview ──────────────────────────────────────────────────────────
+
 export async function previewSyllabusCsvAction(
   _prev: ActionState,
   formData: FormData,
@@ -156,7 +311,34 @@ export async function previewSyllabusCsvAction(
 
   if (rows.length === 0) return { error: "CSV is empty or has no data rows." };
 
-  return { preview: { rows } };
+  // Check if existing syllabus will be overridden
+  const subjectId = String(formData.get("subjectId") ?? "");
+  const classLevel = String(formData.get("classLevel") ?? "").trim();
+  const sessionId = String(formData.get("sessionId") ?? "");
+
+  let existing = false;
+  if (subjectId && classLevel && sessionId) {
+    const s = await prisma.syllabus.findUnique({
+      where: { schoolId_subjectId_classLevel_sessionId: { schoolId: ctx.schoolId, subjectId, classLevel, sessionId } },
+    });
+    existing = !!s;
+  }
+
+  // Also check curriculum
+  if (!existing && subjectId && classLevel) {
+    const subject = await prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } });
+    if (subject) {
+      const term = String(formData.get("term") ?? "").trim();
+      if (term) {
+        const c = await prisma.curriculumTopic.findFirst({
+          where: { OR: [{ schoolId: ctx.schoolId }, { schoolId: null }], classLevel, term, subject: subject.name },
+        });
+        existing = !!c;
+      }
+    }
+  }
+
+  return { preview: { rows }, existing };
 }
 
 export async function commitSyllabusCsvAction(
@@ -222,13 +404,46 @@ export async function commitSyllabusCsvAction(
       const rowTerm = r.term || term;
       if (!rowTerm) continue;
 
-      const curriculumKey = { classLevel, term: rowTerm, subject: subjectName, week, weekSuffix, schoolId: ctx.schoolId };
-
-      await prisma.curriculumTopic.upsert({
-        where: { classLevel_term_subject_week_weekSuffix_schoolId: curriculumKey },
-        update: { topic: r.topic, subTopics: r.subTopics, behaviouralObjectives: r.objectives, isSystem: false },
-        create: { ...curriculumKey, topic: r.topic, subTopics: r.subTopics, behaviouralObjectives: r.objectives, isSystem: false },
+      // Try to find existing curriculum record — either owned by this school
+      // or a NERDC system default (schoolId = null)
+      const existingCurriculum = await prisma.curriculumTopic.findFirst({
+        where: {
+          classLevel,
+          term: rowTerm,
+          subject: subjectName,
+          week,
+          weekSuffix,
+          OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
+        },
       });
+
+      if (existingCurriculum) {
+        await prisma.curriculumTopic.update({
+          where: { id: existingCurriculum.id },
+          data: {
+            topic: r.topic,
+            subTopics: r.subTopics,
+            behaviouralObjectives: r.objectives,
+            isSystem: false,
+            schoolId: ctx.schoolId, // adopt the record for this school
+          },
+        });
+      } else {
+        await prisma.curriculumTopic.create({
+          data: {
+            classLevel,
+            term: rowTerm,
+            subject: subjectName,
+            week,
+            weekSuffix,
+            topic: r.topic,
+            subTopics: r.subTopics,
+            behaviouralObjectives: r.objectives,
+            isSystem: false,
+            schoolId: ctx.schoolId,
+          },
+        });
+      }
     }
   }
 
@@ -252,7 +467,6 @@ export async function downloadSyllabusCsvTemplateAction(): Promise<{ csv: string
 // ── CSV Parser ──────────────────────────────────────────────────────────────
 
 function parseCsv(text: string): CsvRow[] {
-  // Strip BOM
   const clean = text.replace(/^\ufeff/, "");
   const lines = clean.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];

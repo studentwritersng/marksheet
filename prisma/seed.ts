@@ -308,6 +308,34 @@ async function main() {
   });
   console.log(`  Addon: "${addon.name}" (${addon.id})`);
 
+  // --- Multi-Branch / Group of Schools addon (PRD 19) -------------------
+  // This addon is billed and activated at the GROUP level, not per-school.
+  // Group-level activation is done from the Owner Console Groups page.
+  await prisma.addon.upsert({
+    where: { name: "Multi-Branch / Group of Schools" },
+    update: {},
+    create: {
+      name: "Multi-Branch / Group of Schools",
+      description: "Proprietor-level oversight across multiple school branches. Cross-branch dashboard, comparison views, and student transfer tracking — without breaking per-school tenant isolation.",
+      features: [
+        "Group your branches under a single School Group",
+        "Proprietor accounts with full or view-only access scoped strictly to their group",
+        "Cross-branch dashboard: enrollment, performance, license status per branch",
+        "Side-by-side comparison views (e.g. average score by subject)",
+        "Cross-branch student transfer with continuous history",
+        "Group-level license fee selection (override each school's stage)",
+        "Lapsed branch licenses clearly flagged as stale data",
+      ],
+      basicPrice: 100000,
+      standardPrice: 150000,
+      premiumPrice: 200000,
+      durationDays: null,
+      isActive: true,
+      sortOrder: 5,
+    },
+  });
+  console.log(`  Addon: "Multi-Branch / Group of Schools"`);
+
   // --- Seed stage-specific prices for plans -----------------------------------
   const allPlans = await prisma.licensePlan.findMany();
   for (const pl of allPlans) {
@@ -321,6 +349,27 @@ async function main() {
       },
     });
     console.log(`  Set stage prices for plan "${pl.name}"`);
+  }
+
+  // --- Seed stage-specific prices for addons that have legacy price but no stage prices ---
+  const addonsMissingStagePrices = await prisma.addon.findMany({
+    where: {
+      basicPrice: null,
+      standardPrice: null,
+      premiumPrice: null,
+    },
+  });
+  for (const a of addonsMissingStagePrices) {
+    const basePrice = a.price?.toNumber() ?? 30000;
+    await prisma.addon.update({
+      where: { id: a.id },
+      data: {
+        basicPrice: Math.round(basePrice * 0.7),
+        standardPrice: basePrice,
+        premiumPrice: Math.round(basePrice * 1.5),
+      },
+    });
+    console.log(`  Set stage prices for addon "${a.name}"`);
   }
 
   // Assign default stage to the demo school

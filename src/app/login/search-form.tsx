@@ -76,13 +76,19 @@ export function SchoolSearchForm() {
       {searched && !loading && isMarksheet() && (
         <div className="space-y-3 pt-2">
           <p className="text-xs text-on-surface-variant text-center">
-            Platform administrator?
+            Platform administrator or proprietor?
           </p>
           <a
             href="/console/login"
             className="block w-full bg-[#0a0e1a] text-white font-label-md text-label-md py-2.5 px-4 rounded-lg text-center hover:bg-[#1a1f2e] transition-colors"
           >
-            Console Login
+            Owner Console Login
+          </a>
+          <a
+            href="/proprietor/login"
+            className="block w-full bg-[#002046] text-white font-label-md text-label-md py-2.5 px-4 rounded-lg text-center hover:bg-[#003366] transition-colors"
+          >
+            Proprietor Login
           </a>
         </div>
       )}

@@ -38,7 +38,10 @@ export async function loginAction(
 
   const user = schoolId
     ? await prisma.user.findFirst({ where: { email, schoolId } })
-    : await prisma.user.findUnique({ where: { email } });
+    : await prisma.user.findUnique({
+        where: { email },
+        include: { proprietorGroup: { select: { id: true } } },
+      });
 
   if (!user || !user.isActive) {
     return { error: "Invalid credentials." };
@@ -56,6 +59,8 @@ export async function loginAction(
     staffId: user.staffId,
     email: user.email,
     mustChangePassword: user.mustChangePassword,
+    proprietorGroupId: user.proprietorGroupId,
+    proprietorPermissionLevel: user.proprietorPermissionLevel as "full" | "view_only" | null,
   });
 
   const store = await cookies();
@@ -69,6 +74,11 @@ export async function loginAction(
 
   if (user.mustChangePassword) {
     redirect("/change-password");
+  }
+
+  // Route by role — proprietor goes to the proprietor console, not /dashboard
+  if (user.role === "proprietor") {
+    redirect("/proprietor");
   }
 
   redirect("/dashboard");
@@ -213,4 +223,10 @@ export async function consoleLogoutAction(): Promise<void> {
   const store = await cookies();
   store.delete(SESSION_COOKIE);
   redirect("/console/login");
+}
+
+export async function proprietorLogoutAction(): Promise<void> {
+  const store = await cookies();
+  store.delete(SESSION_COOKIE);
+  redirect("/proprietor/login");
 }

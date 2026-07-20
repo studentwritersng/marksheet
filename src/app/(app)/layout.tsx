@@ -18,6 +18,9 @@ export default async function AppLayout({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // Proprietors use a separate console and must never see school-facing routes
+  if (user.role === "proprietor") redirect("/proprietor");
+
   // Maintenance mode check — super admins bypass
   if (user.schoolId && user.role !== "super_admin" && user.role !== "platform_owner") {
     const school = await prisma.school.findUnique({

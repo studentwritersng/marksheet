@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
+import { isGroupAddonActive } from "@/lib/addons/group-check";
 import { recordAudit } from "@/lib/audit";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "@/lib/email/send";
@@ -227,4 +228,208 @@ export async function archiveStudentAction(
 
   revalidatePath("/students");
   return { success: `${student.firstName} ${student.lastName} withdrawn.` };
+}
+
+// ── Cross-branch student transfer (PRD 19 §4.4) ───────────────────────────
+
+export interface TransferState {
+  error?: string;
+  success?: string;
+}
+
+/**
+ * Search for origin students within the destination school's group only.
+ * Returns matching students from OTHER branches in the same group.
+ */
+export async function searchGroupStudentsAction(query: string): Promise<{
+  error?: string;
+  results?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    admissionNumber: string;
+    schoolName: string;
+    schoolId: string;
+  }[];
+}> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  // Check this school is in a group with Multi-Branch addon active
+  const membership = await prisma.groupMembership.findUnique({
+    where: { schoolId: ctx.schoolId },
+    include: { group: true },
+  });
+  if (!membership) return { error: "This school is not part of a group." };
+
+  const addonActive = await isGroupAddonActive(membership.groupId, "Multi-Branch / Group of Schools");
+  if (!addonActive) return { error: "Multi-Branch addon is not active for your group." };
+
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return { results: [] };
+
+  // Search students in OTHER schools within the same group
+  const otherMemberships = await prisma.groupMembership.findMany({
+    where: { groupId: membership.groupId, schoolId: { not: ctx.schoolId } },
+    select: { schoolId: true },
+  });
+  const otherSchoolIds = otherMemberships.map((m) => m.schoolId);
+  if (otherSchoolIds.length === 0) return { results: [] };
+
+  const students = await prisma.student.findMany({
+    where: {
+      schoolId: { in: otherSchoolIds },
+      status: "active",
+      OR: [
+        { firstName: { contains: trimmed, mode: "insensitive" } },
+        { lastName: { contains: trimmed, mode: "insensitive" } },
+        { admissionNumber: { contains: trimmed, mode: "insensitive" } },
+      ],
+    },
+    include: { school: { select: { name: true } } },
+    take: 20,
+  });
+
+  return {
+    results: students.map((s) => ({
+      id: s.id,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      admissionNumber: s.admissionNumber,
+      schoolName: s.school.name,
+      schoolId: s.schoolId,
+    })),
+  };
+}
+
+/**
+ * Transfer a student from another branch in the group to this school.
+ * Creates a new Student record at the destination (this school) with a new
+ * admission number, and a GroupStudentTransferRecord linking origin → destination.
+ * The origin record is untouched.
+ */
+export async function transferStudentFromBranchAction(
+  _prev: TransferState,
+  formData: FormData,
+): Promise<TransferState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const originStudentId = String(formData.get("originStudentId") ?? "").trim();
+  const classId = String(formData.get("classId") ?? "").trim() || null;
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
+  if (!originStudentId) return { error: "Origin student is required." };
+
+  // Verify this school is in a group with Multi-Branch addon active
+  const membership = await prisma.groupMembership.findUnique({
+    where: { schoolId: ctx.schoolId },
+    include: { group: true },
+  });
+  if (!membership) return { error: "This school is not part of a group." };
+
+  const addonActive = await isGroupAddonActive(membership.groupId, "Multi-Branch / Group of Schools");
+  if (!addonActive) return { error: "Multi-Branch addon is not active for your group." };
+
+  // Verify origin student is in the same group (but different school)
+  const originStudent = await prisma.student.findUnique({
+    where: { id: originStudentId },
+    include: { school: { select: { name: true } } },
+  });
+  if (!originStudent) return { error: "Origin student not found." };
+  if (originStudent.schoolId === ctx.schoolId) return { error: "Cannot transfer from your own school." };
+
+  const originMembership = await prisma.groupMembership.findUnique({
+    where: { schoolId: originStudent.schoolId },
+  });
+  if (!originMembership || originMembership.groupId !== membership.groupId) {
+    return { error: "Origin student is not in the same group. Cross-group transfers are not allowed." };
+  }
+
+  // Check for existing transfer (prevent duplicates)
+  const existing = await prisma.groupStudentTransferRecord.findFirst({
+    where: { originStudentId: originStudent.id, destinationSchoolId: ctx.schoolId },
+  });
+  if (existing) return { error: "This student has already been transferred to this school." };
+
+  // Generate new admission number at destination school
+  const school = await prisma.school.findUnique({ where: { id: ctx.schoolId } });
+  const shortcode = school?.shortcode;
+  if (!shortcode) return { error: "School shortcode not set." };
+
+  const updated = await prisma.school.update({
+    where: { id: ctx.schoolId },
+    data: { studentSequence: { increment: 1 } },
+  });
+  const newAdmissionNumber = `${shortcode}${padSeq(updated.studentSequence)}`;
+
+  // Generate student login
+  const email = `${newAdmissionNumber.toLowerCase()}@${shortcode.toLowerCase()}.edu.ng`;
+  const passwordRaw = originStudent.dateOfBirth
+    ? formatDob(originStudent.dateOfBirth)
+    : `${originStudent.firstName.toLowerCase().slice(0, 3)}${originStudent.lastName.toLowerCase().slice(0, 3)}2026`;
+  const passwordHash = await bcrypt.hash(passwordRaw, 10);
+
+  // Create new Student record at destination
+  const user = await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      role: "student",
+      schoolId: ctx.schoolId,
+      isActive: true,
+    },
+  });
+
+  const destStudent = await prisma.student.create({
+    data: {
+      schoolId: ctx.schoolId,
+      admissionNumber: newAdmissionNumber,
+      firstName: originStudent.firstName,
+      lastName: originStudent.lastName,
+      email: originStudent.email,
+      dateOfBirth: originStudent.dateOfBirth,
+      ethnicity: originStudent.ethnicity,
+      religion: originStudent.religion,
+      passportPhoto: originStudent.passportPhoto,
+      gender: originStudent.gender,
+      currentClassId: classId,
+      userId: user.id,
+      bioData: originStudent.bioData as any,
+    },
+  });
+
+  // Create the transfer record
+  await prisma.groupStudentTransferRecord.create({
+    data: {
+      groupId: membership.groupId,
+      originSchoolId: originStudent.schoolId,
+      originStudentId: originStudent.id,
+      destinationSchoolId: ctx.schoolId,
+      destinationStudentId: destStudent.id,
+      initiatedBy: ctx.user.userId,
+      notes,
+    },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "create",
+    entityType: "student",
+    entityId: destStudent.id,
+    afterValue: {
+      admissionNumber: newAdmissionNumber,
+      firstName: originStudent.firstName,
+      lastName: originStudent.lastName,
+      transferredFrom: originStudent.school.name,
+      originAdmissionNumber: originStudent.admissionNumber,
+    } as never,
+  });
+
+  revalidatePath("/students");
+  return {
+    success: `${originStudent.firstName} ${originStudent.lastName} transferred from ${originStudent.school.name}. New admission number: ${newAdmissionNumber}. Login: ${email}`,
+  };
 }

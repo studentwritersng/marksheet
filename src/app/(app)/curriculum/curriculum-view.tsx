@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { upsertCurriculumTopicAction, deleteCurriculumOverrideAction } from "./actions";
+import { upsertCurriculumTopicAction, deleteCurriculumOverrideAction, deleteCurriculumBySubjectAction } from "./actions";
 
 interface TopicVM {
   id: string;
@@ -30,6 +30,7 @@ export function CurriculumView({
   const [showAddNew, setShowAddNew] = useState(false);
   const [customClassInput, setCustomClassInput] = useState("");
   const [showCustomClass, setShowCustomClass] = useState(false);
+  const [deleteState, deleteAction, deletePending] = useActionState(deleteCurriculumBySubjectAction, {});
 
   function setParam(key: string, val: string) {
     const p = new URLSearchParams(window.location.search);
@@ -96,6 +97,19 @@ export function CurriculumView({
         <button onClick={() => setShowAddNew(true)}
           className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded-lg hover:bg-[#003366] flex items-center gap-1"
         >+ Add New</button>
+        <form action={deleteAction} className="flex items-center gap-2">
+          <input type="hidden" name="classLevel" value={selectedClass} />
+          <input type="hidden" name="term" value={selectedTerm} />
+          <input type="hidden" name="subject" value={selectedSubject} />
+          <button type="submit" disabled={deletePending || !selectedSubject}
+            className="bg-error text-on-error font-label-md text-label-md py-2 px-4 rounded-lg hover:bg-error/90 disabled:opacity-60"
+            onClick={(e) => { if (!confirm(`Delete all curriculum topics for ${selectedSubject} (${selectedClass}, ${selectedTerm})?`)) e.preventDefault(); }}
+          >
+            {deletePending ? "Deleting…" : "Delete Subject"}
+          </button>
+          {deleteState.success && <span className="text-sm text-green-700">{deleteState.success}</span>}
+          {deleteState.error && <span className="text-sm text-error">{deleteState.error}</span>}
+        </form>
       </div>
 
       {/* Add New Modal */}

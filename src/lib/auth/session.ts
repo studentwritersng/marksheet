@@ -8,11 +8,14 @@ import crypto from "crypto";
 
 export interface SessionPayload {
   userId: string;
-  role: "super_admin" | "platform_owner" | "staff" | "student" | "parent";
+  role: "super_admin" | "platform_owner" | "proprietor" | "staff" | "student" | "parent";
   schoolId: string | null;
   staffId: string | null;
   email: string;
   mustChangePassword: boolean;
+  // Proprietor-only — null for all other roles
+  proprietorGroupId?: string | null;
+  proprietorPermissionLevel?: "full" | "view_only" | null;
 }
 
 export const SESSION_COOKIE = "marksheet_session";
@@ -65,6 +68,8 @@ export function verifySessionToken(token: string | undefined): SessionPayload | 
       staffId: body.staffId,
       email: body.email,
       mustChangePassword: body.mustChangePassword ?? false,
+      proprietorGroupId: body.proprietorGroupId ?? null,
+      proprietorPermissionLevel: body.proprietorPermissionLevel ?? null,
     };
   } catch {
     return null;

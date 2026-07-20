@@ -2,9 +2,11 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
+import { isGroupAddonActive } from "@/lib/addons/group-check";
 import { CreateStudentForm } from "./create-student-form";
 import { StudentCsvImport } from "./student-csv-import";
 import { StudentList } from "./student-list";
+import { TransferStudentForm } from "./transfer-student-form";
 
 export default async function StudentsPage() {
   const user = await getCurrentUser();
@@ -16,7 +18,7 @@ export default async function StudentsPage() {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
-  const [students, classes] = await Promise.all([
+  const [students, classes, membership] = await Promise.all([
     prisma.student.findMany({
       where: { schoolId: user.schoolId },
       include: { currentClass: { select: { name: true } }, guardians: { select: { fullName: true, email: true } } },
@@ -27,7 +29,17 @@ export default async function StudentsPage() {
       select: { id: true, name: true, level: true, section: true, department: true },
       orderBy: { name: "asc" },
     }),
+    prisma.groupMembership.findUnique({
+      where: { schoolId: user.schoolId },
+      select: { groupId: true },
+    }),
   ]);
+
+  // Check if Multi-Branch addon is active for this school's group
+  let canTransferFromBranch = false;
+  if (membership) {
+    canTransferFromBranch = await isGroupAddonActive(membership.groupId, "Multi-Branch / Group of Schools");
+  }
 
   const csvHeaders = ["Student ID", "First Name", "Last Name", "Email", "Gender", "Status", "Class", "Guardian"];
   const csvRows = students.map((s) => [
@@ -56,7 +68,13 @@ export default async function StudentsPage() {
         <CreateStudentForm
           classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level, section: c.section, department: c.department }))}
         />
-        <StudentCsvImport />
+        {canTransferFromBranch ? (
+          <TransferStudentForm
+            classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level, section: c.section, department: c.department }))}
+          />
+        ) : (
+          <StudentCsvImport />
+        )}
       </div>
 
       <div className="mt-8">

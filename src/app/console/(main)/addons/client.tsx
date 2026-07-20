@@ -5,12 +5,42 @@ import {
   createAddonAction, updateAddonAction, toggleAddonActiveAction, deleteAddonAction, generateAddonCodeAction,
 } from "./actions";
 
-interface AddonVM { id: string; name: string; description: string | null; features: string[] | null; price?: number | null; durationDays?: number | null; isActive: boolean; }
+interface AddonVM {
+  id: string;
+  name: string;
+  description: string | null;
+  features: string[] | null;
+  basicPrice: number | null;
+  standardPrice: number | null;
+  premiumPrice: number | null;
+  price: number | null; // legacy
+  durationDays: number | null;
+  isActive: boolean;
+}
 interface CodeVM { id: string; code: string; schoolId: string | null; isUsed: boolean; usedBySchoolId: string | null; createdAt: string; }
 
 function formatPrice(n?: number | null) {
   if (n == null) return null;
   return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(n);
+}
+
+// Helper: build a 3-column stage pricing summary
+function StagePriceSummary({ a }: { a: AddonVM }) {
+  const stages = [
+    { label: "Basic",    value: a.basicPrice },
+    { label: "Standard", value: a.standardPrice },
+    { label: "Premium",  value: a.premiumPrice },
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-1 mt-2">
+      {stages.map((s) => (
+        <div key={s.label} className="bg-white/5 rounded p-1.5 text-center">
+          <p className="text-[9px] text-white/40 uppercase tracking-wider">{s.label}</p>
+          <p className="text-xs text-white font-medium">{formatPrice(s.value) ?? "—"}</p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function AddonCard({ a }: { a: AddonVM }) {
@@ -35,15 +65,26 @@ function AddonCard({ a }: { a: AddonVM }) {
           <label className="text-[10px] text-white/50 block mb-0.5">Features (one per line)</label>
           <textarea name="features" defaultValue={a.features?.join("\n") ?? ""} rows={3} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white" />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-[10px] text-white/50 block mb-0.5">Price</label>
-            <input name="price" type="number" step="0.01" min="0" defaultValue={a.price ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white" />
+        <div>
+          <label className="text-[10px] text-white/50 block mb-0.5">Pricing per fee group (leave empty = not sold to that stage)</label>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[9px] text-white/40 block mb-0.5">Basic</label>
+              <input name="basicPrice" type="number" step="0.01" min="0" defaultValue={a.basicPrice ?? ""} placeholder="—" className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+            </div>
+            <div>
+              <label className="text-[9px] text-white/40 block mb-0.5">Standard</label>
+              <input name="standardPrice" type="number" step="0.01" min="0" defaultValue={a.standardPrice ?? ""} placeholder="—" className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+            </div>
+            <div>
+              <label className="text-[9px] text-white/40 block mb-0.5">Premium</label>
+              <input name="premiumPrice" type="number" step="0.01" min="0" defaultValue={a.premiumPrice ?? ""} placeholder="—" className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+            </div>
           </div>
-          <div>
-            <label className="text-[10px] text-white/50 block mb-0.5">Duration (days, empty = permanent)</label>
-            <input name="durationDays" type="number" min="1" defaultValue={a.durationDays ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white" />
-          </div>
+        </div>
+        <div>
+          <label className="text-[10px] text-white/50 block mb-0.5">Duration (days, empty = permanent)</label>
+          <input name="durationDays" type="number" min="1" defaultValue={a.durationDays ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white" />
         </div>
         <div className="flex gap-2">
           <button type="submit" disabled={editPending} className="text-[10px] text-emerald-400 hover:text-emerald-300 underline">Save</button>
@@ -67,8 +108,9 @@ function AddonCard({ a }: { a: AddonVM }) {
           {a.features.map((f, i) => <li key={i}>{f}</li>)}
         </ul>
       )}
-      <p className="text-xs text-white/50">
-        {formatPrice(a.price) ?? "Free"}{a.durationDays ? ` · ${a.durationDays} days` : a.price ? "" : " · Permanent"}
+      <StagePriceSummary a={a} />
+      <p className="text-[10px] text-white/40 mt-2">
+        {a.durationDays ? `${a.durationDays} days` : "Permanent"}
       </p>
       <div className="flex gap-2 mt-2">
         <button onClick={() => setEditing(true)} className="text-[10px] text-white/40 hover:text-white/70 underline">Edit</button>
@@ -94,7 +136,7 @@ export function AddonsClient({ addons, codes }: { addons: AddonVM[]; codes: Code
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-white">Addons</h1>
-          <p className="text-sm text-white/40 mt-1">{addons.length} addon{addons.length !== 1 ? "s" : ""} defined</p>
+          <p className="text-sm text-white/40 mt-1">{addons.length} addon{addons.length !== 1 ? "s" : ""} defined · prices are set per fee group (Basic / Standard / Premium)</p>
         </div>
       </div>
 
@@ -122,12 +164,25 @@ export function AddonsClient({ addons, codes }: { addons: AddonVM[]; codes: Code
                   <input name="name" required placeholder="e.g. SMS Notifications" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
                 </div>
                 <div>
-                  <label className="text-xs text-white/50 block mb-1">Price</label>
-                  <input name="price" type="number" step="0.01" min="0" placeholder="Leave empty for free" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
-                </div>
-                <div>
                   <label className="text-xs text-white/50 block mb-1">Duration (days)</label>
                   <input name="durationDays" type="number" min="1" placeholder="Empty = permanent/one-time" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-white/50 block mb-2">Pricing per fee group (leave empty = not sold to that stage)</label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] text-white/40 block mb-1">Basic stage</label>
+                    <input name="basicPrice" type="number" step="0.01" min="0" placeholder="—" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-white/40 block mb-1">Standard stage</label>
+                    <input name="standardPrice" type="number" step="0.01" min="0" placeholder="—" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-white/40 block mb-1">Premium stage</label>
+                    <input name="premiumPrice" type="number" step="0.01" min="0" placeholder="—" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
+                  </div>
                 </div>
               </div>
               <div>

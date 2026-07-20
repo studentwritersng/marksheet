@@ -56,7 +56,7 @@ export async function resolvePermissions(
     visibleClassIds: new Set(),
   };
 
-  if (user.role === "super_admin" || user.role === "platform_owner") return empty;
+  if (user.role === "super_admin" || user.role === "platform_owner" || user.role === "proprietor") return empty;
   if (!user.staffId || !user.schoolId) return empty;
 
   // Current session for this school.

@@ -87,7 +87,62 @@ export async function deleteCurriculumOverrideAction(id: string): Promise<Curric
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
+  const topic = await prisma.curriculumTopic.findFirst({
+    where: { id, schoolId: ctx.schoolId },
+  });
+  if (!topic) return { error: "Not found or not editable." };
+
   await prisma.curriculumTopic.delete({ where: { id } });
   revalidatePath("/curriculum");
   return { success: "Override removed." };
+}
+
+export async function deleteCurriculumBySubjectAction(
+  _prev: CurriculumState,
+  formData: FormData,
+): Promise<CurriculumState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const classLevel = (formData.get("classLevel") as string)?.trim() || "";
+  const term = (formData.get("term") as string)?.trim() || "";
+  const subject = (formData.get("subject") as string)?.trim() || "";
+
+  if (!subject) return { error: "Subject is required." };
+
+  // Delete school-owned overrides and also adopt & delete system entries
+  const systemIds = await prisma.curriculumTopic.findMany({
+    where: {
+      classLevel: classLevel || undefined,
+      term: term || undefined,
+      subject,
+      schoolId: null,
+    },
+    select: { id: true },
+  });
+
+  const overrideIds = await prisma.curriculumTopic.findMany({
+    where: {
+      classLevel: classLevel || undefined,
+      term: term || undefined,
+      subject,
+      schoolId: ctx.schoolId,
+    },
+    select: { id: true },
+  });
+
+  const ids = [...systemIds, ...overrideIds].map((r) => r.id);
+  if (ids.length === 0) return { error: "No curriculum topics found for this selection." };
+
+  await prisma.curriculumTopic.deleteMany({ where: { id: { in: ids } } });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "delete", entityType: "curriculum_topic",
+    afterValue: { classLevel: classLevel || "all", term: term || "all", subject, count: ids.length } as never,
+  });
+
+  revalidatePath("/curriculum");
+  return { success: `Deleted ${ids.length} curriculum topic(s) for ${subject}.` };
 }

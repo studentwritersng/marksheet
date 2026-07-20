@@ -7,6 +7,7 @@ export default async function ConsoleGuardLayout({ children }: { children: React
   const user = await getCurrentUser();
 
   if (!user) redirect("/console/login");
+  if (user.role === "proprietor") redirect("/proprietor");
   if (user.role !== "platform_owner") redirect("/dashboard");
 
   return (
