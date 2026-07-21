@@ -12,6 +12,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/proprietor", icon: "dashboard" },
+  { label: "Branches", href: "/proprietor/branches", icon: "domain" },
+  { label: "Analytics", href: "/proprietor/analytics", icon: "analytics" },
   { label: "Transfers", href: "/proprietor/transfers", icon: "swap_horiz" },
   { label: "Billing & Addons", href: "/proprietor/billing", icon: "payments" },
   { label: "Settings", href: "/proprietor/settings", icon: "settings" },

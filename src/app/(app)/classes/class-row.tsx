@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { archiveClassAction, updateClassAction } from "./actions";
+import { CaptainManager } from "./captain-manager";
 
 interface ClassVM {
   id: string;
@@ -70,28 +71,33 @@ export function ClassRow({ classItem }: { classItem: ClassVM }) {
   }
 
   return (
-    <div className="flex items-center justify-between bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3">
-      <div className="flex items-center gap-3">
-        <p className="font-label-md text-label-md text-on-surface">
-          {classItem.name}
-          {classItem.department && (
-            <span className="ml-2 font-label-sm text-label-sm text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded capitalize">
-              {classItem.department}
-            </span>
-          )}
-        </p>
-        <p className="font-label-sm text-label-sm text-on-surface-variant">
-          {classItem.studentCount} student{classItem.studentCount !== 1 ? "s" : ""}
-        </p>
+    <div className="bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <p className="font-label-md text-label-md text-on-surface">
+            {classItem.name}
+            {classItem.department && (
+              <span className="ml-2 font-label-sm text-label-sm text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded capitalize">
+                {classItem.department}
+              </span>
+            )}
+          </p>
+          <p className="font-label-sm text-label-sm text-on-surface-variant">
+            {classItem.studentCount} student{classItem.studentCount !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setEditing(!editing)}
+            className="font-label-sm text-label-sm text-primary hover:underline"
+          >{editing ? "Cancel" : "Edit"}</button>
+          <button onClick={handleArchive} disabled={archivePending}
+            className="font-label-sm text-label-sm text-on-surface-variant hover:text-red-600 disabled:opacity-60"
+          >Archive</button>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <button onClick={() => setEditing(!editing)}
-          className="font-label-sm text-label-sm text-primary hover:underline"
-        >{editing ? "Cancel" : "Edit"}</button>
-        <button onClick={handleArchive} disabled={archivePending}
-          className="font-label-sm text-label-sm text-on-surface-variant hover:text-red-600 disabled:opacity-60"
-        >Archive</button>
-      </div>
+      {classItem.studentCount > 0 && (
+        <CaptainManager classId={classItem.id} className={classItem.name} />
+      )}
     </div>
   );
 }

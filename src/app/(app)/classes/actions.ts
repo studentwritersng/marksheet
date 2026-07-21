@@ -197,3 +197,91 @@ export async function archiveClassAction(
   revalidatePath("/classes");
   return { success: `"${cls.name}" archived.` };
 }
+
+// ── Class Captain management ────────────────────────────────────────────────
+
+export async function setClassCaptainAction(
+  studentId: string,
+  role: "captain" | "vice" | "none",
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const student = await prisma.student.findFirst({
+    where: { id: studentId, schoolId: ctx.schoolId },
+    select: { id: true, currentClassId: true, firstName: true, lastName: true },
+  });
+  if (!student) return { error: "Student not found." };
+  if (!student.currentClassId) return { error: "Student is not assigned to a class." };
+
+  // Clear existing captain/vice for this class
+  await prisma.student.updateMany({
+    where: { currentClassId: student.currentClassId, schoolId: ctx.schoolId },
+    data: { isClassCaptain: false, isViceClassCaptain: false },
+  });
+
+  // Set the new role
+  if (role === "captain") {
+    await prisma.student.update({
+      where: { id: studentId },
+      data: { isClassCaptain: true },
+    });
+  } else if (role === "vice") {
+    await prisma.student.update({
+      where: { id: studentId },
+      data: { isViceClassCaptain: true },
+    });
+  }
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "update",
+    entityType: "student",
+    entityId: studentId,
+    afterValue: { role, classId: student.currentClassId } as never,
+  });
+
+  revalidatePath("/classes");
+  return { success: `${student.firstName} ${student.lastName} set as ${role === "none" ? "no role" : role === "captain" ? "Class Captain" : "Vice Captain"}.` };
+}
+
+export async function getClassStudentsAction(classId: string): Promise<{
+  error?: string;
+  students?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    admissionNumber: string;
+    isClassCaptain: boolean;
+    isViceClassCaptain: boolean;
+  }[];
+}> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+
+  const students = await prisma.student.findMany({
+    where: { currentClassId: classId, schoolId: ctx.schoolId, status: "active" },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      admissionNumber: true,
+      isClassCaptain: true,
+      isViceClassCaptain: true,
+    },
+    orderBy: { lastName: "asc" },
+  });
+
+  return {
+    students: students.map((s) => ({
+      id: s.id,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      admissionNumber: s.admissionNumber,
+      isClassCaptain: s.isClassCaptain,
+      isViceClassCaptain: s.isViceClassCaptain,
+    })),
+  };
+}
