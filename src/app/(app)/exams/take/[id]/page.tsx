@@ -59,7 +59,7 @@ export default async function ExamTakePage(props: {
     );
   }
 
-  // Fee gate check (PRD 12 §3.2) — exam access blocked
+  // Fee gate check — exam access blocked
   const { checkExamFeeGate } = await import("@/lib/fees/gate");
   const feeBlock = await checkExamFeeGate(user.schoolId, student.id, exam.termId);
   if (feeBlock) {

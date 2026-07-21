@@ -13,7 +13,7 @@ export interface ActionState {
   success?: string;
 }
 
-/** Create a manual lesson note (PRD 04 §3.2). */
+/** Create a manual lesson note. */
 export async function createLessonNoteAction(
   _prev: ActionState,
   formData: FormData,
@@ -74,7 +74,7 @@ export async function createLessonNoteAction(
 }
 
 /**
- * AI-generate a draft lesson note from the gateway (PRD 04 §3.3).
+ * AI-generate a draft lesson note from the gateway.
  * Lands as `draft` — teacher must review and publish.
  */
 export async function aiGenerateNoteAction(

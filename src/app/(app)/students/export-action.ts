@@ -12,7 +12,7 @@ export interface DataExportState {
 }
 
 /**
- * Generate a full data export for a student (PRD 11 §3.6).
+ * Generate a full data export for a student.
  */
 export async function exportStudentDataAction(
   studentId: string,

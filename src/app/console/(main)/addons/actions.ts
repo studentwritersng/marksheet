@@ -40,6 +40,7 @@ export async function createAddonAction(_prev: AddonActionResult, formData: Form
   if (featuresRaw) {
     features = featuresRaw.split("\n").map((l) => l.trim()).filter(Boolean);
   }
+  const isGroupBilling = formData.get("isGroupBilling") === "true";
   try {
     await prisma.addon.create({
       data: {
@@ -50,6 +51,7 @@ export async function createAddonAction(_prev: AddonActionResult, formData: Form
         standardPrice: standardRaw === undefined ? null : (standardRaw as number | null),
         premiumPrice: premiumRaw === undefined ? null : (premiumRaw as number | null),
         durationDays,
+        isGroupBilling,
       },
     });
   } catch (e: any) {
@@ -80,6 +82,7 @@ export async function updateAddonAction(_prev: AddonActionResult, formData: Form
   if (featuresRaw) {
     features = featuresRaw.split("\n").map((l) => l.trim()).filter(Boolean);
   }
+  const isGroupBilling = formData.get("isGroupBilling") === "true";
   try {
     await prisma.addon.update({
       where: { id },
@@ -91,6 +94,7 @@ export async function updateAddonAction(_prev: AddonActionResult, formData: Form
         standardPrice: standardRaw === undefined ? null : (standardRaw as number | null),
         premiumPrice: premiumRaw === undefined ? null : (premiumRaw as number | null),
         durationDays,
+        isGroupBilling,
       },
     });
   } catch {

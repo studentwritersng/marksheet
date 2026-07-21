@@ -2,11 +2,11 @@ import { prisma } from "@/lib/prisma";
 import type { LicenseStageName } from "@prisma/client";
 
 /**
- * Resolve the effective license fee-group stage for a school.
+ * Resolve the effective pricing tier for a school.
  *
  * If the school belongs to a School Group that has the Multi-Branch addon
  * active AND the group has a `feeGroupStage` set, that group stage overrides
- * the school's own `stage` for license pricing purposes (PRD 19).
+ * the school's own `stage` for license pricing purposes.
  *
  * Otherwise, the school's own `stage` is used.
  *

@@ -72,7 +72,7 @@ export function NewSchoolForm({ onClose }: { onClose: () => void; }) {
         <div>
           <label className="block text-xs text-white/40 mb-1">Pricing Stage *</label>
           <select name="stage" required className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30">
-            <option value="">Select pricing stage…</option>
+            <option value="">Select tier…</option>
             <option value="basic">Basic</option>
             <option value="standard">Standard</option>
             <option value="premium">Premium</option>

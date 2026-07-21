@@ -56,7 +56,7 @@ export default async function FeeStatusPage(props: {
     <div>
       <h1 className="font-headline-lg text-headline-lg text-on-surface">Fee Status Check</h1>
       <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
-        Admin-set flag to gate exam access and result release (PRD 12). Contains no financial figures.
+        Admin-set flag to gate exam access and result release. Contains no financial figures.
       </p>
 
       {currentSession && (

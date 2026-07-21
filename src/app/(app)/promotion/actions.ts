@@ -12,7 +12,7 @@ export interface ActionState {
 }
 
 /**
- * Perform bulk promotion (PRD 01 §3.4).
+ * Perform bulk promotion.
  * sourceClassId -> destinationClassId (or null for withdrawal)
  * studentIds: which students to move
  * all others remain in source class (repeat)

@@ -22,7 +22,7 @@ async function requireFeeManager() {
 }
 
 /**
- * Set individual student fee status for a term (PRD 12 §3.1).
+ * Set individual student fee status for a term.
  */
 export async function updateFeeStatusAction(
   _prev: ActionState,
@@ -72,7 +72,7 @@ export async function updateFeeStatusAction(
 }
 
 /**
- * Bulk update fee status for a list of students (PRD 12 §3.1).
+ * Bulk update fee status for a list of students.
  */
 export async function bulkUpdateFeeStatusAction(
   studentIds: string[],

@@ -1,5 +1,5 @@
 /**
- * Fee status gating utilities (PRD 12).
+ * Fee status gating utilities.
  */
 import { prisma } from "@/lib/prisma";
 

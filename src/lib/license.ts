@@ -12,7 +12,7 @@ export interface LicenseCheckResult {
  * Enforces: active → full access; grace_period → full access with warnings;
  * expired/suspended/no-license → mutation blocked.
  *
- * This function queries the database every time — it must, per PRD 15 §4.4:
+ * This function queries the database every time — it must:
  * "All license enforcement must be checked server-side against the database on
  * every relevant request — never rely on a client-stored value."
  */

@@ -1,8 +1,8 @@
 # Multi-Branch / Group of Schools Management Guide
 
-This document explains how the Multi-Branch addon (PRD 19) works across all three
+This document explains how the Multi-Branch addon () works across all three
 consoles — Platform Owner, Proprietor, and School Admin — and how the license
-fee-group connection operates.
+pricing-tier connection operates.
 
 ---
 
@@ -12,7 +12,7 @@ fee-group connection operates.
 2. [Platform Owner Console Guide](#2-platform-owner-console-guide)
 3. [Proprietor Console Guide](#3-proprietor-console-guide)
 4. [School Admin Guide](#4-school-admin-guide)
-5. [License Fee-Group Connection](#5-license-fee-group-connection)
+5. [License Fee-Group Connection](#5-license-pricing-tier-connection)
 6. [Addon Gating](#6-addon-gating)
 7. [Data Model Reference](#7-data-model-reference)
 
@@ -53,9 +53,9 @@ membership, and create Proprietor accounts.
 2. Click **"New Group"**.
 3. Enter:
    - **Group name** — e.g. "XYZ Group of Schools"
-   - **Connected license fee group** — select Basic, Standard, or Premium
+   - **Connected license pricing tier** — select Basic, Standard, or Premium
      (or leave empty for no override). When set, all member schools will use
-     this fee group's pricing for license plans and addons, overriding each
+     this pricing tier's pricing for license plans and addons, overriding each
      school's individual stage.
 4. Click **Create Group**.
 
@@ -109,22 +109,22 @@ subscribe to it.
 3. Click **Activate**.
 
 The addon is now active for the entire group. The price shown is based on the
-group's connected fee group (Basic/Standard/Premium). To suspend, click
+group's connected pricing tier (Basic/Standard/Premium). To suspend, click
 **Suspend**.
 
-### 2.6 Setting the Connected Fee Group
+### 2.6 Setting the Connected Pricing Tier
 
-The connected fee group determines which pricing stage (Basic/Standard/Premium)
+The connected pricing tier determines which pricing tier (Basic/Standard/Premium)
 all member schools will use for license plans and addon billing.
 
 1. On the group panel, click **Edit**.
-2. Change **Connected license fee group** to Basic, Standard, or Premium
+2. Change **Connected license pricing tier** to Basic, Standard, or Premium
    (or leave empty to use each school's own stage).
 3. Click **Save**.
 
-When the Multi-Branch addon is active and a fee group is set, all new licenses
-created for member schools will snapshot the **group's** fee group stage instead
-of the school's individual stage. See [§5](#5-license-fee-group-connection) for
+When the Multi-Branch addon is active and a pricing tier is set, all new licenses
+created for member schools will snapshot the **group's** pricing tier stage instead
+of the school's individual stage. See [§5](#5-license-pricing-tier-connection) for
 details.
 
 ### 2.7 Managing Proprietor Accounts
@@ -174,7 +174,7 @@ The **Branch Overview** tab shows a table of every branch in your group:
 | Column | Description |
 |--------|-------------|
 | **School** | Branch name |
-| **Stage** | The school's pricing stage (Basic/Standard/Premium) — may be overridden by the group's fee group |
+| **Stage** | The school's pricing tier (Basic/Standard/Premium) — may be overridden by the group's pricing tier |
 | **Students** | Current active enrollment count |
 | **Avg Score** | Latest current term's overall average across all students with results |
 | **License** | License end date |
@@ -304,11 +304,11 @@ The system prevents:
 
 ### 5.1 How It Works
 
-Each School Group can optionally have a **connected fee group** (Basic,
+Each School Group can optionally have a **connected pricing tier** (Basic,
 Standard, or Premium). When set AND the Multi-Branch addon is active for the
 group:
 
-- All new licenses created for member schools will use the **group's fee group
+- All new licenses created for member schools will use the **group's pricing tier
   stage** instead of the school's individual `stage` field.
 - The license record's `stage` field snapshots the effective (overridden) stage
   at creation time.
@@ -317,7 +317,7 @@ group:
 
 ### 5.2 Where It Applies
 
-The fee-group override is applied in two places where licenses are created:
+The pricing-tier override is applied in two places where licenses are created:
 
 1. **Owner Console → School Detail → Update License** (`/console/schools/[id]`)
    — when the Platform Owner manually assigns a license to a school.
@@ -326,14 +326,14 @@ The fee-group override is applied in two places where licenses are created:
 
 ### 5.3 Stage-Specific Pricing
 
-All addons (not just Multi-Branch) now have **stage-specific pricing** — three
+All addons (not just Multi-Branch) now have **pricing** — three
 price fields instead of one:
 
 | Field | Applies to |
 |-------|-----------|
-| `basicPrice` | Basic-stage schools |
-| `standardPrice` | Standard-stage schools |
-| `premiumPrice` | Premium-stage schools |
+| `basicPrice` | Basic schools |
+| `standardPrice` | Standard schools |
+| `premiumPrice` | Premium schools |
 
 When a school's effective stage is resolved (either its own or overridden by a
 group), the corresponding price field is used. The legacy single `price` field
@@ -356,7 +356,7 @@ The `resolveEffectiveStage(schoolId)` helper (in
 
 ### 5.5 Owner Console Addon Pricing
 
-The Platform Owner sets stage-specific prices for each addon at
+The Platform Owner sets prices for each addon at
 `/console/addons`:
 
 - Each addon card shows three price columns (Basic/Standard/Premium).
@@ -419,7 +419,7 @@ If the addon is not active:
 |-------|------|-------------|
 | `id` | String | Primary key |
 | `name` | String (unique) | e.g. "XYZ Group of Schools" |
-| `feeGroupStage` | LicenseStageName? | Connected fee group (basic/standard/premium) — overrides member schools' stages when Multi-Branch addon is active |
+| `feeGroupStage` | LicenseStageName? | Connected pricing tier (basic/standard/premium) — overrides member schools' stages when Multi-Branch addon is active |
 | `createdBy` | String? | Platform Owner user ID |
 | `createdAt` | DateTime | |
 | `updatedAt` | DateTime | |
@@ -476,9 +476,9 @@ Added `proprietor` as a new role.
 #### Addon (new fields)
 | Field | Type | Description |
 |-------|------|-------------|
-| `basicPrice` | Decimal? | Price for Basic-stage schools |
-| `standardPrice` | Decimal? | Price for Standard-stage schools |
-| `premiumPrice` | Decimal? | Price for Premium-stage schools |
+| `basicPrice` | Decimal? | Price for Basic schools |
+| `standardPrice` | Decimal? | Price for Standard schools |
+| `premiumPrice` | Decimal? | Price for Premium schools |
 
 Legacy `price` field retained for backwards compatibility.
 
@@ -500,7 +500,7 @@ Legacy `price` field retained for backwards compatibility.
 /console/login → /console → /console/groups
   → Create group
   → Add schools to group
-  → Set fee group (Basic/Standard/Premium)
+  → Set pricing tier (Basic/Standard/Premium)
   → Create proprietor accounts (Full or View-only)
   → Activate "Multi-Branch / Group of Schools" addon
 ```

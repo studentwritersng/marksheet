@@ -35,8 +35,8 @@ export async function createSchoolAction(
   const adminLastName = (formData.get("adminLastName") as string)?.trim() || null;
 
   if (!name) return { error: "School name is required." };
-  if (!stage) return { error: "Pricing stage is required." };
-  if (!["basic", "standard", "premium"].includes(stage)) return { error: "Invalid pricing stage." };
+  if (!stage) return { error: "Tier is required." };
+  if (!["basic", "standard", "premium"].includes(stage)) return { error: "Invalid tier." };
 
   // Check shortcode uniqueness
   if (shortcode) {

@@ -4,21 +4,21 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveEffectiveStage } from "@/lib/license/stage-resolver";
+import { calculateGroupPrice } from "@/lib/billing/progressive";
 
-export interface BillingActionResult { error?: string; success?: string }
-
-// ── Get billing data for the proprietor's group ────────────────────────────
-
-export async function getGroupBillingData(): Promise<{
+export interface GroupBillingData {
   groupId: string;
   groupName: string;
   feeGroupStage: string | null;
   stage: string;
+  schoolCount: number;
   addons: {
     id: string;
     name: string;
     description: string | null;
     price: number | null;
+    isGroupBilling: boolean;
+    priceBreakdown: { basePrice: number; schoolCount: number; discount: number; subtotal: number; total: number } | null;
     durationDays: number | null;
     subscription: {
       id: string;
@@ -27,7 +27,13 @@ export async function getGroupBillingData(): Promise<{
       endDate: string | null;
     } | null;
   }[];
-}> {
+}
+
+export interface BillingActionResult { error?: string; success?: string }
+
+// ── Get billing data for the proprietor's group ────────────────────────────
+
+export async function getGroupBillingData(): Promise<GroupBillingData> {
   const user = await getCurrentUser();
   if (!user || user.role !== "proprietor" || !user.proprietorGroupId) {
     throw new Error("Not authorised.");
@@ -47,13 +53,15 @@ export async function getGroupBillingData(): Promise<{
     prisma.addon.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true, description: true, basicPrice: true, standardPrice: true, premiumPrice: true, price: true, durationDays: true },
+      select: { id: true, name: true, description: true, basicPrice: true, standardPrice: true, premiumPrice: true, price: true, durationDays: true, isGroupBilling: true },
     }),
     prisma.groupAddonSubscription.findMany({
       where: { groupId },
       select: { id: true, addonId: true, status: true, startDate: true, endDate: true },
     }),
   ]);
+
+  const schoolCount = memberships.length;
 
   // Resolve the effective stage for pricing
   const firstSchoolId = memberships[0]?.schoolId;
@@ -68,18 +76,30 @@ export async function getGroupBillingData(): Promise<{
     groupName: group.name,
     feeGroupStage: group.feeGroupStage,
     stage,
+    schoolCount,
     addons: addons.map((a) => {
       const sub = subs.find((s) => s.addonId === a.id);
       const stagePrice =
         stage === "basic" ? a.basicPrice
           : stage === "standard" ? a.standardPrice
             : a.premiumPrice;
-      const price = stagePrice !== null ? Number(stagePrice) : (a.price !== null ? Number(a.price) : null);
+      const basePrice = stagePrice !== null ? Number(stagePrice) : (a.price !== null ? Number(a.price) : null);
+
+      // Progressive pricing for group-billing addons
+      let displayPrice = basePrice;
+      let priceBreakdown: { basePrice: number; schoolCount: number; discount: number; subtotal: number; total: number } | null = null;
+      if (a.isGroupBilling && basePrice !== null && schoolCount > 0) {
+        priceBreakdown = calculateGroupPrice(basePrice, schoolCount);
+        displayPrice = priceBreakdown.total;
+      }
+
       return {
         id: a.id,
         name: a.name,
         description: a.description,
-        price,
+        price: displayPrice,
+        isGroupBilling: a.isGroupBilling,
+        priceBreakdown,
         durationDays: a.durationDays,
         subscription: sub
           ? {

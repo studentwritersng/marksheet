@@ -51,7 +51,7 @@ export async function updateLicenseAction(schoolId: string, formData: FormData):
     data: { status: "expired" },
   });
 
-  // Snapshot the school's effective stage (group fee-group override if applicable)
+  // Snapshot the school's effective tier (group override if applicable)
   const { resolveEffectiveStage } = await import("@/lib/license/stage-resolver");
   const effectiveStage = await resolveEffectiveStage(schoolId);
 

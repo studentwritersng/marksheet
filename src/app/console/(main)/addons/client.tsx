@@ -13,8 +13,9 @@ interface AddonVM {
   basicPrice: number | null;
   standardPrice: number | null;
   premiumPrice: number | null;
-  price: number | null; // legacy
+  price: number | null;
   durationDays: number | null;
+  isGroupBilling: boolean;
   isActive: boolean;
 }
 interface CodeVM { id: string; code: string; schoolId: string | null; isUsed: boolean; usedBySchoolId: string | null; createdAt: string; }
@@ -66,7 +67,7 @@ function AddonCard({ a }: { a: AddonVM }) {
           <textarea name="features" defaultValue={a.features?.join("\n") ?? ""} rows={3} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white" />
         </div>
         <div>
-          <label className="text-[10px] text-white/50 block mb-0.5">Pricing per fee group (leave empty = not sold to that stage)</label>
+          <label className="text-[10px] text-white/50 block mb-0.5">Pricing (leave empty = not available for that tier)</label>
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-[9px] text-white/40 block mb-0.5">Basic</label>
@@ -86,6 +87,10 @@ function AddonCard({ a }: { a: AddonVM }) {
           <label className="text-[10px] text-white/50 block mb-0.5">Duration (days, empty = permanent)</label>
           <input name="durationDays" type="number" min="1" defaultValue={a.durationDays ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white" />
         </div>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="isGroupBilling" value="true" defaultChecked={a.isGroupBilling} className="rounded border-white/20 text-emerald-500 focus:ring-emerald-500" />
+          <span className="text-[10px] text-white/50">Group billing — price scales progressively based on number of schools in the group (2: -10%, 3: -15%, 4: -20%, 5+: -25%)</span>
+        </label>
         <div className="flex gap-2">
           <button type="submit" disabled={editPending} className="text-[10px] text-emerald-400 hover:text-emerald-300 underline">Save</button>
           <button type="button" onClick={() => setEditing(false)} className="text-[10px] text-white/40 hover:text-white/70 underline">Cancel</button>
@@ -100,7 +105,10 @@ function AddonCard({ a }: { a: AddonVM }) {
     <div className="bg-white/[0.03] rounded-lg px-4 py-3 border border-white/5">
       <div className="flex items-center justify-between mb-1">
         <p className="text-white font-medium text-sm">{a.name}</p>
-        {a.isActive ? <span className="text-[10px] text-emerald-400 bg-emerald-900/30 rounded-full px-2 py-0.5">Active</span> : <span className="text-[10px] text-gray-400 bg-gray-800/30 rounded-full px-2 py-0.5">Inactive</span>}
+        <div className="flex gap-1">
+          {a.isGroupBilling && <span className="text-[9px] text-indigo-300 bg-indigo-900/30 rounded-full px-2 py-0.5">Group billing</span>}
+          {a.isActive ? <span className="text-[10px] text-emerald-400 bg-emerald-900/30 rounded-full px-2 py-0.5">Active</span> : <span className="text-[10px] text-gray-400 bg-gray-800/30 rounded-full px-2 py-0.5">Inactive</span>}
+        </div>
       </div>
       {a.description && <p className="text-white/40 text-xs mb-1">{a.description}</p>}
       {a.features && a.features.length > 0 && (
@@ -136,7 +144,7 @@ export function AddonsClient({ addons, codes }: { addons: AddonVM[]; codes: Code
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-white">Addons</h1>
-          <p className="text-sm text-white/40 mt-1">{addons.length} addon{addons.length !== 1 ? "s" : ""} defined · prices are set per fee group (Basic / Standard / Premium)</p>
+          <p className="text-sm text-white/40 mt-1">{addons.length} addon{addons.length !== 1 ? "s" : ""} defined · pricing is set per tier (Basic / Standard / Premium)</p>
         </div>
       </div>
 
@@ -169,7 +177,7 @@ export function AddonsClient({ addons, codes }: { addons: AddonVM[]; codes: Code
                 </div>
               </div>
               <div>
-                <label className="text-xs text-white/50 block mb-2">Pricing per fee group (leave empty = not sold to that stage)</label>
+                <label className="text-xs text-white/50 block mb-2">Pricing (leave empty = not available for that tier)</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] text-white/40 block mb-1">Basic stage</label>
@@ -193,6 +201,10 @@ export function AddonsClient({ addons, codes }: { addons: AddonVM[]; codes: Code
                 <label className="text-xs text-white/50 block mb-1">Features (one per line)</label>
                 <textarea name="features" rows={4} placeholder="Feature 1&#10;Feature 2&#10;Feature 3" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
               </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="isGroupBilling" value="true" className="rounded border-white/20 text-emerald-500 focus:ring-emerald-500" />
+                <span className="text-xs text-white/50">Group billing — price scales progressively based on number of schools (2: -10%, 3: -15%, 4: -20%, 5+: -25%)</span>
+              </label>
               <button type="submit" disabled={formPending} className="bg-emerald-700 hover:bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">{formPending ? "..." : "Create"}</button>
               {formState.error && <p className="text-red-400 text-xs">{formState.error}</p>}
               {formState.success && <p className="text-emerald-400 text-xs">{formState.success}</p>}

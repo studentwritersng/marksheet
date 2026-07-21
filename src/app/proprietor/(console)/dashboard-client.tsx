@@ -59,7 +59,7 @@ export function ProprietorDashboardClient({
         {data.feeGroupStage && (
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs uppercase tracking-wider font-semibold">
             <span className="material-symbols-outlined text-[14px]">payments</span>
-            Fee group: {STAGE_LABELS[data.feeGroupStage] ?? data.feeGroupStage}
+            Pricing tier: {STAGE_LABELS[data.feeGroupStage] ?? data.feeGroupStage}
           </div>
         )}
       </div>

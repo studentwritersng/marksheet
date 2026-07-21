@@ -2,8 +2,8 @@ import Papa from "papaparse";
 import { z } from "zod";
 
 /**
- * Student CSV import — staged, validated, with row-level errors
- * (PRD 03 §3.2, PRD 10 §2.3). Never commits directly.
+ * Student CSV import — staged, validated, with row-level errors.
+ * Never commits directly.
  */
 
 export interface StagedRow {

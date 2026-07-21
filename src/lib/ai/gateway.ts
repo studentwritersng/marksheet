@@ -1,5 +1,5 @@
 /**
- * AI Gateway Service (PRD 14)
+ * AI Gateway Service
  * ---------------------------------------------------------------------------
  * The SINGLE place in the codebase that knows how to talk to an AI provider.
  * Every AI-consuming module (lesson notes, question generation, essay grading,

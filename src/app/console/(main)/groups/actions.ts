@@ -38,7 +38,7 @@ export async function createGroupAction(_prev: GroupsActionResult, formData: For
   return { success: `Group "${name}" created.` };
 }
 
-// ── Update group (name + fee-group stage) ────────────────────────────────────
+// ── Update group (name + pricing tier) ───────────────────────────────────────
 
 export async function updateGroupAction(_prev: GroupsActionResult, formData: FormData): Promise<GroupsActionResult> {
   try { await guard(); } catch { return { error: "Not authorised." }; }

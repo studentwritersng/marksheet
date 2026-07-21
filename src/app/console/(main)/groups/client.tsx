@@ -66,15 +66,15 @@ function CreateGroupForm({ addons }: { addons: AddonOption[] }) {
         <input name="name" required placeholder='e.g. "XYZ Group of Schools"' className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
       </div>
       <div>
-        <label className="text-xs text-white/50 block mb-1">Connected license fee group</label>
+        <label className="text-xs text-white/50 block mb-1">Pricing tier</label>
         <select name="feeGroupStage" defaultValue="" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white">
-          <option value="">— Use each school's own stage (no override) —</option>
-          <option value="basic">Basic (use Basic-stage pricing for all schools in this group)</option>
-          <option value="standard">Standard (use Standard-stage pricing for all schools in this group)</option>
-          <option value="premium">Premium (use Premium-stage pricing for all schools in this group)</option>
+          <option value="">— Use each school's own tier —</option>
+          <option value="basic">Basic</option>
+          <option value="standard">Standard</option>
+          <option value="premium">Premium</option>
         </select>
         <p className="text-[10px] text-white/40 mt-1">
-          When set, all member schools will use this fee group's pricing for license plans &amp; addons. Individual school stages are ignored for billing.
+          When set, all member schools will use this tier's pricing for licenses and addons.
         </p>
       </div>
       <button type="submit" disabled={pending} className="bg-emerald-700 hover:bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">
@@ -115,7 +115,7 @@ function GroupPanel({ g, availableSchools, addons }: { g: GroupVM; availableScho
           {g.feeGroupStage && (
             <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-900/30 text-indigo-300 text-[10px] uppercase tracking-wider font-semibold">
               <span className="material-symbols-outlined text-[12px]">payments</span>
-              License fee group: {STAGE_LABELS[g.feeGroupStage]}
+              Pricing tier: {STAGE_LABELS[g.feeGroupStage]}
             </div>
           )}
         </div>
@@ -299,7 +299,7 @@ function EditGroupForm({ g }: { g: GroupVM }) {
         <input name="name" defaultValue={g.name} required className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white" />
       </div>
       <div>
-        <label className="text-[10px] text-white/50 block mb-0.5">Connected license fee group</label>
+        <label className="text-[10px] text-white/50 block mb-0.5">Pricing tier</label>
         <select name="feeGroupStage" defaultValue={g.feeGroupStage ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white">
           <option value="">— No override —</option>
           <option value="basic">Basic</option>

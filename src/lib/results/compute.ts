@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { defaultGradingScale, type GradeBand } from "@/lib/grading-scale";
 
 /**
- * PRD 08: Weighted computation engine.
+ * Weighted computation engine.
  * Computes subject results, applies grading scales, and ranks students within a class.
  */
 

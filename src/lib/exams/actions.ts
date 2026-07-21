@@ -195,7 +195,7 @@ export async function startExamAction(examId: string, studentId: string): Promis
   });
   if (!exam || exam.status !== "published") return { error: "This exam is not available yet." };
 
-  // Fee gate check (PRD 12 §3.2)
+  // Fee gate check
   const { checkExamFeeGate } = await import("@/lib/fees/gate");
   const feeBlock = await checkExamFeeGate(exam.schoolId, studentId, exam.termId);
   if (feeBlock) return { error: feeBlock };

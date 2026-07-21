@@ -161,7 +161,7 @@ export async function createStudentAction(
     }
   }
 
-  // Capture data processing consent (PRD 11 §3.4)
+  // Capture data processing consent
   if (dataConsent) {
     await prisma.consentRecord.create({
       data: {
@@ -230,7 +230,7 @@ export async function archiveStudentAction(
   return { success: `${student.firstName} ${student.lastName} withdrawn.` };
 }
 
-// ── Cross-branch student transfer (PRD 19 §4.4) ───────────────────────────
+// ── Cross-branch student transfer ───────────────────────────
 
 export interface TransferState {
   error?: string;

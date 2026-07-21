@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * Group-level addon activation check (PRD 19).
+ * Group-level addon activation check.
  * Mirrors `isAddonActive` but operates at the School Group level
  * via GroupAddonSubscription rather than per-school SchoolAddon.
  *

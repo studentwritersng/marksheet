@@ -3,7 +3,7 @@ import type { AssignmentType } from "@prisma/client";
 import type { SessionPayload } from "./session";
 
 /**
- * Permission resolution (PRD 02).
+ * Permission resolution.
  * Effective permissions for a staff member = the UNION of all their active
  * assignments for the current session/term. Roles are assignment-based, not
  * fixed labels. Temporary assignments layer on top and expire at end_date.

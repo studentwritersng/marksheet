@@ -1386,6 +1386,8 @@ model Addon {
   // Legacy single-price field — kept for backwards compatibility
   price         Decimal? // deprecated — use stage-specific prices above
   durationDays  Int? // null = one-time/permanent, set = renewable
+  // When true, price scales progressively based on number of schools in the group
+  isGroupBilling Boolean @default(false)
   isActive      Boolean  @default(true)
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())

@@ -1,5 +1,5 @@
 /**
- * NDPR data access control utilities (PRD 11 §3.5).
+ * NDPR data access control utilities.
  *
  * Guardian contact details (phone, address) and passport photos are
  * sensitive personal data. They must be visible only to:

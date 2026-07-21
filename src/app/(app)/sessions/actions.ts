@@ -20,7 +20,7 @@ const THREE_TERMS: TermName[] = [
 
 /**
  * Create a Session — auto-generates exactly 3 Terms with editable default
- * dates (PRD 01 §3.1). The count of 3 is fixed.
+ * dates. The count of 3 is fixed.
  */
 export async function createSessionAction(
   _prev: ActionState,
@@ -76,7 +76,7 @@ export async function createSessionAction(
 }
 
 /**
- * Mark a session current — closes the previously current session (PRD 01 §3.1).
+ * Mark a session current — closes the previously current session.
  * The confirmation prompt lives in the UI; this action performs the switch.
  */
 export async function setCurrentSessionAction(
@@ -120,7 +120,7 @@ export async function setCurrentSessionAction(
   return { success: `${target.label} is now the current session.` };
 }
 
-/** Explicit admin switch of the current term (PRD 01 §3.2 — not date-driven). */
+/** Explicit admin switch of the current term (not date-driven). */
 export async function setCurrentTermAction(
   termId: string,
 ): Promise<ActionState> {
@@ -161,7 +161,7 @@ export async function setCurrentTermAction(
   return { success: `${term.name} Term is now current.` };
 }
 
-/** Edit term start/end dates (PRD 01 §3.2). */
+/** Edit term start/end dates. */
 export async function updateTermDatesAction(
   _prev: ActionState,
   formData: FormData,

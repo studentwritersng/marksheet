@@ -62,7 +62,7 @@ export function SchoolSettingsForm({
         </div>
       </div>
 
-      {/* Fee Gating (PRD 12) */}
+      {/* Fee Gating */}
       <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-4">
         <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Fee Status Gating</h3>
         <p className="font-body-sm text-body-sm text-on-surface-variant">Configure what happens when a student&apos;s fee status is not cleared. The platform does not process payments — this simply gates access based on a status flag set by a bursar/admin.</p>

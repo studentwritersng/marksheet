@@ -10,11 +10,14 @@ interface BillingData {
   groupName: string;
   feeGroupStage: string | null;
   stage: string;
+  schoolCount: number;
   addons: {
     id: string;
     name: string;
     description: string | null;
     price: number | null;
+    isGroupBilling: boolean;
+    priceBreakdown: { basePrice: number; schoolCount: number; discount: number; subtotal: number; total: number } | null;
     durationDays: number | null;
     subscription: {
       id: string;
@@ -38,34 +41,45 @@ function AddonCard({ addon, groupId }: { addon: BillingData["addons"][number]; g
   const endDate = addon.subscription?.endDate ? new Date(addon.subscription.endDate) : null;
   const isExpiringSoon = endDate && endDate.getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;
   const isExpired = endDate && endDate < new Date();
+  const needsAction = !isActive || isExpired || isExpiringSoon;
 
   return (
-    <div className={`bg-white/[0.03] border rounded-xl p-5 space-y-3 ${isActive ? "border-emerald-700/30" : "border-white/5"}`}>
+    <div className={`bg-white/[0.03] border rounded-xl p-5 space-y-3 ${isActive && !isExpired ? "border-emerald-700/30" : needsAction ? "border-amber-700/30" : "border-white/5"}`}>
       <div className="flex items-start justify-between">
         <div>
           <h3 className="text-white font-semibold text-sm">{addon.name}</h3>
           {addon.description && <p className="text-white/40 text-xs mt-0.5">{addon.description}</p>}
         </div>
-        {isActive ? (
+        {isActive && !isExpired ? (
           <span className="text-[10px] text-emerald-400 bg-emerald-900/30 rounded-full px-2 py-0.5">Active</span>
         ) : isExpired ? (
           <span className="text-[10px] text-red-400 bg-red-900/30 rounded-full px-2 py-0.5">Expired</span>
         ) : (
-          <span className="text-[10px] text-gray-400 bg-gray-800/30 rounded-full px-2 py-0.5">Inactive</span>
+          <span className="text-[10px] text-gray-400 bg-gray-800/30 rounded-full px-2 py-0.5">Not subscribed</span>
         )}
       </div>
 
       <div className="flex items-center justify-between">
         <p className="text-lg font-bold text-white">{formatPrice(addon.price)}</p>
         <p className="text-[10px] text-white/40">
-          {addon.durationDays ? `${addon.durationDays} days` : "Permanent"}
+          {addon.durationDays ? `/ ${addon.durationDays} days` : "One-time"}
         </p>
       </div>
+
+      {addon.isGroupBilling && addon.priceBreakdown && (
+        <div className="text-[10px] text-white/40 bg-white/5 rounded-lg p-2 space-y-0.5">
+          <div className="flex justify-between"><span>Base price</span><span>{formatPrice(addon.priceBreakdown.basePrice)}</span></div>
+          <div className="flex justify-between"><span>Schools</span><span>× {addon.priceBreakdown.schoolCount}</span></div>
+          <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(addon.priceBreakdown.subtotal)}</span></div>
+          <div className="flex justify-between text-emerald-400"><span>Discount</span><span>-{Math.round(addon.priceBreakdown.discount * 100)}%</span></div>
+          <div className="flex justify-between font-semibold text-white border-t border-white/10 pt-1 mt-1"><span>You pay</span><span>{formatPrice(addon.priceBreakdown.total)}</span></div>
+        </div>
+      )}
 
       {isActive && endDate && (
         <div className={`text-xs px-3 py-2 rounded-lg ${isExpiringSoon ? "bg-amber-900/20 text-amber-300" : "bg-emerald-900/20 text-emerald-300"}`}>
           {isExpiringSoon && "⚠ "}
-          {isExpiringSoon ? "Expiring soon" : "Valid"}: {endDate.toLocaleDateString()}
+          {isExpiringSoon ? "Expires soon" : "Valid until"}: {endDate.toLocaleDateString()}
         </div>
       )}
 
@@ -74,31 +88,28 @@ function AddonCard({ addon, groupId }: { addon: BillingData["addons"][number]; g
           <input type="hidden" name="addonId" value={addon.id} />
           <input type="hidden" name="durationDays" value={String(addon.durationDays ?? 365)} />
           <div>
-            <label className="text-[10px] text-white/50 block mb-0.5">Payment reference (bank transfer ref, receipt no, etc.)</label>
+            <label className="text-[10px] text-white/50 block mb-0.5">Payment reference</label>
             <input
               name="paymentReference"
-              placeholder="e.g. TRX-20260720-001"
+              placeholder="Bank transfer ref or receipt no."
               className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white placeholder:text-white/20"
             />
           </div>
           <div>
-            <label className="text-[10px] text-white/50 block mb-0.5">Notes (optional)</label>
+            <label className="text-[10px] text-white/50 block mb-0.5">Notes</label>
             <input
               name="notes"
-              placeholder="Any additional notes"
+              placeholder="Optional"
               className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white placeholder:text-white/20"
             />
           </div>
-          <p className="text-[10px] text-white/40">
-            By submitting, you confirm that payment has been made. The platform owner will verify and activate/renew the subscription.
-          </p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-1">
             <button
               type="submit"
               disabled={pending}
-              className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-60"
+              className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-4 py-1.5 rounded-lg disabled:opacity-60"
             >
-              {pending ? "..." : isActive ? "Renew" : "Activate"}
+              {pending ? "Processing..." : isActive ? "Renew" : "Subscribe"}
             </button>
             <button
               type="button"
@@ -116,13 +127,13 @@ function AddonCard({ addon, groupId }: { addon: BillingData["addons"][number]; g
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-            isActive
-              ? "text-amber-300 bg-amber-900/20 hover:bg-amber-900/30"
-              : "text-emerald-300 bg-emerald-900/20 hover:bg-emerald-900/30"
+          className={`text-xs px-4 py-1.5 rounded-lg transition-colors ${
+            needsAction
+              ? "text-emerald-300 bg-emerald-900/20 hover:bg-emerald-900/30"
+              : "text-amber-300 bg-amber-900/20 hover:bg-amber-900/30"
           }`}
         >
-          {isActive ? (isExpiringSoon ? "Renew Now" : "Extend") : "Activate"}
+          {isActive && !isExpired ? (isExpiringSoon ? "Renew Now" : "Extend") : "Subscribe"}
         </button>
       )}
     </div>
@@ -149,7 +160,7 @@ export function BillingClient({ groupId }: { groupId: string }) {
   }
 
   if (!data) {
-    return <p className="text-white/40 text-sm text-center py-8">Failed to load billing data.</p>;
+    return <p className="text-white/40 text-sm text-center py-8">Failed to load.</p>;
   }
 
   return (
@@ -157,19 +168,9 @@ export function BillingClient({ groupId }: { groupId: string }) {
       <div>
         <h1 className="text-2xl font-semibold text-white">Billing & Addons</h1>
         <p className="text-sm text-white/40 mt-1">
-          Manage your group's addon subscriptions. Pricing is based on your group's fee group: <span className="text-white/60 capitalize font-semibold">{data.stage}</span>
+          {data.schoolCount} school{data.schoolCount !== 1 ? "s" : ""} in your group · subscriptions cover all branches
         </p>
       </div>
-
-      {data.feeGroupStage && (
-        <div className="bg-indigo-900/20 border border-indigo-700/30 rounded-xl p-4 flex items-center gap-3">
-          <span className="material-symbols-outlined text-[20px] text-indigo-400">payments</span>
-          <div>
-            <p className="text-sm text-indigo-300 font-semibold">Connected License Fee Group: <span className="capitalize">{data.feeGroupStage}</span></p>
-            <p className="text-[10px] text-white/40 mt-0.5">All addon prices below are based on this fee group.</p>
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {data.addons.map((a) => (

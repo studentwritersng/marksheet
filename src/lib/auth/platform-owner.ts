@@ -18,7 +18,7 @@ export async function requirePlatformOwner(): Promise<{ userId: string; email: s
 }
 
 /**
- * Guard for Proprietor Console access (PRD 19).
+ * Guard for Proprietor Console access.
  * Only users with role = proprietor AND proprietorGroupId set can access proprietor routes.
  * Returns the proprietor's group id and permission level for downstream scoping.
  */

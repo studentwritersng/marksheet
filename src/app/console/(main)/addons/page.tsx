@@ -22,9 +22,9 @@ export default async function ConsoleAddonsPage() {
         basicPrice: a.basicPrice?.toNumber() ?? null,
         standardPrice: a.standardPrice?.toNumber() ?? null,
         premiumPrice: a.premiumPrice?.toNumber() ?? null,
-        // Legacy field kept for backwards compatibility display
         price: a.price?.toNumber() ?? null,
         durationDays: a.durationDays,
+        isGroupBilling: a.isGroupBilling,
         isActive: a.isActive,
       }))}
       codes={codes.map((c) => ({

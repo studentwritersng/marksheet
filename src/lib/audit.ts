@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 
 /**
- * Audit logging helper (PRD 11).
+ * Audit logging helper.
  * Every mutation to scores, question bank content, lesson notes, student
  * records, promotions, and result approvals must be logged with who/what/
  * before/after/when. Use this from server actions and API routes.

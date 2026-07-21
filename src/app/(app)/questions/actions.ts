@@ -13,7 +13,7 @@ export interface ActionState {
   success?: string;
 }
 
-/** Manual question creation (MCQ or Essay — PRD 05 §3.2). */
+/** Manual question creation (MCQ or Essay). */
 export async function createQuestionAction(
   _prev: ActionState,
   formData: FormData,
@@ -128,7 +128,7 @@ export async function createQuestionAction(
   return { success: `Question created (${type}). Needs review before approval.` };
 }
 
-/** AI-generate questions from lesson notes (PRD 05 §3.4). */
+/** AI-generate questions from lesson notes. */
 export async function aiGenerateQuestionsAction(
   lessonNoteId: string,
 ): Promise<ActionState> {
@@ -670,7 +670,7 @@ Lesson note content:\n${combinedContent.slice(0, 8000)}`,
   return { success: `AI ${isMcq ? "MCQ" : "essay"} question(s) generated from ${notes.length} lesson note(s). Review in drafts.` };
 }
 
-/** Approve a question (PRD 05 §3.5 — HOD/Admin). */
+/** Approve a question (HOD/Admin). */
 export async function approveQuestionAction(questionId: string): Promise<ActionState> {
   let ctx;
   try {
