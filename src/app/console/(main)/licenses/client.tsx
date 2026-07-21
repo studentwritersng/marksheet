@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { createPlanAction, updatePlanAction, togglePlanActiveAction, deletePlanAction, setLicenseStatusAction } from "./actions";
 
-interface PlanVM { id: string; name: string; durationType: string; price?: number | null; basicPrice?: number | null; standardPrice?: number | null; premiumPrice?: number | null; durationDays?: number | null; isActive: boolean; }
+interface PlanVM { id: string; name: string; durationType: string; price?: number | null; basicPrice?: number | null; standardPrice?: number | null; premiumPrice?: number | null; durationDays?: number | null; isGroupBilling: boolean; isActive: boolean; }
 interface LicenseVM {
   id: string; schoolName: string; planName: string; stageName: string | null; durationType: string;
   startDate: string; endDate: string; status: string;
@@ -69,6 +69,10 @@ export function LicensesClient({ plans, licenses }: { plans: PlanVM[]; licenses:
                 <input name="premiumPrice" type="number" step="0.01" min="0" required placeholder="e.g. 75000" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
               </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="isGroupBilling" value="true" className="rounded border-white/20 text-emerald-500 focus:ring-emerald-500" />
+              <span className="text-xs text-white/50">Group billing — price scales progressively based on number of schools in the group (2: -10%, 3: -15%, 4: -20%, 5+: -25%)</span>
+            </label>
             <button type="submit" disabled={planPending} className="bg-emerald-700 hover:bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">{planPending ? "..." : "Create"}</button>
             {planState.error && <p className="text-red-400 text-xs">{planState.error}</p>}
             {planState.success && <p className="text-emerald-400 text-xs">{planState.success}</p>}
@@ -149,6 +153,10 @@ function PlanCard({ plan }: { plan: PlanVM }) {
             <input name="durationDays" type="number" min="1" defaultValue={plan.durationDays ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
           </div>
         </div>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="isGroupBilling" value="true" defaultChecked={plan.isGroupBilling} className="rounded border-white/20 text-emerald-500 focus:ring-emerald-500" />
+          <span className="text-[10px] text-white/50">Group billing — progressive pricing based on schools in group (2: -10%, 3: -15%, 4: -20%, 5+: -25%)</span>
+        </label>
         <div className="flex gap-2">
           <button type="submit" disabled={editPending} className="text-[10px] text-emerald-400 hover:text-emerald-300 underline">Save</button>
           <button type="button" onClick={() => setEditing(false)} className="text-[10px] text-white/40 hover:text-white/70 underline">Cancel</button>
@@ -163,7 +171,10 @@ function PlanCard({ plan }: { plan: PlanVM }) {
     <div className="bg-white/[0.03] rounded-lg px-4 py-3 border border-white/5">
       <div className="flex items-center justify-between mb-1">
         <p className="text-white font-medium text-sm">{plan.name}</p>
-        {plan.isActive ? <span className="text-[10px] text-emerald-400 bg-emerald-900/30 rounded-full px-2 py-0.5">Active</span> : <span className="text-[10px] text-gray-400 bg-gray-800/30 rounded-full px-2 py-0.5">Inactive</span>}
+        <div className="flex gap-1">
+          {plan.isGroupBilling && <span className="text-[9px] text-indigo-300 bg-indigo-900/30 rounded-full px-2 py-0.5">Group billing</span>}
+          {plan.isActive ? <span className="text-[10px] text-emerald-400 bg-emerald-900/30 rounded-full px-2 py-0.5">Active</span> : <span className="text-[10px] text-gray-400 bg-gray-800/30 rounded-full px-2 py-0.5">Inactive</span>}
+        </div>
       </div>
       <p className="text-white/40 text-xs capitalize mb-1">{plan.durationType}</p>
       {plan.basicPrice != null && <p className="text-xs text-white/50">Basic: {formatPrice(plan.basicPrice)}{plan.durationDays ? " · " + plan.durationDays + " days" : ""}</p>}

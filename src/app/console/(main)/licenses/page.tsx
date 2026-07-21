@@ -26,6 +26,7 @@ export default async function ConsoleLicensesPage() {
         standardPrice: p.standardPrice?.toNumber(),
         premiumPrice: p.premiumPrice?.toNumber(),
         durationDays: p.durationDays,
+        isGroupBilling: p.isGroupBilling,
         isActive: p.isActive,
       }))}
       licenses={licenses.map((l) => ({
