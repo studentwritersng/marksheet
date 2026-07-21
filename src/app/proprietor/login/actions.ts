@@ -63,7 +63,7 @@ export async function proprietorLoginAction(
   });
 
   if (user.mustChangePassword) {
-    redirect("/change-password");
+    redirect("/proprietor/change-password");
   }
 
   redirect("/proprietor");
