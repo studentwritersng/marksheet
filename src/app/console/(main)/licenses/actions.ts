@@ -21,6 +21,7 @@ export async function createPlanAction(_prev: LicenseActionResult, formData: For
   const basicPriceRaw = formData.get("basicPrice") as string;
   const standardPriceRaw = formData.get("standardPrice") as string;
   const premiumPriceRaw = formData.get("premiumPrice") as string;
+  const groupPriceRaw = formData.get("groupPrice") as string;
   const durationDaysRaw = formData.get("durationDays") as string;
   const isGroupBilling = formData.get("isGroupBilling") === "true";
   if (!name || !durationType) return { error: "Name and duration type are required." };
@@ -28,10 +29,11 @@ export async function createPlanAction(_prev: LicenseActionResult, formData: For
   const basicPrice = basicPriceRaw ? parseFloat(basicPriceRaw) : null;
   const standardPrice = standardPriceRaw ? parseFloat(standardPriceRaw) : null;
   const premiumPrice = premiumPriceRaw ? parseFloat(premiumPriceRaw) : null;
+  const groupPrice = (isGroupBilling && groupPriceRaw) ? parseFloat(groupPriceRaw) : null;
   const durationDays = durationDaysRaw ? parseInt(durationDaysRaw, 10) : null;
   if (durationDays !== null && (isNaN(durationDays) || durationDays < 1)) return { error: "Invalid duration days." };
   try {
-    await prisma.licensePlan.create({ data: { name, durationType: durationType as "monthly" | "termly", basicPrice, standardPrice, premiumPrice, durationDays, isGroupBilling } });
+    await prisma.licensePlan.create({ data: { name, durationType: durationType as "monthly" | "termly", basicPrice, standardPrice, premiumPrice, groupPrice, durationDays, isGroupBilling } });
   } catch (e: any) {
     if (e?.code === "P2002") return { error: "A plan with this name already exists." };
     return { error: "Failed to create plan." };
@@ -48,6 +50,7 @@ export async function updatePlanAction(_prev: LicenseActionResult, formData: For
   const basicPriceRaw = formData.get("basicPrice") as string;
   const standardPriceRaw = formData.get("standardPrice") as string;
   const premiumPriceRaw = formData.get("premiumPrice") as string;
+  const groupPriceRaw = formData.get("groupPrice") as string;
   const durationDaysRaw = formData.get("durationDays") as string;
   const isGroupBilling = formData.get("isGroupBilling") === "true";
   if (!id || !name || !durationType) return { error: "Name and duration type are required." };
@@ -55,10 +58,11 @@ export async function updatePlanAction(_prev: LicenseActionResult, formData: For
   const basicPrice = basicPriceRaw ? parseFloat(basicPriceRaw) : null;
   const standardPrice = standardPriceRaw ? parseFloat(standardPriceRaw) : null;
   const premiumPrice = premiumPriceRaw ? parseFloat(premiumPriceRaw) : null;
+  const groupPrice = (isGroupBilling && groupPriceRaw) ? parseFloat(groupPriceRaw) : null;
   const durationDays = durationDaysRaw ? parseInt(durationDaysRaw, 10) : null;
   if (durationDays !== null && (isNaN(durationDays) || durationDays < 1)) return { error: "Invalid duration days." };
   try {
-    await prisma.licensePlan.update({ where: { id }, data: { name, durationType: durationType as "monthly" | "termly", basicPrice, standardPrice, premiumPrice, durationDays, isGroupBilling } });
+    await prisma.licensePlan.update({ where: { id }, data: { name, durationType: durationType as "monthly" | "termly", basicPrice, standardPrice, premiumPrice, groupPrice, durationDays, isGroupBilling } });
   } catch {
     return { error: "Failed to update plan." };
   }

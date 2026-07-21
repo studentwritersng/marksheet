@@ -1291,8 +1291,9 @@ model LicensePlan {
   basicPrice    Decimal? // price for Basic-stage schools
   standardPrice Decimal? // price for Standard-stage schools
   premiumPrice  Decimal? // price for Premium-stage schools
+  groupPrice    Decimal? // per-school base price for multi-branch groups (progressive discount applies)
   durationDays  Int? // e.g. 30 or 90
-  // When true, price scales progressively based on number of schools in the group
+  // When true, groupPrice field is available for multi-branch group billing
   isGroupBilling Boolean             @default(false)
   isActive      Boolean             @default(true) // can this plan be assigned to new schools?
   createdAt     DateTime            @default(now())
@@ -1388,8 +1389,6 @@ model Addon {
   // Legacy single-price field — kept for backwards compatibility
   price         Decimal? // deprecated — use stage-specific prices above
   durationDays  Int? // null = one-time/permanent, set = renewable
-  // When true, price scales progressively based on number of schools in the group
-  isGroupBilling Boolean @default(false)
   isActive      Boolean  @default(true)
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())

@@ -24,7 +24,6 @@ export default async function ConsoleAddonsPage() {
         premiumPrice: a.premiumPrice?.toNumber() ?? null,
         price: a.price?.toNumber() ?? null,
         durationDays: a.durationDays,
-        isGroupBilling: a.isGroupBilling,
         isActive: a.isActive,
       }))}
       codes={codes.map((c) => ({

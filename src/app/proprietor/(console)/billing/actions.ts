@@ -17,7 +17,6 @@ export interface GroupBillingData {
     name: string;
     description: string | null;
     price: number | null;
-    isGroupBilling: boolean;
     priceBreakdown: { basePrice: number; schoolCount: number; discount: number; subtotal: number; total: number } | null;
     durationDays: number | null;
     subscription: {
@@ -53,7 +52,7 @@ export async function getGroupBillingData(): Promise<GroupBillingData> {
     prisma.addon.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true, description: true, basicPrice: true, standardPrice: true, premiumPrice: true, price: true, durationDays: true, isGroupBilling: true },
+      select: { id: true, name: true, description: true, basicPrice: true, standardPrice: true, premiumPrice: true, price: true, durationDays: true },
     }),
     prisma.groupAddonSubscription.findMany({
       where: { groupId },
@@ -85,10 +84,10 @@ export async function getGroupBillingData(): Promise<GroupBillingData> {
             : a.premiumPrice;
       const basePrice = stagePrice !== null ? Number(stagePrice) : (a.price !== null ? Number(a.price) : null);
 
-      // Progressive pricing for group-billing addons
+      // Progressive pricing always applies at group level
       let displayPrice = basePrice;
       let priceBreakdown: { basePrice: number; schoolCount: number; discount: number; subtotal: number; total: number } | null = null;
-      if (a.isGroupBilling && basePrice !== null && schoolCount > 0) {
+      if (basePrice !== null && schoolCount > 0) {
         priceBreakdown = calculateGroupPrice(basePrice, schoolCount);
         displayPrice = priceBreakdown.total;
       }
@@ -98,7 +97,6 @@ export async function getGroupBillingData(): Promise<GroupBillingData> {
         name: a.name,
         description: a.description,
         price: displayPrice,
-        isGroupBilling: a.isGroupBilling,
         priceBreakdown,
         durationDays: a.durationDays,
         subscription: sub

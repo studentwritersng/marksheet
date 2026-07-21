@@ -6,7 +6,7 @@ import { activateAddonWithCodeAction, purchaseAddonAction } from "./actions";
 interface AddonVM {
   id: string; name: string; description: string | null; features: string[] | null;
   basicPrice: number | null; standardPrice: number | null; premiumPrice: number | null; price: number | null;
-  durationDays: number | null; isGroupBilling: boolean; isActive: boolean; sortOrder: number;
+  durationDays: number | null; isActive: boolean; sortOrder: number;
 }
 interface SchoolAddonVM { addonId: string; status: string; activatedVia: string; expiresAt: string | null; }
 interface MethodVM { id: string; type: string; label: string; details: Record<string, string> | null; }
@@ -136,14 +136,6 @@ export function AddonsClient({ addons, activeAddons, schoolStage, methods }: {
                     {addon.durationDays ? `/ ${addon.durationDays} days` : price ? "one-time" : ""}
                   </span>
                 </div>
-
-                {/* Group billing badge */}
-                {addon.isGroupBilling && (
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${theme.badge}`}>
-                    <span className="material-symbols-outlined text-[12px]">groups</span>
-                    Group billing
-                  </span>
-                )}
 
                 {/* Features */}
                 <button onClick={() => setExpanded(isExpanded ? null : addon.id)}

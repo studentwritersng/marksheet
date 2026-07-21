@@ -25,6 +25,7 @@ export default async function ConsoleLicensesPage() {
         basicPrice: p.basicPrice?.toNumber(),
         standardPrice: p.standardPrice?.toNumber(),
         premiumPrice: p.premiumPrice?.toNumber(),
+        groupPrice: p.groupPrice?.toNumber(),
         durationDays: p.durationDays,
         isGroupBilling: p.isGroupBilling,
         isActive: p.isActive,

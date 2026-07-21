@@ -30,7 +30,6 @@ export default async function AddonsPage() {
         premiumPrice: a.premiumPrice?.toNumber() ?? null,
         price: a.price?.toNumber() ?? null,
         durationDays: a.durationDays,
-        isGroupBilling: a.isGroupBilling,
         isActive: a.isActive,
         sortOrder: a.sortOrder,
       }))}

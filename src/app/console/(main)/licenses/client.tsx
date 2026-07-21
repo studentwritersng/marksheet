@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { createPlanAction, updatePlanAction, togglePlanActiveAction, deletePlanAction, setLicenseStatusAction } from "./actions";
 
-interface PlanVM { id: string; name: string; durationType: string; price?: number | null; basicPrice?: number | null; standardPrice?: number | null; premiumPrice?: number | null; durationDays?: number | null; isGroupBilling: boolean; isActive: boolean; }
+interface PlanVM { id: string; name: string; durationType: string; price?: number | null; basicPrice?: number | null; standardPrice?: number | null; premiumPrice?: number | null; groupPrice?: number | null; durationDays?: number | null; isGroupBilling: boolean; isActive: boolean; }
 interface LicenseVM {
   id: string; schoolName: string; planName: string; stageName: string | null; durationType: string;
   startDate: string; endDate: string; status: string;
@@ -55,7 +55,11 @@ export function LicensesClient({ plans, licenses }: { plans: PlanVM[]; licenses:
                 <input name="durationDays" type="number" min="1" placeholder="e.g. 30" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="isGroupBilling" value="true" className="rounded border-white/20 text-emerald-500 focus:ring-emerald-500" />
+              <span className="text-xs text-white/50">Enable group billing — adds a per-school group price with progressive discounts (2 schools: -10%, 3: -15%, 4: -20%, 5+: -25%)</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label className="text-xs text-white/50 block mb-1">Basic Price</label>
                 <input name="basicPrice" type="number" step="0.01" min="0" required placeholder="e.g. 35000" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
@@ -68,11 +72,11 @@ export function LicensesClient({ plans, licenses }: { plans: PlanVM[]; licenses:
                 <label className="text-xs text-white/50 block mb-1">Premium Price</label>
                 <input name="premiumPrice" type="number" step="0.01" min="0" required placeholder="e.g. 75000" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20" />
               </div>
+              <div>
+                <label className="text-xs text-white/50 block mb-1">Group Price <span className="text-indigo-400">(per school)</span></label>
+                <input name="groupPrice" type="number" step="0.01" min="0" placeholder="e.g. 40000" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-white placeholder:text-white/20 disabled:opacity-40" />
+              </div>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="isGroupBilling" value="true" className="rounded border-white/20 text-emerald-500 focus:ring-emerald-500" />
-              <span className="text-xs text-white/50">Group billing — price scales progressively based on number of schools in the group (2: -10%, 3: -15%, 4: -20%, 5+: -25%)</span>
-            </label>
             <button type="submit" disabled={planPending} className="bg-emerald-700 hover:bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">{planPending ? "..." : "Create"}</button>
             {planState.error && <p className="text-red-400 text-xs">{planState.error}</p>}
             {planState.success && <p className="text-emerald-400 text-xs">{planState.success}</p>}
@@ -149,6 +153,10 @@ function PlanCard({ plan }: { plan: PlanVM }) {
             <input name="premiumPrice" type="number" step="0.01" min="0" defaultValue={plan.premiumPrice ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
           </div>
           <div>
+            <label className="text-[10px] text-white/50 block mb-0.5">Group Price (per school)</label>
+            <input name="groupPrice" type="number" step="0.01" min="0" defaultValue={plan.groupPrice ?? ""} placeholder="—" className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
+          </div>
+          <div>
             <label className="text-[10px] text-white/50 block mb-0.5">Days</label>
             <input name="durationDays" type="number" min="1" defaultValue={plan.durationDays ?? ""} className="w-full bg-white/5 border border-white/10 rounded p-1.5 text-xs text-white placeholder:text-white/20" />
           </div>
@@ -180,6 +188,7 @@ function PlanCard({ plan }: { plan: PlanVM }) {
       {plan.basicPrice != null && <p className="text-xs text-white/50">Basic: {formatPrice(plan.basicPrice)}{plan.durationDays ? " · " + plan.durationDays + " days" : ""}</p>}
       {plan.standardPrice != null && <p className="text-xs text-white/50">Standard: {formatPrice(plan.standardPrice)}{plan.durationDays ? " · " + plan.durationDays + " days" : ""}</p>}
       {plan.premiumPrice != null && <p className="text-xs text-white/50">Premium: {formatPrice(plan.premiumPrice)}{plan.durationDays ? " · " + plan.durationDays + " days" : ""}</p>}
+      {plan.isGroupBilling && plan.groupPrice != null && <p className="text-xs text-indigo-300">Group: {formatPrice(plan.groupPrice)} / school{plan.durationDays ? " · " + plan.durationDays + " days" : ""}</p>}
       <div className="flex gap-2 mt-2">
         <button onClick={() => setEditing(true)} className="text-[10px] text-white/40 hover:text-white/70 underline">Edit</button>
         <form action={togAction}><button type="submit" disabled={togPending} className="text-[10px] text-white/40 hover:text-white/70 underline">{plan.isActive ? "Deactivate" : "Activate"}</button></form>

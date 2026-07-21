@@ -16,7 +16,6 @@ interface BillingData {
     name: string;
     description: string | null;
     price: number | null;
-    isGroupBilling: boolean;
     priceBreakdown: { basePrice: number; schoolCount: number; discount: number; subtotal: number; total: number } | null;
     durationDays: number | null;
     subscription: {
@@ -66,7 +65,7 @@ function AddonCard({ addon, groupId }: { addon: BillingData["addons"][number]; g
         </p>
       </div>
 
-      {addon.isGroupBilling && addon.priceBreakdown && (
+      {addon.priceBreakdown && (
         <div className="text-[10px] text-white/40 bg-white/5 rounded-lg p-2 space-y-0.5">
           <div className="flex justify-between"><span>Base price</span><span>{formatPrice(addon.priceBreakdown.basePrice)}</span></div>
           <div className="flex justify-between"><span>Schools</span><span>× {addon.priceBreakdown.schoolCount}</span></div>
