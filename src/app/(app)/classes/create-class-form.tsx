@@ -58,7 +58,7 @@ export function CreateClassForm({ sessionId }: { sessionId: string }) {
       )}
       <button
         type="submit"
-        disabled={pending || !sessionId}
+        disabled={pending}
         className="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60"
       >
         {pending ? "Creating\u2026" : "Create class"}

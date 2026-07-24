@@ -80,14 +80,29 @@ export async function createClassAction(
   const level = String(formData.get("level") ?? "").trim();
   const section = String(formData.get("section") ?? "").trim().toUpperCase();
   const department = String(formData.get("department") ?? "").trim();
-  const sessionId = String(formData.get("sessionId") ?? "");
+  let sessionId = String(formData.get("sessionId") ?? "");
 
-  if (!level || !sessionId) {
-    return { error: "Level and session are required." };
+  if (!level) {
+    return { error: "Level is required." };
   }
 
   if (!["JSS1","JSS2","JSS3","SSS1","SSS2","SSS3"].includes(level)) {
     return { error: "Invalid level." };
+  }
+
+  // Auto-create a session if none provided
+  if (!sessionId) {
+    let session = await prisma.session.findFirst({
+      where: { schoolId: ctx.schoolId, isCurrent: true },
+    });
+    if (!session) {
+      const year = new Date().getFullYear();
+      const label = `${year}/${year + 1}`;
+      session = await prisma.session.create({
+        data: { schoolId: ctx.schoolId, label, isCurrent: true, status: "active" },
+      });
+    }
+    sessionId = session.id;
   }
 
   // Auto-generate name

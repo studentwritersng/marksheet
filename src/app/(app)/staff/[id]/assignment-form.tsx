@@ -13,7 +13,7 @@ export function AssignmentForm({
   sessions,
 }: {
   staffId: string;
-  classes: { id: string; name: string }[];
+  classes: { id: string; name: string; level: string }[];
   classSubjects: { classId: string; subjectId: string; subjectName: string }[];
   alreadyAssigned: { subjectId: string; classId: string | null }[];
   sessions: { id: string; label: string; terms: { id: string; name: string }[] }[];
@@ -24,18 +24,47 @@ export function AssignmentForm({
 
   const showSubject = assignmentType === "subject_teacher" || assignmentType === "hod";
 
+  // Group classes by level for the dropdown
+  const groupedClasses = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; level: string; count: number }>();
+    for (const c of classes) {
+      const existing = map.get(c.level);
+      if (existing) {
+        existing.count++;
+      } else {
+        map.set(c.level, { id: c.id, name: c.name, level: c.level, count: 1 });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.level.localeCompare(b.level));
+  }, [classes]);
+
+  // Find the level of the selected class
+  const selectedLevel = useMemo(() => {
+    if (!selectedClassId) return null;
+    const found = classes.find((c) => c.id === selectedClassId);
+    return found?.level ?? null;
+  }, [selectedClassId, classes]);
+
+  // Get all class IDs at the same level as the selected class
+  const levelClassIds = useMemo(() => {
+    if (!selectedLevel) return [];
+    return classes.filter((c) => c.level === selectedLevel).map((c) => c.id);
+  }, [selectedLevel, classes]);
+
   const availableSubjects = useMemo(() => {
-    if (!selectedClassId) return [];
+    if (!selectedClassId || levelClassIds.length === 0) return [];
+    // Subjects already assigned to ANY class at this level
     const assignedIds = new Set(
       alreadyAssigned
-        .filter((a) => a.classId === selectedClassId)
+        .filter((a) => a.classId && levelClassIds.includes(a.classId))
         .map((a) => a.subjectId),
     );
+    // Subjects linked to ANY class at this level (not yet assigned)
     return classSubjects
-      .filter((cs) => cs.classId === selectedClassId && !assignedIds.has(cs.subjectId))
+      .filter((cs) => levelClassIds.includes(cs.classId) && !assignedIds.has(cs.subjectId))
       .map((cs) => ({ id: cs.subjectId, name: cs.subjectName }))
       .filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i);
-  }, [selectedClassId, classSubjects, alreadyAssigned]);
+  }, [selectedClassId, levelClassIds, classSubjects, alreadyAssigned]);
 
   return (
     <form action={action} className="flex flex-wrap items-end gap-3 bg-surface-container-lowest border border-outline-variant rounded-lg p-4">
@@ -58,7 +87,11 @@ export function AssignmentForm({
         <label htmlFor="classId" className="mb-1 block font-label-md text-label-md text-on-surface">Class</label>
         <select id="classId" name="classId" value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} className="border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
           <option value="">— Select class —</option>
-          {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {groupedClasses.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.level}{g.count > 1 ? ` (×${g.count})` : ""}
+            </option>
+          ))}
         </select>
       </div>
 

@@ -38,28 +38,96 @@ export async function createAssignmentAction(
   });
   if (!staff) return { error: "Staff not found." };
 
-  await prisma.assignment.create({
-    data: {
-      schoolId: ctx.schoolId,
-      staffId,
-      assignmentType,
-      subjectId,
-      classId,
-      sessionId,
-      termId,
-    },
-  });
+  // Determine which class IDs to create assignments for.
+  // For subject_teacher with a general subject, or class_teacher, auto-expand
+  // to all department variants of the same level.
+  let targetClassIds: string[] = classId ? [classId] : [];
+
+  if (classId) {
+    const selectedClass = await prisma.class.findUnique({ where: { id: classId } });
+    if (selectedClass) {
+      let shouldExpand = false;
+
+      if (assignmentType === "class_teacher") {
+        // Class teacher: always expand to all department variants
+        shouldExpand = true;
+      } else if (subjectId && !selectedClass.department) {
+        // Subject teacher: expand only if the subject is "general"
+        const classSubject = await prisma.classSubject.findUnique({
+          where: { classId_subjectId: { classId, subjectId } },
+        });
+        shouldExpand = classSubject?.department === "general";
+      }
+
+      if (shouldExpand) {
+        const siblingClasses = await prisma.class.findMany({
+          where: {
+            schoolId: ctx.schoolId,
+            sessionId: selectedClass.sessionId,
+            level: selectedClass.level,
+            id: { not: classId },
+          },
+        });
+
+        if (subjectId) {
+          // For subject assignments: only include siblings linked to this subject as "general"
+          const siblingIds = siblingClasses.map((c) => c.id);
+          const siblingLinks = await prisma.classSubject.findMany({
+            where: { classId: { in: siblingIds }, subjectId, department: "general" },
+          });
+          const validSiblingIds = siblingLinks.map((l) => l.classId);
+          targetClassIds = [classId, ...validSiblingIds];
+        } else {
+          // For class_teacher: include all sibling classes
+          targetClassIds = [classId, ...siblingClasses.map((c) => c.id)];
+        }
+      }
+    }
+  }
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const cid of targetClassIds) {
+    // Skip if assignment already exists for this class+subject
+    const existing = await prisma.assignment.findFirst({
+      where: {
+        staffId,
+        classId: cid,
+        subjectId: subjectId ?? undefined,
+        assignmentType,
+      },
+    });
+    if (existing) { skipped++; continue; }
+
+    await prisma.assignment.create({
+      data: {
+        schoolId: ctx.schoolId,
+        staffId,
+        assignmentType,
+        subjectId,
+        classId: cid,
+        sessionId,
+        termId,
+      },
+    });
+    created++;
+  }
 
   await recordAudit({
     schoolId: ctx.schoolId,
     actorId: ctx.user.userId,
     action: "create",
     entityType: "assignment",
-    afterValue: { staffId, assignmentType, subjectId, classId, sessionId } as never,
+    afterValue: { staffId, assignmentType, subjectId, classId, sessionId, expandedTo: targetClassIds } as never,
   });
 
   revalidatePath(`/staff/${staffId}`);
-  return { success: "Assignment added." };
+
+  if (created > 1) {
+    return { success: `Assignment added for ${created} class(es).` + (skipped > 0 ? ` (${skipped} already existed)` : "") };
+  }
+  return { success: "Assignment added." + (skipped > 0 ? " (already existed)" : "") };
 }
 
 export async function removeAssignmentAction(

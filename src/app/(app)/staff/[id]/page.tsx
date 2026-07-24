@@ -62,7 +62,7 @@ export default async function StaffDetailPage(props: { params: Promise<{ id: str
         </h2>
         <AssignmentForm
           staffId={staff.id}
-          classes={classes.map((c) => ({ id: c.id, name: c.name }))}
+          classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level }))}
           classSubjects={classSubjects.map((cs) => ({
             classId: cs.classId,
             subjectId: cs.subject.id,

@@ -24,8 +24,17 @@ export async function submitPaymentAction(_prev: BillingActionResult, formData: 
 
   const plan = await prisma.licensePlan.findUnique({ where: { id: planId } });
   if (!plan || !plan.isActive) return { error: "Invalid or inactive plan." };
-  if (!plan.price) return { error: "Plan has no price set." };
   if (!plan.durationDays) return { error: "Plan has no duration days set." };
+
+  // Resolve the effective price based on the school's stage
+  const school = await prisma.school.findUnique({ where: { id: user.schoolId }, select: { stage: true } });
+  const stage = school?.stage ?? "basic";
+  const effectivePrice =
+    stage === "premium" ? (plan.premiumPrice ?? plan.standardPrice ?? plan.basicPrice)
+    : stage === "standard" ? (plan.standardPrice ?? plan.basicPrice)
+    : plan.basicPrice;
+
+  if (!effectivePrice) return { error: "Plan has no price set for your stage." };
 
   const method = await prisma.paymentMethod.findUnique({ where: { id: methodId } });
   if (!method || !method.isActive) return { error: "Invalid payment method." };
@@ -50,7 +59,7 @@ export async function submitPaymentAction(_prev: BillingActionResult, formData: 
       data: {
         schoolId: user.schoolId,
         planId,
-        amount: plan.price,
+        amount: effectivePrice,
         paymentMethodId: methodId,
         cashCodeId: codeRecord.id,
         status: "verified",
@@ -62,9 +71,6 @@ export async function submitPaymentAction(_prev: BillingActionResult, formData: 
       where: { id: codeRecord.id },
       data: { isUsed: true, usedAt: new Date(), usedBySchoolId: user.schoolId },
     });
-
-    // Look up school's stage for this license snapshot
-    const school = await prisma.school.findUnique({ where: { id: user.schoolId }, select: { stage: true } });
 
     // Activate or extend license
     const existing = await prisma.schoolLicense.findFirst({
@@ -105,7 +111,7 @@ export async function submitPaymentAction(_prev: BillingActionResult, formData: 
       data: {
         schoolId: user.schoolId,
         planId,
-        amount: plan.price,
+        amount: effectivePrice,
         paymentMethodId: methodId,
         status: "pending",
         reference,
