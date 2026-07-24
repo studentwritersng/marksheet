@@ -130,8 +130,10 @@ export async function aiGenerateNoteAction(
   }
   const objectivesPrompt = `Behavioural objectives (from NERDC syllabus — AUTHORITATIVE, do not alter):\n${curriculumObjectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nThese are the official NERDC objectives. Use them exactly as given. Do not add, remove, or rephrase any objective. Every section of the lesson note must address these specific objectives.`;
 
-  const result = await createCompletion({
-    taskType: "lesson_note_generation",
+  let result;
+  try {
+    result = await createCompletion({
+      taskType: "lesson_note_generation",
     messages: [
       {
         role: "system",
@@ -207,7 +209,11 @@ Write a complete lesson note following the structure above. Ensure all content i
       },
     ],
     temperature: 0.5,
-  });
+    });
+  } catch (e: any) {
+    const msg = e?.message ?? "AI generation failed.";
+    return { error: msg.includes("not configured") ? "AI provider is not configured. Go to Console → AI Config to set one up." : msg };
+  }
 
   // Parse the JSON response (with markdown fence / truncation resilience)
   const parsed = safeJsonParse<Record<string, unknown>>(result.content) ?? {};

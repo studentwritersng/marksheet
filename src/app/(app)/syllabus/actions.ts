@@ -112,9 +112,21 @@ export async function createSyllabusAction(
           },
         });
 
-        if (existingCurriculum) {
+        // Fallback: if no match with exact weekSuffix, try without weekSuffix
+        const curriculumToUpdate = existingCurriculum ?? (weekSuffix ? await prisma.curriculumTopic.findFirst({
+          where: {
+            classLevel,
+            term,
+            subject: subject.name,
+            week: row.week,
+            weekSuffix: "",
+            OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
+          },
+        }) : null);
+
+        if (curriculumToUpdate) {
           await prisma.curriculumTopic.update({
-            where: { id: existingCurriculum.id },
+            where: { id: curriculumToUpdate.id },
             data: {
               topic: row.topic,
               subTopics: row.subTopics ?? [],
@@ -417,15 +429,27 @@ export async function commitSyllabusCsvAction(
         },
       });
 
-      if (existingCurriculum) {
+      // Fallback: if no match with exact weekSuffix, try without weekSuffix
+      const curriculumToUpdate = existingCurriculum ?? (weekSuffix ? await prisma.curriculumTopic.findFirst({
+        where: {
+          classLevel,
+          term: rowTerm,
+          subject: subjectName,
+          week,
+          weekSuffix: "",
+          OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
+        },
+      }) : null);
+
+      if (curriculumToUpdate) {
         await prisma.curriculumTopic.update({
-          where: { id: existingCurriculum.id },
+          where: { id: curriculumToUpdate.id },
           data: {
             topic: r.topic,
             subTopics: r.subTopics,
             behaviouralObjectives: r.objectives,
             isSystem: false,
-            schoolId: ctx.schoolId, // adopt the record for this school
+            schoolId: ctx.schoolId,
           },
         });
       } else {
