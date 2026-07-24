@@ -205,6 +205,8 @@ export async function savePeriodsAction(
 
   if (periods.length < 3) return { error: "At least 3 periods required." };
 
+  // Delete existing timetable entries first (they reference periods via FK)
+  await prisma.timetableEntry.deleteMany({ where: { schoolId: ctx.schoolId } });
   // Replace all existing timetable periods for this school
   await prisma.timetablePeriod.deleteMany({ where: { schoolId: ctx.schoolId } });
   for (const p of periods) {

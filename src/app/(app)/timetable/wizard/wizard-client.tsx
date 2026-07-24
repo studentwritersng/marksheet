@@ -79,53 +79,58 @@ export function WizardClient({
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [wizardRes, initData] = await Promise.all([
-      getOrCreateWizardAction(),
-      getWizardInitData(),
-    ]);
-    setData(initData);
-    setMissingTeachers(initData.missingTeachers);
-    setStaffState(initData.staff);
+    setError("");
+    try {
+      const [wizardRes, initData] = await Promise.all([
+        getOrCreateWizardAction(),
+        getWizardInitData(),
+      ]);
+      setData(initData);
+      setMissingTeachers(initData.missingTeachers);
+      setStaffState(initData.staff);
 
-    // Build subject frequency defaults
-    const freq: SubjectFreq[] = [];
-    for (const cls of initData.classes) {
-      const subjects = initData.classSubjects.filter((cs) => cs.classId === cls.id);
-      for (const cs of subjects) {
-        freq.push({
-          classId: cls.id,
-          subjectId: cs.subject.id,
-          className: `${cls.level}${cls.section ? cls.section : ""}${cls.department ? ` (${cls.department})` : ""}`,
-          subjectName: cs.subject.name,
-          minPerWeek: 1,
-          maxPerWeek: 3,
-        });
+      // Build subject frequency defaults
+      const freq: SubjectFreq[] = [];
+      for (const cls of initData.classes) {
+        const subjects = initData.classSubjects.filter((cs) => cs.classId === cls.id);
+        for (const cs of subjects) {
+          freq.push({
+            classId: cls.id,
+            subjectId: cs.subject.id,
+            className: `${cls.level}${cls.section ? cls.section : ""}${cls.department ? ` (${cls.department})` : ""}`,
+            subjectName: cs.subject.name,
+            minPerWeek: 1,
+            maxPerWeek: 3,
+          });
+        }
       }
-    }
-    setSubjectFreq(freq);
+      setSubjectFreq(freq);
 
-    // Restore wizard progress
-    if (wizardRes.completed) {
-      // Wizard already done, go to timetable
-      router.push("/timetable");
-      return;
-    }
-    setStep(wizardRes.currentStep);
+      // Restore wizard progress
+      if (wizardRes.completed) {
+        // Wizard already done, go to timetable
+        router.push("/timetable");
+        return;
+      }
+      setStep(wizardRes.currentStep);
 
-    // Restore step data if available
-    const sd = wizardRes.stepData;
-    if (sd?.periods) setPeriods(sd.periods as PeriodEntry[]);
-    if (sd?.subjectFrequency) setSubjectFreq(sd.subjectFrequency as SubjectFreq[]);
-    if (sd?.teacherLoad) {
-      const tl = sd.teacherLoad as { globalMaxPerDay: number; globalMaxPerWeek: number; overrides: { staffId: string; maxPerDay: number; maxPerWeek: number }[] };
-      setGlobalMaxPerDay(tl.globalMaxPerDay ?? 8);
-      setGlobalMaxPerWeek(tl.globalMaxPerWeek ?? 40);
-      const ovMap: Record<string, { maxPerDay: number; maxPerWeek: number }> = {};
-      for (const o of tl.overrides ?? []) ovMap[o.staffId] = { maxPerDay: o.maxPerDay, maxPerWeek: o.maxPerWeek };
-      setTeacherLoadOverrides(ovMap);
+      // Restore step data if available
+      const sd = wizardRes.stepData;
+      if (sd?.periods) setPeriods(sd.periods as PeriodEntry[]);
+      if (sd?.subjectFrequency) setSubjectFreq(sd.subjectFrequency as SubjectFreq[]);
+      if (sd?.teacherLoad) {
+        const tl = sd.teacherLoad as { globalMaxPerDay: number; globalMaxPerWeek: number; overrides: { staffId: string; maxPerDay: number; maxPerWeek: number }[] };
+        setGlobalMaxPerDay(tl.globalMaxPerDay ?? 8);
+        setGlobalMaxPerWeek(tl.globalMaxPerWeek ?? 40);
+        const ovMap: Record<string, { maxPerDay: number; maxPerWeek: number }> = {};
+        for (const o of tl.overrides ?? []) ovMap[o.staffId] = { maxPerDay: o.maxPerDay, maxPerWeek: o.maxPerWeek };
+        setTeacherLoadOverrides(ovMap);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load wizard data.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }, [router]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -134,98 +139,138 @@ export function WizardClient({
 
   async function handleStart() {
     setLoading(true);
-    const res = await startWizardAction();
-    if (res.step) setStep(res.step);
-    setLoading(false);
+    try {
+      const res = await startWizardAction();
+      if (res.step) setStep(res.step);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to start wizard.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleValidateTeachers() {
     setLoading(true);
     setError("");
-    const res = await validateTeacherAssignmentsAction();
-    if (res.error && res.missingTeachers) {
-      setMissingTeachers(res.missingTeachers);
-      setError(res.error);
-    } else if (res.step) {
-      setStep(res.step);
+    try {
+      const res = await validateTeacherAssignmentsAction();
+      if (res.error && res.missingTeachers) {
+        setMissingTeachers(res.missingTeachers);
+        setError(res.error);
+      } else if (res.step) {
+        setStep(res.step);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to validate.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleSaveTeachers() {
     setLoading(true);
     setError("");
-    const fd = new FormData();
-    fd.set("teachers", JSON.stringify(staffState.map((s) => ({
-      id: s.id,
-      partTime: s.partTime,
-      workDays: s.workDays,
-      dayStartTime: s.dayStartTime ?? "",
-      dayEndTime: s.dayEndTime ?? "",
-    }))));
-    const res = await saveTeacherAvailabilityAction({}, fd);
-    if (res.error) setError(res.error);
-    else if (res.step) setStep(res.step);
-    setLoading(false);
+    try {
+      const fd = new FormData();
+      fd.set("teachers", JSON.stringify(staffState.map((s) => ({
+        id: s.id,
+        partTime: s.partTime,
+        workDays: s.workDays,
+        dayStartTime: s.dayStartTime ?? "",
+        dayEndTime: s.dayEndTime ?? "",
+      }))));
+      const res = await saveTeacherAvailabilityAction({}, fd);
+      if (res.error) setError(res.error);
+      else if (res.step) setStep(res.step);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save teacher availability.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSavePeriods() {
     setLoading(true);
     setError("");
-    const fd = new FormData();
-    fd.set("periods", JSON.stringify(periods));
-    const res = await savePeriodsAction({}, fd);
-    if (res.error) setError(res.error);
-    else if (res.step) setStep(res.step);
-    setLoading(false);
+    try {
+      const fd = new FormData();
+      fd.set("periods", JSON.stringify(periods));
+      const res = await savePeriodsAction({}, fd);
+      if (res.error) setError(res.error);
+      else if (res.step) setStep(res.step);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save periods.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSaveFrequency() {
     setLoading(true);
     setError("");
-    const fd = new FormData();
-    fd.set("frequency", JSON.stringify(subjectFreq));
-    const res = await saveSubjectFrequencyAction({}, fd);
-    if (res.error) setError(res.error);
-    else if (res.step) setStep(res.step);
-    setLoading(false);
+    try {
+      const fd = new FormData();
+      fd.set("frequency", JSON.stringify(subjectFreq));
+      const res = await saveSubjectFrequencyAction({}, fd);
+      if (res.error) setError(res.error);
+      else if (res.step) setStep(res.step);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save frequency.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSaveTeacherLoad() {
     setLoading(true);
     setError("");
-    const fd = new FormData();
-    fd.set("globalMaxPerDay", String(globalMaxPerDay));
-    fd.set("globalMaxPerWeek", String(globalMaxPerWeek));
-    fd.set("overrides", JSON.stringify(
-      Object.entries(teacherLoadOverrides).map(([staffId, v]) => ({ staffId, maxPerDay: v.maxPerDay, maxPerWeek: v.maxPerWeek }))
-    ));
-    const res = await saveTeacherLoadAction({}, fd);
-    if (res.error) setError(res.error);
-    else if (res.step) setStep(res.step);
-    setLoading(false);
+    try {
+      const fd = new FormData();
+      fd.set("globalMaxPerDay", String(globalMaxPerDay));
+      fd.set("globalMaxPerWeek", String(globalMaxPerWeek));
+      fd.set("overrides", JSON.stringify(
+        Object.entries(teacherLoadOverrides).map(([staffId, v]) => ({ staffId, maxPerDay: v.maxPerDay, maxPerWeek: v.maxPerWeek }))
+      ));
+      const res = await saveTeacherLoadAction({}, fd);
+      if (res.error) setError(res.error);
+      else if (res.step) setStep(res.step);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save teacher load.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleComplete() {
     setLoading(true);
     setError("");
     setSuccess("");
-    const res = await completeWizardAction();
-    if (res.error) setError(res.error);
-    else {
-      setSuccess(res.success ?? "Done!");
-      setTimeout(() => router.push("/timetable"), 1500);
+    try {
+      const res = await completeWizardAction();
+      if (res.error) setError(res.error);
+      else {
+        setSuccess(res.success ?? "Done!");
+        setTimeout(() => router.push("/timetable"), 1500);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to complete wizard.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleReset() {
     setLoading(true);
-    await resetWizardAction();
-    setStep(1);
-    setError("");
-    setSuccess("");
-    setLoading(false);
+    try {
+      await resetWizardAction();
+      setStep(1);
+      setError("");
+      setSuccess("");
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to reset wizard.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
