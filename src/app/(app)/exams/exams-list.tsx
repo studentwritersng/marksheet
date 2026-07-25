@@ -209,15 +209,19 @@ function CreateExamForm({
   const [selSubject, setSelSubject] = useState("");
   const [selAssessType, setSelAssessType] = useState("");
   const [subWeights, setSubWeights] = useState<Record<string, string>>({});
+  const [enabledComps, setEnabledComps] = useState<Set<string>>(new Set());
   const [selClassLevels, setSelClassLevels] = useState<string[]>([]);
 
   const selectedType = assessmentTypes.find((t) => t.code === selAssessType);
   const hasSubAssessments = selectedType && selectedType.children.length > 0;
   const parentWeight = selectedType?.defaultWeight ?? 0;
+  // Only sum marks for enabled components
   const subTotal = hasSubAssessments
-    ? Object.values(subWeights).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+    ? selectedType.children
+        .filter((c) => enabledComps.has(c.id))
+        .reduce((s, c) => s + (parseFloat(subWeights[c.id] || "0") || 0), 0)
     : 0;
-  const weightValid = !hasSubAssessments || Math.abs(subTotal - parentWeight) < 0.01;
+  const weightValid = !hasSubAssessments || enabledComps.size === 0 || Math.abs(subTotal - parentWeight) < 0.01;
 
   const filteredQuestions = questions.filter((q) => {
     if (selSubject && q.subjectId !== selSubject) return false;
@@ -247,8 +251,8 @@ function CreateExamForm({
       <input type="hidden" name="subAssessmentWeights" value={JSON.stringify(
         hasSubAssessments
           ? selectedType.children
-              .filter((c) => parseFloat(subWeights[c.id] || "0") > 0)
-              .map((c) => ({ subAssessmentTypeId: c.id, weightPercentage: parseFloat(subWeights[c.id] || "0") }))
+              .filter((c) => enabledComps.has(c.id))
+              .map((c) => ({ subAssessmentTypeId: c.id, weightPercentage: parseFloat(subWeights[c.id] || "0") || 0 }))
           : []
       )} />
       <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">New Exam</h3>
@@ -314,7 +318,7 @@ function CreateExamForm({
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Assessment type</label>
           <select name="assessmentTypeId" required value={selAssessType}
-            onChange={(e) => { setSelAssessType(e.target.value); setSubWeights({}); }}
+            onChange={(e) => { setSelAssessType(e.target.value); setSubWeights({}); setEnabledComps(new Set()); }}
             className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md"
           ><option value="">Select type</option>{assessmentTypes.map((t) => <option key={t.code} value={t.code}>{t.name} ({t.code}){t.defaultWeight ? ` — ${t.defaultWeight}%` : ""}</option>)}</select>
         </div>
@@ -343,7 +347,7 @@ function CreateExamForm({
           </p>
           <div className="space-y-2">
             {selectedType.children.map((child) => {
-              const enabled = parseFloat(subWeights[child.id] || "0") > 0;
+              const enabled = enabledComps.has(child.id);
               return (
                 <div key={child.id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2.5 border border-outline-variant">
                   <input
@@ -351,8 +355,12 @@ function CreateExamForm({
                     id={`comp-${child.id}`}
                     checked={enabled}
                     onChange={(e) => {
-                      if (!e.target.checked) setSubWeights((prev) => ({ ...prev, [child.id]: "" }));
-                      else setSubWeights((prev) => ({ ...prev, [child.id]: "0" }));
+                      setEnabledComps((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(child.id);
+                        else { next.delete(child.id); setSubWeights((w) => ({ ...w, [child.id]: "" })); }
+                        return next;
+                      });
                     }}
                     className="rounded border-outline-variant text-[#002046]"
                   />
@@ -381,7 +389,7 @@ function CreateExamForm({
                       disabled={!enabled}
                       onChange={(e) => setSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
                       placeholder="0"
-                      className="w-20 border border-outline-variant rounded p-1.5 text-sm text-right disabled:opacity-40 disabled:bg-surface-container-low"
+                      className="w-20 border border-outline-variant rounded p-1.5 text-sm text-right disabled:opacity-40 disabled:bg-surface-container-low focus:outline-none focus:border-primary"
                     />
                     <span className="font-body-sm text-body-sm text-on-surface-variant">marks</span>
                   </div>
@@ -457,14 +465,17 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
 }) {
   const [editAssessType, setEditAssessType] = useState(exam.assessmentTypeId);
   const [editSubWeights, setEditSubWeights] = useState<Record<string, string>>({});
+  const [editEnabledComps, setEditEnabledComps] = useState<Set<string>>(new Set());
 
   const editSelectedType = assessmentTypes.find((t) => t.code === editAssessType);
   const editHasSub = editSelectedType && editSelectedType.children.length > 0;
   const editParentWeight = editSelectedType?.defaultWeight ?? 0;
   const editSubTotal = editHasSub
-    ? Object.values(editSubWeights).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+    ? editSelectedType.children
+        .filter((c) => editEnabledComps.has(c.id))
+        .reduce((s, c) => s + (parseFloat(editSubWeights[c.id] || "0") || 0), 0)
     : 0;
-  const editWeightValid = !editHasSub || Math.abs(editSubTotal - editParentWeight) < 0.01;
+  const editWeightValid = !editHasSub || editEnabledComps.size === 0 || Math.abs(editSubTotal - editParentWeight) < 0.01;
 
   return (
     <form action={action} className="space-y-3">
@@ -472,8 +483,8 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
       <input type="hidden" name="subAssessmentWeights" value={JSON.stringify(
         editHasSub
           ? editSelectedType.children
-              .filter((c) => parseFloat(editSubWeights[c.id] || "0") > 0)
-              .map((c) => ({ subAssessmentTypeId: c.id, weightPercentage: parseFloat(editSubWeights[c.id] || "0") }))
+              .filter((c) => editEnabledComps.has(c.id))
+              .map((c) => ({ subAssessmentTypeId: c.id, weightPercentage: parseFloat(editSubWeights[c.id] || "0") || 0 }))
           : []
       )} />
       <div className="grid grid-cols-3 gap-3">
@@ -521,7 +532,7 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Type</label>
           <select name="assessmentTypeId" value={editAssessType}
-            onChange={(e) => { setEditAssessType(e.target.value); setEditSubWeights({}); }}
+            onChange={(e) => { setEditAssessType(e.target.value); setEditSubWeights({}); setEditEnabledComps(new Set()); }}
             required
             className="w-full border border-outline-variant rounded p-2 text-sm"
           >{assessmentTypes.map((t) => <option key={t.code} value={t.code}>{t.name}{t.defaultWeight ? ` (${t.defaultWeight}%)` : ""}</option>)}</select>
@@ -547,15 +558,19 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
           </p>
           <div className="space-y-1.5">
             {editSelectedType.children.map((child) => {
-              const enabled = parseFloat(editSubWeights[child.id] || "0") > 0;
+              const enabled = editEnabledComps.has(child.id);
               return (
                 <div key={child.id} className="flex items-center gap-2 bg-white rounded px-2 py-2 border border-outline-variant">
                   <input
                     type="checkbox"
                     checked={enabled}
                     onChange={(e) => {
-                      if (!e.target.checked) setEditSubWeights((prev) => ({ ...prev, [child.id]: "" }));
-                      else setEditSubWeights((prev) => ({ ...prev, [child.id]: "0" }));
+                      setEditEnabledComps((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(child.id);
+                        else { next.delete(child.id); setEditSubWeights((w) => ({ ...w, [child.id]: "" })); }
+                        return next;
+                      });
                     }}
                     className="rounded border-outline-variant text-[#002046]"
                   />
@@ -568,7 +583,7 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
                     disabled={!enabled}
                     onChange={(e) => setEditSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
                     placeholder="0"
-                    className="w-16 border border-outline-variant rounded p-1 text-sm text-right disabled:opacity-40"
+                    className="w-16 border border-outline-variant rounded p-1 text-sm text-right disabled:opacity-40 disabled:bg-surface-container-low focus:outline-none focus:border-primary"
                   />
                   <span className="text-xs text-on-surface-variant">marks</span>
                 </div>

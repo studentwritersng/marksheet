@@ -13,9 +13,13 @@ export function WeightingsPage({
   schoolId: string;
   subjects: { id: string; name: string }[];
   weightings: { id: string; subjectId: string | null; assessmentTypeId: string; weightPercentage: number }[];
-  assessmentTypes: { id: string; name: string; code: string; sortOrder: number }[];
+  assessmentTypes: { id: string; name: string; code: string; sortOrder: number; parentId?: string | null; children?: { id: string; name: string; code: string; sortOrder: number }[] }[];
 }) {
   const [tab, setTab] = useState<"types" | "weights">("types");
+
+  // WeightingsSection only works with top-level (parent) assessment types —
+  // sub-types (OBJ, THEORY, PRC) are configured per-exam, not here.
+  const parentTypes = assessmentTypes.filter((t) => !t.parentId);
 
   return (
     <div className="space-y-6">
@@ -37,7 +41,7 @@ export function WeightingsPage({
           schoolId={schoolId}
           subjects={subjects}
           weightings={weightings}
-          assessmentTypes={assessmentTypes}
+          assessmentTypes={parentTypes}
         />
       )}
     </div>
@@ -384,7 +388,7 @@ function WeightRow({ id, schoolId, subjectId, assessmentTypeId, weightPercentage
         <span className="font-label-sm text-label-sm bg-primary/10 text-primary px-1.5 py-0.5 rounded">{assessmentTypeId}</span>
       </div>
       <div className="flex items-center gap-4">
-        <span className="text-on-surface-variant">{weightPercentage}%</span>
+        <span className="text-on-surface-variant">{weightPercentage} marks</span>
         <button onClick={() => { setEditingId(id); setEditPct(String(weightPercentage)); }}
           className="font-label-sm text-label-sm text-primary hover:underline">Edit</button>
         <form action={async () => {
