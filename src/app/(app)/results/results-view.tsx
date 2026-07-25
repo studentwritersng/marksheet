@@ -158,7 +158,7 @@ export function ResultsView({
       {/* ── COMPUTE TAB ──────────────────────────────────────────────── */}
       {activeTab === "compute" && (
         <>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap items-center">
             <button
               onClick={handleCompute}
               disabled={computing}
@@ -174,6 +174,12 @@ export function ResultsView({
               >
                 {finalizing ? "Finalizing…" : "Finalize results"}
               </button>
+            )}
+            {termResults.length > 0 && (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                Grades reflect the last time &quot;Compute results&quot; was run.
+                Click it again after entering new scores to refresh grades.
+              </p>
             )}
           </div>
 

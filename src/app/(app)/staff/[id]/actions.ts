@@ -261,3 +261,60 @@ export async function deleteStaffAction(staffId: string): Promise<ActionState> {
   revalidatePath("/staff");
   return { success: "Staff deleted." };
 }
+
+export async function createStaffLoginAction(
+  staffId: string,
+): Promise<ActionState & { generatedPassword?: string }> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const staff = await prisma.staff.findFirst({
+    where: { id: staffId, schoolId: ctx.schoolId },
+    include: { user: { select: { id: true } } },
+  });
+  if (!staff) return { error: "Staff not found." };
+  if (staff.user) return { error: "This staff member already has a login account." };
+
+  // Check if a user already exists with this email (orphaned)
+  const existingUser = await prisma.user.findUnique({ where: { email: staff.email } });
+  if (existingUser) {
+    // Re-link the existing user to this staff record
+    await prisma.user.update({
+      where: { id: existingUser.id },
+      data: { staffId: staff.id, schoolId: ctx.schoolId, role: "staff" },
+    });
+    revalidatePath(`/staff/${staffId}`);
+    return { success: "Existing account re-linked to this staff member." };
+  }
+
+  // Create a fresh account
+  const crypto = await import("crypto");
+  const tempPassword = crypto.randomUUID().slice(0, 12);
+  const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+  await prisma.user.create({
+    data: {
+      schoolId: ctx.schoolId,
+      email: staff.email,
+      passwordHash,
+      role: "staff",
+      staffId: staff.id,
+      mustChangePassword: true,
+    },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "create",
+    entityType: "user",
+    afterValue: { staffId, email: staff.email } as never,
+  });
+
+  revalidatePath(`/staff/${staffId}`);
+  return {
+    success: "Login account created. Staff must change password on first login.",
+    generatedPassword: tempPassword,
+  };
+}

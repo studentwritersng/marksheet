@@ -53,8 +53,30 @@ export default async function StaffDetailPage(props: { params: Promise<{ id: str
 
   return (
     <div>
-      <h1 className="font-headline-lg text-headline-lg text-on-surface">{staff.fullName}</h1>
-      <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{staff.email}</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <a href="/staff" className="font-label-sm text-label-sm text-primary hover:underline">← Staff</a>
+          <h1 className="mt-1 font-headline-lg text-headline-lg text-on-surface">{staff.fullName}</h1>
+          <p className="mt-0.5 font-body-sm text-body-sm text-on-surface-variant">
+            {staff.email}
+            {staff.phone ? ` · ${staff.phone}` : ""}
+          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+              staff.accountStatus === "suspended"
+                ? "bg-red-100 text-red-700"
+                : "bg-green-100 text-green-700"
+            }`}>
+              {staff.accountStatus === "suspended" ? "Suspended" : "Active"}
+            </span>
+            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+              staff.user ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-700"
+            }`}>
+              {staff.user ? "Has login account" : "No login account"}
+            </span>
+          </div>
+        </div>
+      </div>
 
       <div className="mt-8">
         <h2 className="mb-3 font-label-md text-label-md text-on-surface">

@@ -18,7 +18,12 @@ export function StaffRow({ staff }: { staff: StaffVM }) {
   return (
     <div className="flex items-center justify-between bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3">
       <div>
-        <p className="font-label-md text-label-md text-on-surface">{staff.fullName}</p>
+        <Link
+          href={`/staff/${staff.id}`}
+          className="font-label-md text-label-md text-on-surface hover:text-primary hover:underline"
+        >
+          {staff.fullName}
+        </Link>
         <p className="font-label-sm text-label-sm text-on-surface-variant">{staff.email}{staff.phone ? ` · ${staff.phone}` : ""}</p>
         {staff.assignments.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
@@ -37,9 +42,9 @@ export function StaffRow({ staff }: { staff: StaffVM }) {
       </div>
       <Link
         href={`/staff/${staff.id}`}
-        className="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface"
+        className="font-label-sm text-label-sm text-primary hover:underline"
       >
-        Assignments
+        Manage →
       </Link>
     </div>
   );

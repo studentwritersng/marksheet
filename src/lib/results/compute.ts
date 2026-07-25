@@ -158,6 +158,12 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
     const { subjectId, assessmentTypeId } = exam;
 
     // Raw platform score for this attempt
+    const gradedAnswers = attempt.answers.filter(
+      (ans) => ans.finalScore != null || ans.aiSuggestedScore != null || ans.gradedScore != null
+    );
+    // If no answers have been graded yet, skip — don't score a 0
+    if (gradedAnswers.length === 0) continue;
+
     const platformRaw = attempt.answers.reduce((sum, ans) => {
       const score = ans.finalScore ?? ans.aiSuggestedScore ?? ans.gradedScore ?? 0;
       return sum + Number(score);
