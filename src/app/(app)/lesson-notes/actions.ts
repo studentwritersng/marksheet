@@ -113,8 +113,10 @@ export async function aiGenerateNoteAction(
         subject: subject.name,
         term: termName,
         topic: { contains: topic, mode: "insensitive" },
-        schoolId: null,
-        isSystem: true,
+        OR: [
+          { schoolId: null, isSystem: true },  // NERDC system default
+          { schoolId: ctx.schoolId },           // School-specific override
+        ],
       },
       orderBy: { week: "asc" },
     });
