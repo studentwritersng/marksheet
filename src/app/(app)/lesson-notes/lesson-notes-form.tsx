@@ -9,10 +9,14 @@ export function LessonNotesForm({
   subjects,
   classes,
   terms,
+  schoolId,
+  classSubjects,
 }: {
   subjects: { id: string; name: string }[];
   classes: { id: string; name: string; level: string }[];
   terms: { id: string; name: string }[];
+  schoolId: string;
+  classSubjects: { classId: string; subjectId: string }[];
 }) {
   const [manualState, manualAction, manualPending] = useActionState(createLessonNoteAction, init);
   const [aiPending, startAi] = useTransition();
@@ -21,29 +25,45 @@ export function LessonNotesForm({
   const [activeTab, setActiveTab] = useState<"manual" | "ai">("manual");
 
   // Syllabus-based AI generation state
-  const [aiSubjectId, setAiSubjectId] = useState("");
-  const [aiClassId, setAiClassId] = useState("");
   const [aiTermId, setAiTermId] = useState("");
+  const [aiClassId, setAiClassId] = useState("");
+  const [aiSubjectId, setAiSubjectId] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("");
   const [curriculumTopics, setCurriculumTopics] = useState<{ id: string; topic: string; week: number; weekSuffix: string }[]>([]);
   const [loadingTopics, setLoadingTopics] = useState(false);
+  const [filteredSubjects, setFilteredSubjects] = useState<{ id: string; name: string }[]>([]);
 
-  async function loadCurriculumTopics(subjectId: string, classId: string, termId: string) {
-    if (!subjectId || !classId || !termId) {
+  // When class changes, filter subjects linked via ClassSubject
+  function handleClassChange(classId: string) {
+    setAiClassId(classId);
+    setAiSubjectId("");
+    setSelectedTopic("");
+    setCurriculumTopics([]);
+    if (!classId) {
+      setFilteredSubjects([]);
+      return;
+    }
+    const linkedSubjectIds = classSubjects
+      .filter((cs) => cs.classId === classId)
+      .map((cs) => cs.subjectId);
+    setFilteredSubjects(subjects.filter((s) => linkedSubjectIds.includes(s.id)));
+  }
+
+  async function loadCurriculumTopics(termId: string, classId: string, subjectId: string) {
+    if (!termId || !classId || !subjectId) {
       setCurriculumTopics([]);
       return;
     }
     setLoadingTopics(true);
     try {
-      const subject = subjects.find((s) => s.id === subjectId);
+      const subject = filteredSubjects.find((s) => s.id === subjectId) || subjects.find((s) => s.id === subjectId);
       const cls = classes.find((c) => c.id === classId);
       const term = terms.find((t) => t.id === termId);
       if (!subject || !cls || !term) return;
       const classLevel = cls.level;
       const termName = term.name.toUpperCase();
 
-      let topics = await getCurriculumTopicsAction(subject.name, classLevel, termName);
-      // If no topics found, try common NERDC name variations
+      let topics = await getCurriculumTopicsAction(subject.name, classLevel, termName, schoolId);
       if (topics.length === 0) {
         const altNames: Record<string, string[]> = {
           "English Language": ["English Studies", "English"],
@@ -59,7 +79,7 @@ export function LessonNotesForm({
         };
         const alternatives = altNames[subject.name] ?? [];
         for (const alt of alternatives) {
-          topics = await getCurriculumTopicsAction(alt, classLevel, termName);
+          topics = await getCurriculumTopicsAction(alt, classLevel, termName, schoolId);
           if (topics.length > 0) break;
         }
       }
@@ -101,18 +121,18 @@ export function LessonNotesForm({
       <form action={activeTab === "manual" ? manualAction : handleAiGenerate} className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
-            <select name="subjectId" required
-              value={aiSubjectId}
+            <label className="mb-1 block font-label-md text-label-md text-on-surface">Term</label>
+            <select name="termId" required
+              value={aiTermId}
               onChange={(e) => {
                 const v = e.target.value;
-                setAiSubjectId(v);
-                loadCurriculumTopics(v, aiClassId, aiTermId);
+                setAiTermId(v);
+                if (aiClassId && aiSubjectId) loadCurriculumTopics(v, aiClassId, aiSubjectId);
               }}
               className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
             >
-              <option value="">Select subject…</option>
-              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              <option value="">Select term…</option>
+              {terms.map((t) => <option key={t.id} value={t.id}>{t.name} Term</option>)}
             </select>
           </div>
           <div>
@@ -120,9 +140,8 @@ export function LessonNotesForm({
             <select name="classId" required
               value={aiClassId}
               onChange={(e) => {
-                const v = e.target.value;
-                setAiClassId(v);
-                loadCurriculumTopics(aiSubjectId, v, aiTermId);
+                handleClassChange(e.target.value);
+                if (aiTermId) loadCurriculumTopics(aiTermId, e.target.value, "");
               }}
               className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
             >
@@ -131,18 +150,18 @@ export function LessonNotesForm({
             </select>
           </div>
           <div>
-            <label className="mb-1 block font-label-md text-label-md text-on-surface">Term</label>
-            <select name="termId" required
-              value={aiTermId}
+            <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
+            <select name="subjectId" required
+              value={aiSubjectId}
               onChange={(e) => {
-                const v = e.target.value;
-                setAiTermId(v);
-                loadCurriculumTopics(aiSubjectId, aiClassId, v);
+                setAiSubjectId(e.target.value);
+                if (aiTermId && aiClassId) loadCurriculumTopics(aiTermId, aiClassId, e.target.value);
               }}
-              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
+              disabled={!aiClassId}
+              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary disabled:opacity-50"
             >
-              <option value="">Select term…</option>
-              {terms.map((t) => <option key={t.id} value={t.id}>{t.name} Term</option>)}
+              <option value="">{aiClassId ? "Select subject…" : "Select class first…"}</option>
+              {filteredSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
         </div>

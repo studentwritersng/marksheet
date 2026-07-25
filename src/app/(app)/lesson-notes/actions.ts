@@ -307,27 +307,43 @@ export async function getCurriculumTopicsAction(
   subjectName: string,
   classLevel: string,
   term: string,
+  schoolId?: string,
 ): Promise<{ id: string; topic: string; week: number; weekSuffix: string }[]> {
-  async function query(cl: string) {
+  async function query(cl: string, sid?: string) {
     return prisma.curriculumTopic.findMany({
       where: {
         subject: { equals: subjectName, mode: "insensitive" },
         classLevel: cl,
         term,
+        ...(sid
+          ? { schoolId: sid }
+          : { schoolId: null, isSystem: true }),
       },
       orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
       select: { id: true, topic: true, week: true, weekSuffix: true },
     });
   }
 
-  const topics = await query(classLevel);
+  // 1) School-specific entries first
+  if (schoolId) {
+    let topics = await query(classLevel, schoolId);
+    if (topics.length > 0) return topics;
+
+    const alt = classLevel.replace(/^SSS(\d)$/, "SS$1").replace(/^SS(\d)$/, "SSS$1");
+    if (alt !== classLevel) {
+      topics = await query(alt, schoolId);
+      if (topics.length > 0) return topics;
+    }
+  }
+
+  // 2) Fall back to NERDC system defaults
+  let topics = await query(classLevel);
   if (topics.length > 0) return topics;
 
-  // Try alternate naming: SSS1 ↔ SS1, SSS2 ↔ SS2, SSS3 ↔ SS3
   const alt = classLevel.replace(/^SSS(\d)$/, "SS$1").replace(/^SS(\d)$/, "SSS$1");
   if (alt !== classLevel) {
-    const altTopics = await query(alt);
-    if (altTopics.length > 0) return altTopics;
+    topics = await query(alt);
+    if (topics.length > 0) return topics;
   }
 
   return [];

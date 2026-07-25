@@ -17,7 +17,7 @@ export default async function LessonNotesPage() {
 
   const isAdmin = canManageSchool(perms);
 
-  const [subjects, classes, terms, notes] = await Promise.all([
+  const [subjects, classes, terms, notes, classSubjects] = await Promise.all([
     isAdmin
       ? prisma.subject.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } })
       : prisma.subject.findMany({
@@ -42,6 +42,10 @@ export default async function LessonNotesPage() {
           include: { subject: { select: { name: true } }, class: { select: { name: true } }, term: { select: { name: true } } },
           orderBy: { createdAt: "desc" },
         }),
+    prisma.classSubject.findMany({
+      where: { schoolId: user.schoolId },
+      select: { classId: true, subjectId: true },
+    }),
   ]);
 
   return (
@@ -61,6 +65,8 @@ export default async function LessonNotesPage() {
           subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
           classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level }))}
           terms={terms.map((t) => ({ id: t.id, name: t.name }))}
+          schoolId={user.schoolId!}
+          classSubjects={classSubjects}
         />
       </div>
 
