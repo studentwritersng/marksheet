@@ -120,7 +120,6 @@ export async function aiGenerateNoteAction(
     "Home Economics": ["Home Management"],
     "Christian Religious Studies": ["CRS", "Christian Religious Knowledge", "Christian Religious Education"],
     "Islamic Studies": ["IRS", "Islamic Religious Studies"],
-    "Home Economics": ["Home Management"],
   };
 
   if (cls && term && subject) {
