@@ -178,14 +178,15 @@ export async function aiGenerateNoteAction(
 
     // 3) Last resort: reverse match — user topic contains curriculum topic
     if (!curriculum) {
+      // Search both school-specific and NERDC defaults
       const allCurriculum = await prisma.curriculumTopic.findMany({
         where: {
           classLevel: cls.level,
           subject: { in: subjectVariations },
           term: termName,
-          schoolId: null,
+          OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
         },
-        orderBy: { week: "asc" },
+        orderBy: [{ schoolId: "desc" }, { week: "asc" }], // school-specific first
       });
       const lowerTopic = topic.toLowerCase();
       curriculum = allCurriculum.find((c) => lowerTopic.includes(c.topic.toLowerCase())) ?? null;
@@ -197,12 +198,18 @@ export async function aiGenerateNoteAction(
     }
   }
 
-  const hasCurriculumObjectives = curriculumObjectives.length > 0;
-  if (!hasCurriculumObjectives) {
+  // If no curriculum row was found at all, bail out
+  const hasCurriculumEntry = !!( cls && term && subject &&
+    (curriculumTopic || curriculumObjectives.length > 0)
+  );
+  if (!hasCurriculumEntry) {
     const searchedNames = subject ? [subject.name, ...Object.values(altNames).flat()] : [];
     return { error: `No curriculum entry found for "${topic}" in ${subject?.name ?? subjectId} (${cls?.level}) ${term?.name}. Searched subject names: ${searchedNames.join(", ")}. Add it to the curriculum first.` };
   }
-  const objectivesPrompt = `Behavioural objectives (from NERDC syllabus — AUTHORITATIVE, do not alter):\n${curriculumObjectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nThese are the official NERDC objectives. Use them exactly as given. Do not add, remove, or rephrase any objective. Every section of the lesson note must address these specific objectives.`;
+
+  const objectivesPrompt = curriculumObjectives.length > 0
+    ? `Behavioural objectives (from NERDC syllabus — AUTHORITATIVE, do not alter):\n${curriculumObjectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nThese are the official NERDC objectives. Use them exactly as given. Do not add, remove, or rephrase any objective. Every section of the lesson note must address these specific objectives.`
+    : `No pre-set behavioural objectives are available for this topic. Generate appropriate behavioural objectives yourself (3–5 objectives starting with "By the end of the lesson, students should be able to…"), then use them to structure the lesson note.`;
 
   let result;
   try {

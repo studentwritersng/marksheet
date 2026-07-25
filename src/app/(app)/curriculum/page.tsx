@@ -46,15 +46,32 @@ export default async function CurriculumPage(props: {
     : [];
   const linkedSubjectNames = linkedSubjects.map((s) => s.name);
 
-  // Also get subjects from curriculum for the filter
-  const subjectsRaw = await prisma.curriculumTopic.findMany({
+  // Subjects from NERDC system entries for this class level
+  const nerdcSubjectsRaw = await prisma.curriculumTopic.findMany({
     where: { classLevel: selectedClass, schoolId: null },
     select: { subject: true },
     distinct: ["subject"],
     orderBy: { subject: "asc" },
   });
-  const curriculumSubjects = subjectsRaw.map((s) => s.subject);
-  const filterSubjects = curriculumSubjects.length > 0 ? curriculumSubjects : linkedSubjectNames;
+  const nerdcSubjects = nerdcSubjectsRaw.map((s) => s.subject);
+
+  // Subjects from school-specific overrides for this class level
+  const schoolSubjectsRaw = await prisma.curriculumTopic.findMany({
+    where: { classLevel: selectedClass, schoolId: user.schoolId },
+    select: { subject: true },
+    distinct: ["subject"],
+    orderBy: { subject: "asc" },
+  });
+  const schoolSubjects = schoolSubjectsRaw.map((s) => s.subject);
+
+  // Merge all subject sources: NERDC + school-specific overrides + linked subjects
+  // De-duplicate case-insensitively, preserving the first occurrence
+  const allSubjectNames = [...new Set([
+    ...nerdcSubjects,
+    ...schoolSubjects,
+    ...linkedSubjectNames,
+  ])];
+  const filterSubjects = allSubjectNames.length > 0 ? allSubjectNames : linkedSubjectNames;
 
   const effectiveSubject = selectedSubject || filterSubjects[0] || "";
 
