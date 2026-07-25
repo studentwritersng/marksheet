@@ -105,6 +105,21 @@ export async function aiGenerateNoteAction(
   // Look up curriculum objectives for this subject/class/term/topic
   let curriculumObjectives: string[] = [];
   let curriculumTopic = "";
+
+  // Subject name variations (school name → NERDC name)
+  const altNames: Record<string, string[]> = {
+    "English Language": ["English Studies", "English"],
+    "Basic Science": ["Basic Science and Technology", "Integrated Science"],
+    "Basic Technology": ["Introductory Technology"],
+    "Business Studies": ["Business Education"],
+    "Civic Education": ["Civics"],
+    "Physical and Health Education": ["Physical Education", "PHE"],
+    "Social Studies": ["Social Sciences"],
+    "Agricultural Science": ["Agriculture"],
+    "Computer Science": ["Information Technology", "IT", "Computer Studies"],
+    "Home Economics": ["Home Management"],
+  };
+
   if (cls && term && subject) {
     const termName = term.name; // "FIRST" | "SECOND" | "THIRD"
     const topicFilters = [
@@ -112,30 +127,41 @@ export async function aiGenerateNoteAction(
       { topic: { contains: topic.replace(/^[^:]+:\s*/, ""), mode: "insensitive" as const } }, // strip prefix like "Grammar: "
     ];
 
+    // Subject name variations (school name → NERDC name)
+    const subjectVariations = [subject.name];
+    for (const alts of Object.values(altNames)) {
+      if (alts.some((a) => a.toLowerCase() === subject.name.toLowerCase())) {
+        subjectVariations.push(...alts);
+        break;
+      }
+    }
+
     let curriculum = null;
 
     // 1) Prefer school-specific curriculum entries first
-    for (const tf of topicFilters) {
-      curriculum = await prisma.curriculumTopic.findFirst({
-        where: {
-          classLevel: cls.level,
-          subject: subject.name,
-          term: termName,
-          schoolId: ctx.schoolId,
-          ...tf,
-        },
-        orderBy: { week: "asc" },
-      });
-      if (curriculum) break;
-    }
-
-    // 2) Fall back to NERDC system defaults
-    if (!curriculum) {
+    outer1: for (const subjectName of subjectVariations) {
       for (const tf of topicFilters) {
         curriculum = await prisma.curriculumTopic.findFirst({
           where: {
             classLevel: cls.level,
-            subject: subject.name,
+            subject: subjectName,
+            term: termName,
+            schoolId: ctx.schoolId,
+            ...tf,
+          },
+          orderBy: { week: "asc" },
+        });
+        if (curriculum) break outer1;
+      }
+    }
+
+    // 2) Fall back to NERDC system defaults
+    outer2: for (const subjectName of subjectVariations) {
+      for (const tf of topicFilters) {
+        curriculum = await prisma.curriculumTopic.findFirst({
+          where: {
+            classLevel: cls.level,
+            subject: subjectName,
             term: termName,
             schoolId: null,
             isSystem: true,
@@ -143,7 +169,7 @@ export async function aiGenerateNoteAction(
           },
           orderBy: { week: "asc" },
         });
-        if (curriculum) break;
+        if (curriculum) break outer2;
       }
     }
 
@@ -152,7 +178,7 @@ export async function aiGenerateNoteAction(
       const allCurriculum = await prisma.curriculumTopic.findMany({
         where: {
           classLevel: cls.level,
-          subject: subject.name,
+          subject: { in: subjectVariations },
           term: termName,
           OR: [
             { schoolId: null, isSystem: true },
@@ -173,7 +199,8 @@ export async function aiGenerateNoteAction(
 
   const hasCurriculumObjectives = curriculumObjectives.length > 0;
   if (!hasCurriculumObjectives) {
-    return { error: `No curriculum entry found for "${topic}" in ${subject?.name} (${cls?.level}) ${term?.name}. Add it to the curriculum first in Console > Curriculum > Manual Entry.` };
+    const searchedNames = subject ? [subject.name, ...Object.values(altNames).flat()] : [];
+    return { error: `No curriculum entry found for "${topic}" in ${subject?.name ?? subjectId} (${cls?.level}) ${term?.name}. Searched subject names: ${searchedNames.join(", ")}. Add it to the curriculum first.` };
   }
   const objectivesPrompt = `Behavioural objectives (from NERDC syllabus — AUTHORITATIVE, do not alter):\n${curriculumObjectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nThese are the official NERDC objectives. Use them exactly as given. Do not add, remove, or rephrase any objective. Every section of the lesson note must address these specific objectives.`;
 
