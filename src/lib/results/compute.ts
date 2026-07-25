@@ -286,18 +286,21 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
       // Two cases:
       // A) Sub-components configured (OBJ/THEORY/PRC keyed scores): already scaled to parent marks.
       //    e.g. OBJ=24, PRC=8 for a 40-mark Mid Term → sum = 32 → store as Mid Term = 32.
-      //    Final: 32/40 * 40 = 32 → weighted = 32/100 of total term.
       // B) No sub-components (parent code keyed, normalised 0–100): multiply by (weight/100).
-      //    e.g. score=80 (out of 100), weight=40 → contribution = 80 * (40/100) = 32.
       const parentCodes = new Set(weightMap.keys());
-      const aggregatedScores: Record<string, { total: number; mode: "marks" | "pct" }> = {};
+
+      // Track: per assessment type → { earned, available }
+      // "earned" = marks the student actually got
+      // "available" = marks that were possible from assessments that have been sat so far
+      const aggregatedScores: Record<string, { earned: number; available: number; mode: "marks" | "pct" }> = {};
 
       for (const [code, raw] of Object.entries(studentScores)) {
         if (parentCodes.has(code)) {
-          // Case B: normalised percentage score under the parent code
+          // Case B: normalised percentage score (0–100) under the parent code
           const existing = aggregatedScores[code];
           aggregatedScores[code] = {
-            total: (existing?.total ?? 0) + raw,
+            earned: (existing?.earned ?? 0) + raw,
+            available: 100, // already normalised
             mode: "pct",
           };
         } else {
@@ -308,32 +311,45 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
             return sws.some((sw) => (atIdToCode.get(sw.subAssessmentTypeId) ?? "") === code);
           });
           const parentCode = parentExam?.assessmentTypeId ?? code;
+
+          // Find how many marks this component was worth (its allocated marks = its max possible)
+          const parentExamSws = parentExam ? (examSubWeights[parentExam.id] ?? []) : [];
+          const compSw = parentExamSws.find((sw) => (atIdToCode.get(sw.subAssessmentTypeId) ?? "") === code);
+          const compMax = compSw?.weightPercentage ?? 0;
+
           const existing = aggregatedScores[parentCode];
           aggregatedScores[parentCode] = {
-            total: (existing?.total ?? 0) + raw,
+            earned: (existing?.earned ?? 0) + raw,
+            available: (existing?.available ?? 0) + compMax,
             mode: "marks",
           };
         }
       }
 
-      // Compute weighted score out of 100
+      // Compute weighted score out of 100.
+      // For each assessment type that has data:
+      //   - Grade the student on what's been sat so far: (earned / available) * weight
+      // Then normalise by totalWeight if not all assessments have been sat yet.
       let weightedScore = 0;
       let totalWeight = 0;
 
-      for (const [assessType, { total, mode }] of Object.entries(aggregatedScores)) {
+      for (const [assessType, { earned, available, mode }] of Object.entries(aggregatedScores)) {
         const weight = weightMap.get(assessType) ?? 0;
         if (weight === 0) continue;
         if (mode === "marks") {
-          // total is raw marks out of `weight` mark allocation → contribution = total
-          weightedScore += total;
+          // earned/available gives proportion of this assessment type's sat marks
+          // multiply by weight to get the contribution to the term total
+          const proportion = available > 0 ? earned / available : 0;
+          weightedScore += proportion * weight;
         } else {
-          // total is a 0–100 normalised score → contribution = total * (weight / 100)
-          weightedScore += total * (weight / 100);
+          // Case B: earned is already 0–100 normalised → scale by weight/100
+          weightedScore += earned * (weight / 100);
         }
         totalWeight += weight;
       }
 
-      // Normalise if only some assessments have scores (missing data)
+      // Normalise to 100 if only some assessments have been sat
+      // so the grade reflects performance so far, not a projection to full term
       if (totalWeight > 0 && totalWeight < 100) {
         weightedScore = (weightedScore / totalWeight) * 100;
       }
