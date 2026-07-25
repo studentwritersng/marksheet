@@ -98,10 +98,39 @@ export async function getTeacherPeriodData(
   const term = await prisma.term.findUnique({ where: { id: termId }, select: { name: true } });
   if (!cls || !subj || !term) return { entries: [] };
 
-  const curriculum = await prisma.curriculumTopic.findMany({
-    where: { classLevel: cls.level, subject: subj.name, term: term.name },
+  // term.name is enum "First"/"Second"/"Third" — CurriculumTopic.term stores "FIRST"/"SECOND"/"THIRD"
+  const termName = (term.name as string).toUpperCase();
+
+  // 1. School-specific override topics first
+  let curriculum = await prisma.curriculumTopic.findMany({
+    where: { classLevel: cls.level, subject: { equals: subj.name, mode: "insensitive" }, term: termName, schoolId },
     orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
   });
+
+  // 2. Fall back to NERDC defaults if no school-specific entries
+  if (curriculum.length === 0) {
+    curriculum = await prisma.curriculumTopic.findMany({
+      where: { classLevel: cls.level, subject: { equals: subj.name, mode: "insensitive" }, term: termName, schoolId: null },
+      orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
+    });
+  }
+
+  // 3. Try alternate class level notation (SSS1 ↔ SS1)
+  if (curriculum.length === 0) {
+    const altLevel = cls.level.replace(/^SSS(\d)$/, "SS$1").replace(/^SS(\d)$/, "SSS$1");
+    if (altLevel !== cls.level) {
+      curriculum = await prisma.curriculumTopic.findMany({
+        where: { classLevel: altLevel, subject: { equals: subj.name, mode: "insensitive" }, term: termName, schoolId },
+        orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
+      });
+      if (curriculum.length === 0) {
+        curriculum = await prisma.curriculumTopic.findMany({
+          where: { classLevel: altLevel, subject: { equals: subj.name, mode: "insensitive" }, term: termName, schoolId: null },
+          orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
+        });
+      }
+    }
+  }
 
   const taughtRecords = await prisma.taughtTopic.findMany({
     where: { classId, subjectId, teacherId: staffId },
@@ -155,19 +184,41 @@ export async function getCaptainPeriodData(
     where: { session: { schoolId, isCurrent: true }, isCurrent: true },
     select: { name: true },
   });
-  const termName = currentTerm?.name ?? "";
+  // term.name is enum "First"/"Second"/"Third" — CurriculumTopic.term stores "FIRST"/"SECOND"/"THIRD"
+  const termName = currentTerm ? (currentTerm.name as string).toUpperCase() : "";
 
   const classSubjects = await prisma.classSubject.findMany({
     where: { classId },
     include: { subject: { select: { id: true, name: true } } },
   });
 
+  const altLevel = cls.level.replace(/^SSS(\d)$/, "SS$1").replace(/^SS(\d)$/, "SSS$1");
+
   const entries: CaptainEntryVM[] = [];
   for (const cs of classSubjects) {
-    const curriculum = await prisma.curriculumTopic.findMany({
-      where: { classLevel: cls.level, subject: cs.subject.name, term: termName },
+    // School-specific first, then NERDC defaults, with alt level fallback
+    let curriculum = await prisma.curriculumTopic.findMany({
+      where: { classLevel: cls.level, subject: { equals: cs.subject.name, mode: "insensitive" }, term: termName, schoolId },
       orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
     });
+    if (curriculum.length === 0) {
+      curriculum = await prisma.curriculumTopic.findMany({
+        where: { classLevel: cls.level, subject: { equals: cs.subject.name, mode: "insensitive" }, term: termName, schoolId: null },
+        orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
+      });
+    }
+    if (curriculum.length === 0 && altLevel !== cls.level) {
+      curriculum = await prisma.curriculumTopic.findMany({
+        where: { classLevel: altLevel, subject: { equals: cs.subject.name, mode: "insensitive" }, term: termName, schoolId },
+        orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
+      });
+      if (curriculum.length === 0) {
+        curriculum = await prisma.curriculumTopic.findMany({
+          where: { classLevel: altLevel, subject: { equals: cs.subject.name, mode: "insensitive" }, term: termName, schoolId: null },
+          orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
+        });
+      }
+    }
     for (const c of curriculum) {
       const taught = await prisma.taughtTopic.findFirst({
         where: { classId, subjectId: cs.subjectId, curriculumTopicId: c.id },
@@ -209,7 +260,7 @@ export async function getCoverageStats(
   });
   if (!currentTerm) return [];
 
-  const termName = currentTerm.name as string;
+  const termName = (currentTerm.name as string).toUpperCase();
 
   const classFilter: any = { schoolId };
   if (classId) classFilter.id = classId;
@@ -223,9 +274,15 @@ export async function getCoverageStats(
       include: { subject: { select: { id: true, name: true } } },
     });
     for (const cs of classSubjects) {
-      const total = await prisma.curriculumTopic.count({
-        where: { classLevel: cls.level, term: termName }, // subject filter not needed since we group by classSubject
+      // Count topics from school-specific entries first, fall back to NERDC defaults
+      let total = await prisma.curriculumTopic.count({
+        where: { classLevel: cls.level, subject: { equals: cs.subject.name, mode: "insensitive" }, term: termName, schoolId },
       });
+      if (total === 0) {
+        total = await prisma.curriculumTopic.count({
+          where: { classLevel: cls.level, subject: { equals: cs.subject.name, mode: "insensitive" }, term: termName, schoolId: null },
+        });
+      }
       if (total === 0) continue;
 
       const taught = await prisma.taughtTopic.count({
