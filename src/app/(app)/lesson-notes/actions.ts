@@ -113,24 +113,41 @@ export async function aiGenerateNoteAction(
     ];
 
     let curriculum = null;
+
+    // 1) Prefer school-specific curriculum entries first
     for (const tf of topicFilters) {
       curriculum = await prisma.curriculumTopic.findFirst({
         where: {
           classLevel: cls.level,
           subject: subject.name,
           term: termName,
+          schoolId: ctx.schoolId,
           ...tf,
-          OR: [
-            { schoolId: null, isSystem: true },  // NERDC system default
-            { schoolId: ctx.schoolId },           // School-specific override
-          ],
         },
         orderBy: { week: "asc" },
       });
       if (curriculum) break;
     }
 
-    // Last resort: reverse match — curriculum topic is contained in user topic
+    // 2) Fall back to NERDC system defaults
+    if (!curriculum) {
+      for (const tf of topicFilters) {
+        curriculum = await prisma.curriculumTopic.findFirst({
+          where: {
+            classLevel: cls.level,
+            subject: subject.name,
+            term: termName,
+            schoolId: null,
+            isSystem: true,
+            ...tf,
+          },
+          orderBy: { week: "asc" },
+        });
+        if (curriculum) break;
+      }
+    }
+
+    // 3) Last resort: reverse match — user topic contains curriculum topic
     if (!curriculum) {
       const allCurriculum = await prisma.curriculumTopic.findMany({
         where: {
