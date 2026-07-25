@@ -136,7 +136,7 @@ export function SyllabusForm({
           </div>
           <div>
             <label htmlFor="term" className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Term</label>
-            <select id="term" name="term" value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)}
+            <select id="term" name="term" required value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)}
               className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest">
               <option value="">Select term</option>
               {TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -227,14 +227,16 @@ export function SyllabusForm({
         <h2 className="font-headline-sm text-headline-sm text-on-surface">Import Syllabus from CSV</h2>
 
         <p className="font-body-sm text-body-sm text-on-surface-variant">
-          The CSV file should have the following columns:
+          Select the session, term, class, and subject below, then upload your CSV. The term is set
+          by the selector — any <code className="bg-surface-container-high px-1 rounded text-xs">term</code> column
+          in the CSV is ignored.
         </p>
         <div className="bg-surface-container-high rounded-lg p-3 font-mono text-xs text-on-surface-variant space-y-1">
-          <div><strong className="text-on-surface">term</strong> — FIRST / SECOND / THIRD</div>
           <div><strong className="text-on-surface">subweek</strong> — e.g. 1, 1.1, 1.2, 2, 2.1</div>
           <div><strong className="text-on-surface">topic</strong> — Main topic name</div>
           <div><strong className="text-on-surface">subTopics</strong> — Semicolon-separated subtopics</div>
           <div><strong className="text-on-surface">objectives</strong> — Semicolon-separated behavioural objectives</div>
+          <div className="text-on-surface-variant/60 mt-1 italic">term column (optional) — accepted but ignored; term is set by the selector above</div>
         </div>
 
         <form id="csv-form" action={csvPreviewAction} className="space-y-3">

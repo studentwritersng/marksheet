@@ -123,7 +123,9 @@ export async function aiGenerateNoteAction(
   };
 
   if (cls && term && subject) {
-    const termName = term.name; // "FIRST" | "SECOND" | "THIRD"
+    // term.name is a Prisma enum: "First" | "Second" | "Third"
+    // CurriculumTopic.term stores uppercase: "FIRST" | "SECOND" | "THIRD"
+    const termName = term.name.toUpperCase(); // normalise to match CurriculumTopic.term
     const topicFilters = [
       { topic: { contains: topic, mode: "insensitive" as const } },          // curriculum contains user topic
       { topic: { contains: topic.replace(/^[^:]+:\s*/, ""), mode: "insensitive" as const } }, // strip prefix like "Grammar: "

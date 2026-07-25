@@ -48,8 +48,8 @@ export async function createSyllabusAction(
   const sessionId = String(formData.get("sessionId") ?? "");
   const term = String(formData.get("term") ?? "").trim();
 
-  if (!subjectId || !classLevel || !sessionId) {
-    return { error: "Subject, class level, and session are required." };
+  if (!subjectId || !classLevel || !sessionId || !term) {
+    return { error: "Subject, class level, session, and term are required." };
   }
 
   const topicRowsRaw = String(formData.get("topicRows") ?? "");
@@ -101,30 +101,18 @@ export async function createSyllabusAction(
         const row = t as { week: number; weekSuffix?: string; topic: string; subTopics?: string[]; objectives?: string[] };
         const weekSuffix = row.weekSuffix ?? "";
 
-        const existingCurriculum = await prisma.curriculumTopic.findFirst({
-          where: {
-            classLevel,
-            term,
-            subject: subject.name,
-            week: row.week,
-            weekSuffix,
-            OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
-          },
+        // Look only for a school-specific record to update (never mutate NERDC/system rows)
+        const schoolOwnedCurriculum = await prisma.curriculumTopic.findFirst({
+          where: { classLevel, term, subject: subject.name, week: row.week, weekSuffix, schoolId: ctx.schoolId },
         });
 
-        // Fallback: if no match with exact weekSuffix, try without weekSuffix
-        const curriculumToUpdate = existingCurriculum ?? (weekSuffix ? await prisma.curriculumTopic.findFirst({
-          where: {
-            classLevel,
-            term,
-            subject: subject.name,
-            week: row.week,
-            weekSuffix: "",
-            OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
-          },
+        // Fallback: school-owned record with no weekSuffix
+        const curriculumToUpdate = schoolOwnedCurriculum ?? (weekSuffix ? await prisma.curriculumTopic.findFirst({
+          where: { classLevel, term, subject: subject.name, week: row.week, weekSuffix: "", schoolId: ctx.schoolId },
         }) : null);
 
         if (curriculumToUpdate) {
+          // Update the school's own existing override row
           await prisma.curriculumTopic.update({
             where: { id: curriculumToUpdate.id },
             data: {
@@ -136,6 +124,7 @@ export async function createSyllabusAction(
             },
           });
         } else {
+          // Always create a new school-specific row — never mutate the NERDC system row
           await prisma.curriculumTopic.create({
             data: {
               classLevel,
@@ -366,8 +355,8 @@ export async function commitSyllabusCsvAction(
   const sessionId = String(formData.get("sessionId") ?? "");
   const term = String(formData.get("term") ?? "").trim();
 
-  if (!subjectId || !classLevel || !sessionId) {
-    return { error: "Subject, class level, and session are required." };
+  if (!subjectId || !classLevel || !sessionId || !term) {
+    return { error: "Subject, class level, session, and term are required." };
   }
 
   const rowsRaw = String(formData.get("rows") ?? "");
@@ -383,7 +372,7 @@ export async function commitSyllabusCsvAction(
   const parsedTopics: Prisma.InputJsonValue[] = rows.map((r) => {
     const { week, weekSuffix, subweek } = parseSubweek(r.subweek);
     return {
-      term: r.term || term || undefined,
+      term, // always use the form-selected term; CSV term column is ignored
       subweek,
       week,
       weekSuffix: weekSuffix || undefined,
@@ -410,38 +399,24 @@ export async function commitSyllabusCsvAction(
   }
 
   // Also create curriculum topic entries for each row
+  // Always use the form-selected term — never the term column from the CSV
   if (subjectName) {
+    if (!term) return { error: "Term is required." };
     for (const r of rows) {
       const { week, weekSuffix } = parseSubweek(r.subweek);
-      const rowTerm = r.term || term;
-      if (!rowTerm) continue;
 
-      // Try to find existing curriculum record — either owned by this school
-      // or a NERDC system default (schoolId = null)
-      const existingCurriculum = await prisma.curriculumTopic.findFirst({
-        where: {
-          classLevel,
-          term: rowTerm,
-          subject: subjectName,
-          week,
-          weekSuffix,
-          OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
-        },
+      // Look only for a school-specific record to update (never mutate NERDC/system rows)
+      const schoolOwnedCurriculum = await prisma.curriculumTopic.findFirst({
+        where: { classLevel, term, subject: subjectName, week, weekSuffix, schoolId: ctx.schoolId },
       });
 
-      // Fallback: if no match with exact weekSuffix, try without weekSuffix
-      const curriculumToUpdate = existingCurriculum ?? (weekSuffix ? await prisma.curriculumTopic.findFirst({
-        where: {
-          classLevel,
-          term: rowTerm,
-          subject: subjectName,
-          week,
-          weekSuffix: "",
-          OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
-        },
+      // Fallback: school-owned record with no weekSuffix
+      const curriculumToUpdate = schoolOwnedCurriculum ?? (weekSuffix ? await prisma.curriculumTopic.findFirst({
+        where: { classLevel, term, subject: subjectName, week, weekSuffix: "", schoolId: ctx.schoolId },
       }) : null);
 
       if (curriculumToUpdate) {
+        // Update the school's own existing override row
         await prisma.curriculumTopic.update({
           where: { id: curriculumToUpdate.id },
           data: {
@@ -453,10 +428,11 @@ export async function commitSyllabusCsvAction(
           },
         });
       } else {
+        // Always create a new school-specific row — never mutate the NERDC system row
         await prisma.curriculumTopic.create({
           data: {
             classLevel,
-            term: rowTerm,
+            term,
             subject: subjectName,
             week,
             weekSuffix,
