@@ -8,12 +8,16 @@ import { TeacherPeriodView } from "./teacher-view";
 import { CaptainPeriodView } from "./captain-view";
 import { AdminPeriodView } from "./admin-view";
 
-export default async function PeriodTrackerPage() {
+export default async function PeriodTrackerPage(props: {
+  searchParams?: Promise<{ classId?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user || !user.schoolId) redirect("/login");
 
   const schoolId = user.schoolId;
   const addonActive = await isAddonActive(schoolId, "Period Tracker");
+  const searchParams = await props.searchParams;
+  const selectedClassId = searchParams?.classId;
 
   return (
     <section className="flex flex-col gap-stack-lg">
@@ -34,7 +38,7 @@ export default async function PeriodTrackerPage() {
           <SubjectCoverageCard schoolId={schoolId} />
 
           <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5">
-            <RoleSpecificView user={user} schoolId={schoolId} />
+            <RoleSpecificView user={user} schoolId={schoolId} selectedClassId={selectedClassId} />
           </div>
         </>
       )}
@@ -42,7 +46,7 @@ export default async function PeriodTrackerPage() {
   );
 }
 
-async function RoleSpecificView({ user, schoolId }: { user: any; schoolId: string }) {
+async function RoleSpecificView({ user, schoolId, selectedClassId }: { user: any; schoolId: string; selectedClassId?: string }) {
   const perms = await resolvePermissions(user);
 
   if (user.role === "super_admin" || user.role === "platform_owner") {
@@ -52,7 +56,7 @@ async function RoleSpecificView({ user, schoolId }: { user: any; schoolId: strin
   const isAdmin = perms.isSuperAdmin || perms.isSchoolAdmin;
 
   if (isAdmin) {
-    return <AdminPeriodView schoolId={schoolId} />;
+    return <AdminPeriodView schoolId={schoolId} selectedClassId={selectedClassId} />;
   }
 
   if (user.role === "staff" && user.staffId && perms.subjectTeacherSubjectIds.size > 0) {
