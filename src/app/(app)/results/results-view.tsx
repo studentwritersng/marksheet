@@ -7,7 +7,7 @@ interface ClassVM { id: string; name: string }
 interface TermVM { id: string; name: string }
 interface SubjectVM { id: string; name: string }
 
-interface ExamScoreRow {
+export interface ExamScoreRow {
   examId: string;
   assessmentTypeId: string;
   components: { code: string; marks: number }[];
@@ -113,7 +113,8 @@ export function ResultsView({
       {/* Shared filters — class + term */}
       <form method="GET" className="flex flex-wrap gap-4 items-end">
         <input type="hidden" name="tab" value={activeTab} />
-        {activeTab === "scores" && (
+        {/* On the scores tab the subject select provides subjectId — no hidden field needed */}
+        {activeTab !== "scores" && selectedSubjectId && (
           <input type="hidden" name="subjectId" value={selectedSubjectId} />
         )}
         <div>

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
-import { ResultsView } from "./results-view";
+import { ResultsView, type ExamScoreRow } from "./results-view";
 
 export default async function ResultsPage(props: {
   searchParams: Promise<{ classId?: string; termId?: string; subjectId?: string; tab?: string }>;
@@ -69,22 +69,6 @@ export default async function ResultsPage(props: {
   const effectiveSubjectId = selectedSubjectId || subjects[0]?.id || "";
 
   // Exams for the selected class/term/subject
-  type ExamScoreRow = {
-    examId: string;
-    assessmentTypeId: string;
-    components: { code: string; marks: number }[];
-    students: {
-      studentId: string;
-      studentName: string;
-      admissionNumber: string;
-      platformScore: number | null;
-      platformMax: number | null;
-      manualScores: { code: string; raw: number; max: number }[];
-      subjectScore: number | null; // from SubjectResult if computed
-      grade: string | null;
-    }[];
-  };
-
   let examScoreRows: ExamScoreRow[] = [];
 
   if (activeTab === "scores" && selectedClassId && selectedTermId && effectiveSubjectId) {
