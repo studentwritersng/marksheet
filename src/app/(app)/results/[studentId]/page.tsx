@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { resolvePermissions } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
+import { PrintButton } from "./print-button";
 
 export default async function ReportCardPage(props: {
   params: Promise<{ studentId: string }>;
@@ -39,12 +39,7 @@ export default async function ReportCardPage(props: {
     <div className="mx-auto max-w-3xl p-8 print:p-0">
       {/* Print button */}
       <div className="mb-6 no-print">
-        <button
-          onClick={() => window.print()}
-          className="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container"
-        >
-          Print / Save PDF
-        </button>
+        <PrintButton />
         <a
           href="/results"
           className="ml-3 font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface"

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ResultsView } from "./results-view";
 
 export default async function ResultsPage(props: {
-  searchParams: Promise<{ classId?: string; termId?: string }>;
+  searchParams: Promise<{ classId?: string; termId?: string; subjectId?: string; tab?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const user = await getCurrentUser();
@@ -29,6 +29,8 @@ export default async function ResultsPage(props: {
 
   const selectedClassId = searchParams.classId || classes[0]?.id;
   const selectedTermId = searchParams.termId || terms.find((t) => t.isCurrent)?.id || terms[0]?.id;
+  const selectedSubjectId = searchParams.subjectId ?? "";
+  const activeTab = searchParams.tab === "scores" ? "scores" : "compute";
 
   // Fetch computed results if available
   let subjectResults: any[] = [];
@@ -54,11 +56,133 @@ export default async function ResultsPage(props: {
     ]);
   }
 
+  // ── Scores tab data ──────────────────────────────────────────────────────
+  // Subjects for the selected class
+  const classSubjects = selectedClassId
+    ? await prisma.classSubject.findMany({
+        where: { classId: selectedClassId },
+        include: { subject: { select: { id: true, name: true } } },
+        orderBy: { subject: { name: "asc" } },
+      })
+    : [];
+  const subjects = classSubjects.map((cs) => cs.subject);
+  const effectiveSubjectId = selectedSubjectId || subjects[0]?.id || "";
+
+  // Exams for the selected class/term/subject
+  type ExamScoreRow = {
+    examId: string;
+    assessmentTypeId: string;
+    components: { code: string; marks: number }[];
+    students: {
+      studentId: string;
+      studentName: string;
+      admissionNumber: string;
+      platformScore: number | null;
+      platformMax: number | null;
+      manualScores: { code: string; raw: number; max: number }[];
+      subjectScore: number | null; // from SubjectResult if computed
+      grade: string | null;
+    }[];
+  };
+
+  let examScoreRows: ExamScoreRow[] = [];
+
+  if (activeTab === "scores" && selectedClassId && selectedTermId && effectiveSubjectId) {
+    // Get exams for this class/term/subject
+    const exams = await prisma.exam.findMany({
+      where: {
+        termId: selectedTermId,
+        subjectId: effectiveSubjectId,
+        classes: { some: { classId: selectedClassId } },
+      },
+      select: {
+        id: true,
+        assessmentTypeId: true,
+        subAssessmentWeights: true,
+        examQuestions: { select: { question: { select: { marks: true } } } },
+        attempts: {
+          where: { status: "submitted" },
+          select: {
+            studentId: true,
+            answers: { select: { gradedScore: true, aiSuggestedScore: true, finalScore: true } },
+          },
+        },
+        manualScores: {
+          select: { studentId: true, subAssessmentTypeCode: true, rawScore: true, maxRawScore: true },
+        },
+      },
+    });
+
+    // Students in this class
+    const students = await prisma.student.findMany({
+      where: { schoolId: user.schoolId, currentClassId: selectedClassId, status: "active" },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      select: { id: true, admissionNumber: true, firstName: true, lastName: true },
+    });
+
+    // SubjectResult for score display
+    const subjectResultMap = new Map(
+      subjectResults
+        .filter((sr) => sr.subject?.name === subjects.find((s) => s.id === effectiveSubjectId)?.name)
+        .map((sr) => [sr.studentId, sr])
+    );
+
+    // AssessmentType id→code
+    const allAtypes = await prisma.assessmentType.findMany({
+      where: { schoolId: user.schoolId },
+      select: { id: true, code: true },
+    });
+    const atIdToCode = new Map(allAtypes.map((a) => [a.id, a.code]));
+
+    for (const exam of exams) {
+      type SubWeight = { subAssessmentTypeId: string; weightPercentage: number };
+      const subWeights = (exam.subAssessmentWeights as SubWeight[] | null) ?? [];
+      const components = subWeights.map((sw) => ({
+        code: atIdToCode.get(sw.subAssessmentTypeId) ?? sw.subAssessmentTypeId,
+        marks: sw.weightPercentage,
+      }));
+
+      const examMaxScore = exam.examQuestions.reduce((s, eq) => s + eq.question.marks, 0);
+      const attemptMap = new Map(exam.attempts.map((a) => [a.studentId, a]));
+      const manualMap = new Map<string, { code: string; raw: number; max: number }[]>();
+      for (const ms of exam.manualScores) {
+        const list = manualMap.get(ms.studentId) ?? [];
+        list.push({ code: ms.subAssessmentTypeCode, raw: ms.rawScore, max: ms.maxRawScore });
+        manualMap.set(ms.studentId, list);
+      }
+
+      const rows = students.map((s) => {
+        const attempt = attemptMap.get(s.id);
+        const platformScore = attempt
+          ? attempt.answers.reduce((sum, a) => sum + Number(a.finalScore ?? a.aiSuggestedScore ?? a.gradedScore ?? 0), 0)
+          : null;
+        const sr = subjectResultMap.get(s.id);
+        return {
+          studentId: s.id,
+          studentName: `${s.lastName}, ${s.firstName}`,
+          admissionNumber: s.admissionNumber,
+          platformScore,
+          platformMax: examMaxScore || null,
+          manualScores: manualMap.get(s.id) ?? [],
+          subjectScore: sr?.totalScore ?? null,
+          grade: sr?.grade ?? null,
+        };
+      });
+
+      examScoreRows.push({
+        examId: exam.id,
+        assessmentTypeId: exam.assessmentTypeId,
+        components,
+        students: rows,
+      });
+    }
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-900">Results</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Compute weighted results per class and term, finalize, and generate report cards.
+        View exam scores, compute weighted results, finalize, and generate report cards.
       </p>
 
       <div className="mt-6">
@@ -66,8 +190,11 @@ export default async function ResultsPage(props: {
           schoolId={user.schoolId}
           classes={classes.map((c) => ({ id: c.id, name: c.name }))}
           terms={terms.map((t) => ({ id: t.id, name: t.name }))}
+          subjects={subjects}
           selectedClassId={selectedClassId ?? ""}
           selectedTermId={selectedTermId ?? ""}
+          selectedSubjectId={effectiveSubjectId}
+          activeTab={activeTab}
           subjectResults={subjectResults.map((sr) => ({
             studentId: sr.studentId,
             subjectName: sr.subject.name,
@@ -83,6 +210,7 @@ export default async function ResultsPage(props: {
             overallPosition: tr.overallPosition,
             status: tr.status,
           }))}
+          examScoreRows={examScoreRows}
         />
       </div>
     </div>
