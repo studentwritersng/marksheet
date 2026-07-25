@@ -107,19 +107,47 @@ export async function aiGenerateNoteAction(
   let curriculumTopic = "";
   if (cls && term && subject) {
     const termName = term.name; // "FIRST" | "SECOND" | "THIRD"
-    const curriculum = await prisma.curriculumTopic.findFirst({
-      where: {
-        classLevel: cls.level,
-        subject: subject.name,
-        term: termName,
-        topic: { contains: topic, mode: "insensitive" },
-        OR: [
-          { schoolId: null, isSystem: true },  // NERDC system default
-          { schoolId: ctx.schoolId },           // School-specific override
-        ],
-      },
-      orderBy: { week: "asc" },
-    });
+    const topicFilters = [
+      { topic: { contains: topic, mode: "insensitive" as const } },          // curriculum contains user topic
+      { topic: { contains: topic.replace(/^[^:]+:\s*/, ""), mode: "insensitive" as const } }, // strip prefix like "Grammar: "
+    ];
+
+    let curriculum = null;
+    for (const tf of topicFilters) {
+      curriculum = await prisma.curriculumTopic.findFirst({
+        where: {
+          classLevel: cls.level,
+          subject: subject.name,
+          term: termName,
+          ...tf,
+          OR: [
+            { schoolId: null, isSystem: true },  // NERDC system default
+            { schoolId: ctx.schoolId },           // School-specific override
+          ],
+        },
+        orderBy: { week: "asc" },
+      });
+      if (curriculum) break;
+    }
+
+    // Last resort: reverse match — curriculum topic is contained in user topic
+    if (!curriculum) {
+      const allCurriculum = await prisma.curriculumTopic.findMany({
+        where: {
+          classLevel: cls.level,
+          subject: subject.name,
+          term: termName,
+          OR: [
+            { schoolId: null, isSystem: true },
+            { schoolId: ctx.schoolId },
+          ],
+        },
+        orderBy: { week: "asc" },
+      });
+      const lowerTopic = topic.toLowerCase();
+      curriculum = allCurriculum.find((c) => lowerTopic.includes(c.topic.toLowerCase())) ?? null;
+    }
+
     if (curriculum) {
       curriculumObjectives = (curriculum.behaviouralObjectives as string[]) ?? [];
       curriculumTopic = curriculum.topic;
