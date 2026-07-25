@@ -7,6 +7,7 @@ import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { createCompletion } from "@/lib/ai/gateway";
 import { fixJson } from "@/lib/json-utils";
+import { classLevelGuidance } from "@/lib/ai/class-level-guidance";
 
 export interface ActionState {
   error?: string;
@@ -147,6 +148,8 @@ export async function aiGenerateQuestionsAction(
   if (!note) return { error: "Lesson note not found." };
 
   const noteContent = note.content ? `Student's Note:\n${note.content}` : "";
+  const noteClassLevel = note.class?.level ?? note.class?.name ?? "JSS1";
+  const levelGuidance = classLevelGuidance(noteClassLevel);
 
   const result = await createCompletion({
     taskType: "question_generation",
@@ -156,8 +159,10 @@ export async function aiGenerateQuestionsAction(
         role: "system",
         content: `You are an experienced Nigerian secondary school examiner setting essay questions for an exam. You will generate essay question(s) based on the lesson note provided below, following a specific balance between lesson-note-grounded content and topic-relevant extension.
 
+${levelGuidance}
+
 DIFFICULTY DISTRIBUTION
-Distribute questions 40% Easy, 40% Medium, 20% Hard. Easy = basic recall, Medium = understanding, Hard = application/analysis.
+Distribute questions 40% Easy, 40% Medium, 20% Hard. Easy = basic recall, Medium = understanding, Hard = application/analysis — all RELATIVE to the class level rules above.
 
 CRITICAL — GROUNDING RATIO
 You will be given a grounding_percentage value. This determines the proportion of each question's rubric points that must be:
@@ -177,8 +182,8 @@ LANGUAGE AND CONTEXT RULES (STRICT)
 
 TASK
 For each question:
-1. Write a clear essay question testing understanding of the topic.
-2. Write a model answer that fully addresses the question.
+1. Write a clear essay question testing understanding of the topic, strictly obeying the class-level rules above.
+2. Write a model answer that fully addresses the question, written at the vocabulary and sentence complexity level appropriate for this class.
 3. Write a rubric with discrete rubric points, each with mark allocation, tagged "grounded" or "extension".
 
 Do not generate multiple-choice content.
@@ -211,7 +216,7 @@ Output valid JSON only, with this exact shape and no additional text before or a
       {
         role: "user",
         content: `Subject: ${note.subject?.name ?? "the subject"}
-Class: ${note.class?.name ?? "N/A"}
+Class: ${noteClassLevel}
 Topic: ${note.topic}
 Lesson note content: ${noteContent.slice(0, 3000)}
 
@@ -356,9 +361,12 @@ export async function aiGenerateQuestionsMultiAction(
   const subjectNames = [...new Set(notes.map((n) => n.subject?.name).filter(Boolean))].join(", ");
 
   const isMcq = questionType === "mcq";
+  const levelGuidance = classLevelGuidance(classLevel);
 
   const systemContent = isMcq
     ? `You are an experienced Nigerian secondary school examiner setting multiple-choice (MCQ) questions for an exam. You will generate MCQ question(s) based on the lesson notes provided below, following a specific balance between lesson-note-grounded content and topic-relevant extension.
+
+${levelGuidance}
 
 NIGERIAN STANDARD MCQ FORMAT — FOLLOW THIS EXACT STYLE
 Each MCQ must follow the standard Nigerian school examination format:
@@ -366,13 +374,13 @@ Each MCQ must follow the standard Nigerian school examination format:
 - Use diverse question types: best answer, negative option ("Which of the following is NOT..."), sentence completion (fill-in-the-blank with ________), comprehension test, cause-and-effect, classification, application to real-life scenarios, and critical thinking questions. Avoid repeating the same question pattern.
 - Question stems must be direct, specific knowledge-testing queries (e.g., "Which of the following is a vowel sound?", "The plural of 'child' is ________.", "Which of these is a common weed found on Nigerian farms?").
 - NEVER use vague stems like "Which of the following best describes X" or "What is true about Y" — be specific.
-- Questions should test recall of facts (Easy), understanding (Medium), or analytical/application thinking (Hard), matching the assigned difficulty tag.
+- Questions should test recall of facts (Easy), understanding (Medium), or analytical/application thinking (Hard) — all relative to the class-level rules above.
 - Options must be specific, concrete statements (not generic descriptions like "A common misconception").
 - Distractors must be plausible and drawn from the same topic — common misconceptions, near-miss terms, incorrect but tempting alternatives. Never use obviously absurd options.
 - For fill-in-the-blank style, use a blank (________) in the stem.
 
 DIFFICULTY DISTRIBUTION
-You will be given a count of how many questions should be Easy, Medium, and Hard. Assign each question's "difficulty" field accordingly — easy questions test basic recall, medium questions test understanding, hard questions test application/analysis.
+You will be given a count of how many questions should be Easy, Medium, and Hard. Assign each question's "difficulty" field accordingly — always relative to the class-level rules above.
 
 CRITICAL — THE GROUNDING RATIO CONTROLS DISTRACTOR COMPOSITION, NOT JUST GENERAL TONE
 You will be given a grounding_percentage value (0-100). This determines the proportion of the correct-answer knowledge that must be:
@@ -384,7 +392,7 @@ The lesson note content provided below contains only the Student's Note section 
 
 EXTENSION CONTENT BOUNDARIES (even at low grounding_percentage, these still apply)
 - Extension content must remain within the same topic and theme/aspect as the lesson note — never drift into unrelated topics, even ones from the same subject.
-- Extension content must be accurate, standard curriculum knowledge appropriate to the specified class level and consistent with what WAEC/NECO would expect a student at that level to know.
+- Extension content must be accurate, standard curriculum knowledge appropriate to the specified class level and consistent with what the class-level rules above require.
 - If you are not confident a piece of extension content is accurate and curriculum-appropriate, do not include it — prefer a grounded item instead.
 
 DISTRACTOR QUALITY RULES (STRICT)
@@ -402,7 +410,7 @@ Difficulty distribution (how many of each): {{difficulty_distribution}}
 
 TASK
 For each MCQ:
-1. Write a clear stem (question) testing understanding of the topic, pitched at the given difficulty and class level.
+1. Write a clear stem (question) testing understanding of the topic, strictly obeying the class-level rules above.
 2. Provide exactly 4 options (A-D); mark which is correct.
 3. For each question, include a short "rationale" explaining why the correct answer is right.
 
@@ -432,11 +440,13 @@ Output valid JSON only, with this exact shape and no additional text before or a
 }`
     : `You are an experienced Nigerian secondary school examiner setting essay (theory) questions for an exam. You will generate essay question(s) based on the lesson notes provided below, following the standard Nigerian examination format.
 
+${levelGuidance}
+
 DIFFICULTY DISTRIBUTION
-You will be given counts for Easy, Medium, and Hard questions. Assign each question's "difficulty" field accordingly: Easy = basic recall, Medium = understanding, Hard = application/analysis. Distribute the counts across the questions as specified.
+You will be given counts for Easy, Medium, and Hard questions. Assign each question's "difficulty" field accordingly — always relative to the class-level rules above. Distribute the counts across the questions as specified.
 
 NIGERIAN STANDARD THEORY EXAM FORMAT — FOLLOW THIS EXACT STYLE
-Each question must follow the standard Nigerian secondary school theory paper format with sub-parts (a), (b), (c) and mark allocations:
+Each question must follow the standard Nigerian secondary school theory paper format with sub-parts (a), (b), (c) and mark allocations — adapted to the complexity level specified in the class-level rules above:
 
 EXAMPLE OF CORRECT FORMAT (from a real JSS2 PVS Theory paper):
 —
@@ -448,7 +458,7 @@ Question 1 [6 marks]
 
 RULES FOR THE QUESTION TEXT:
 1. Use the exact format: "Question N [total marks]\n(a) Instruction... [marks]\n(b) Instruction... [marks]\n(c) Instruction... [marks]"
-2. Each sub-part must use appropriate action verbs: Define, List, State, Explain, Describe, Differentiate, Identify, Calculate, Give examples of
+2. Each sub-part must use appropriate action verbs per the class-level rules above
 3. Where applicable, specify quantities in words e.g. "three (3) types", "two (2) differences"
 4. Mark allocation per sub-part must be in square brackets [ ]
 5. Total marks across all sub-parts must equal marks_per_question
@@ -456,8 +466,8 @@ RULES FOR THE QUESTION TEXT:
 
 TASK
 For each question:
-1. Write a clear essay question in the (a)(b)(c) format shown above, pitched at the given difficulty and class level.
-2. Write a model answer that fully addresses each sub-part.
+1. Write a clear essay question in the (a)(b)(c) format shown above, strictly obeying the class-level rules above.
+2. Write a model answer that fully addresses each sub-part, using vocabulary and sentence complexity appropriate for this class level.
 3. Write a rubric: a list of discrete, individually markable points, each with its own mark allocation (summing to marks_per_question), each tagged "grounded" or "extension" per the ratio rule below.
 
 CRITICAL — THE GROUNDING RATIO CONTROLS RUBRIC COMPOSITION, NOT JUST GENERAL TONE
@@ -468,12 +478,12 @@ You will be given a grounding_percentage value (0-100). This determines the prop
 GROUNDING — STUDENT'S NOTE IS THE SOURCE
 The lesson note content provided below contains only the Student's Note section — the board-summary content taught to students. This is the authoritative grounding material. Draw all grounded rubric points from this section.
 
-Apply this ratio per question: if a question's rubric has 4 points and grounding_percentage is 75, 3 points should be grounded and 1 should be extension. Round to the nearest whole point count; if the ratio doesn't divide evenly across a question's point count, distribute the remainder toward "grounded" (grounding takes priority in ties).
+Apply this ratio per question: if a question's rubric has 4 points and grounding_percentage is 75, 3 points should be grounded and 1 should be extension. Round to the nearest whole point count; if the ratio doesn't divide evenly, distribute the remainder toward "grounded".
 
 EXTENSION CONTENT BOUNDARIES (even at low grounding_percentage, these still apply)
-- Extension content must remain within the same topic and theme/aspect as the lesson note — never drift into unrelated topics, even ones from the same subject.
-- Extension content must be accurate, standard curriculum knowledge appropriate to the specified class level and consistent with what WAEC/NECO would expect a student at that level to know — not obscure, advanced-beyond-level, or speculative content.
-- If you are not confident a piece of extension content is accurate and curriculum-appropriate, do not include it — prefer a grounded point instead, even if this means the actual ratio falls slightly short of the target.
+- Extension content must remain within the same topic and theme/aspect as the lesson note — never drift into unrelated topics.
+- Extension content must be accurate, standard curriculum knowledge appropriate to the class level per the class-level rules above.
+- If you are not confident, prefer a grounded point instead.
 
 LANGUAGE AND CONTEXT RULES (STRICT)
 - British English throughout (colour, organise, favourite, centre — not American spelling).
@@ -493,9 +503,9 @@ Difficulty distribution (how many of each): {{difficulty_distribution}}
 
 Do not generate multiple-choice content. Do not generate a shared passage/stimulus unless explicitly instructed to.
 
-IMPORTANT — You must generate the EXACT NUMBER of questions specified in the "Number of essay questions to generate" instruction above. The "questions" array in the output JSON must contain exactly that many items — one per question. Do not generate fewer or more than the specified count.
+IMPORTANT — You must generate the EXACT NUMBER of questions specified above. The "questions" array must contain exactly that many items.
 
-Output valid JSON only, with this exact shape and no additional text before or after it. The shape below shows a single question object — repeat it N times (N = the specified question count) inside the "questions" array:
+Output valid JSON only, with this exact shape and no additional text before or after it:
 {
   "questions": [
     {

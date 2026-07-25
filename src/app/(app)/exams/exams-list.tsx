@@ -154,6 +154,8 @@ export function ExamsList({
                       <div className="flex items-center gap-2">
                         <button onClick={() => setEditingId(exam.id)}
                           className="text-primary font-label-sm text-label-sm hover:underline">Edit</button>
+                        <a href={`/exams/${exam.id}`}
+                          className="text-primary font-label-sm text-label-sm hover:underline">Scores</a>
                         <button onClick={() => setAddingQuestionsTo(exam.id)}
                           className="text-primary font-label-sm text-label-sm hover:underline">Questions</button>
                         <button onClick={() => setShowDeleteConfirm(exam.id)}
@@ -323,36 +325,75 @@ function CreateExamForm({
         </div>
       </div>
 
-      {/* Sub-assessment weight distribution */}
+      {/* Sub-assessment component configuration */}
       {hasSubAssessments && (
         <div className="border border-outline-variant rounded-lg p-4 space-y-3 bg-surface-container-low">
           <div className="flex items-center justify-between">
-            <h4 className="font-label-lg text-label-lg text-on-surface font-semibold">{selectedType.name} Sub-Assessment Weights</h4>
-            <span className="font-label-sm text-label-sm text-on-surface-variant">Total: {parentWeight}%</span>
+            <h4 className="font-label-lg text-label-lg text-on-surface font-semibold">
+              {selectedType.name} — Component Marks Allocation
+            </h4>
+            <span className="font-label-sm text-label-sm text-on-surface-variant">
+              Total: {parentWeight} marks
+            </span>
           </div>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Distribute the {parentWeight}% among the sub-assessments. Leave unused sub-assessments at 0.
+            Enable the components you want to use and assign marks to each.
+            They must add up to exactly {parentWeight}.
+            Each component's platform score will be scaled to its mark allocation automatically.
           </p>
           <div className="space-y-2">
-            {selectedType.children.map((child) => (
-              <div key={child.id} className="flex items-center gap-3">
-                <label className="flex-1 font-body-md text-body-md text-on-surface">{child.name}</label>
-                <div className="flex items-center gap-2">
+            {selectedType.children.map((child) => {
+              const enabled = parseFloat(subWeights[child.id] || "0") > 0;
+              return (
+                <div key={child.id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2.5 border border-outline-variant">
                   <input
-                    type="number" min={0} max={parentWeight} step={0.5}
-                    value={subWeights[child.id] ?? ""}
-                    onChange={(e) => setSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
-                    placeholder="0"
-                    className="w-24 border border-outline-variant rounded p-2 text-sm text-right"
+                    type="checkbox"
+                    id={`comp-${child.id}`}
+                    checked={enabled}
+                    onChange={(e) => {
+                      if (!e.target.checked) setSubWeights((prev) => ({ ...prev, [child.id]: "" }));
+                      else setSubWeights((prev) => ({ ...prev, [child.id]: "0" }));
+                    }}
+                    className="rounded border-outline-variant text-[#002046]"
                   />
-                  <span className="font-body-sm text-body-sm text-on-surface-variant w-4">%</span>
+                  <label htmlFor={`comp-${child.id}`} className="flex-1 font-body-md text-body-md text-on-surface cursor-pointer">
+                    {child.name}
+                    <span className="ml-2 font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded">
+                      {child.code}
+                    </span>
+                    {child.code === "PRC" && (
+                      <span className="ml-2 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">Manual only</span>
+                    )}
+                    {child.code === "OBJ" && (
+                      <span className="ml-2 text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">Platform exam / manual override</span>
+                    )}
+                    {child.code === "THEORY" && (
+                      <span className="ml-2 text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Platform exam / manual override</span>
+                    )}
+                  </label>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      type="number"
+                      min={0}
+                      max={parentWeight}
+                      step={0.5}
+                      value={subWeights[child.id] ?? ""}
+                      disabled={!enabled}
+                      onChange={(e) => setSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
+                      placeholder="0"
+                      className="w-20 border border-outline-variant rounded p-1.5 text-sm text-right disabled:opacity-40 disabled:bg-surface-container-low"
+                    />
+                    <span className="font-body-sm text-body-sm text-on-surface-variant">marks</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <div className={`flex items-center justify-between pt-2 border-t border-outline-variant ${weightValid ? "text-green-700" : "text-red-600"}`}>
-            <span className="font-label-sm text-label-sm">Sub-total</span>
-            <span className="font-label-md text-label-md font-semibold">{subTotal.toFixed(1)}% {weightValid ? "✓" : `(must equal ${parentWeight}%)`}</span>
+          <div className={`flex items-center justify-between pt-2 border-t border-outline-variant text-sm font-medium ${
+            weightValid ? "text-green-700" : "text-red-600"
+          }`}>
+            <span>Total allocated</span>
+            <span>{subTotal.toFixed(1)} / {parentWeight} marks {weightValid ? "✓" : "(must equal " + parentWeight + ")"}</span>
           </div>
         </div>
       )}
@@ -492,34 +533,51 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
         </div>
       </div>
 
-      {/* Sub-assessment weight distribution */}
+      {/* Sub-assessment component configuration */}
       {editHasSub && (
         <div className="border border-outline-variant rounded p-3 space-y-2 bg-surface-container-low">
           <div className="flex items-center justify-between">
-            <h4 className="font-label-sm text-label-sm text-on-surface font-semibold">{editSelectedType.name} Sub-Assessment Weights</h4>
-            <span className="font-label-sm text-label-sm text-on-surface-variant">Total: {editParentWeight}%</span>
+            <h4 className="font-label-sm text-label-sm text-on-surface font-semibold">
+              {editSelectedType.name} — Component Marks
+            </h4>
+            <span className="font-label-sm text-label-sm text-on-surface-variant">Total: {editParentWeight} marks</span>
           </div>
           <p className="font-body-sm text-body-sm text-on-surface-variant text-xs">
-            Distribute the {editParentWeight}% among sub-assessments.
+            Enable components and assign marks. Must sum to {editParentWeight}.
           </p>
           <div className="space-y-1.5">
-            {editSelectedType.children.map((child) => (
-              <div key={child.id} className="flex items-center gap-2">
-                <span className="flex-1 text-sm">{child.name}</span>
-                <input
-                  type="number" min={0} max={editParentWeight} step={0.5}
-                  value={editSubWeights[child.id] ?? ""}
-                  onChange={(e) => setEditSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
-                  placeholder="0"
-                  className="w-20 border border-outline-variant rounded p-1 text-sm text-right"
-                />
-                <span className="text-xs text-on-surface-variant">%</span>
-              </div>
-            ))}
+            {editSelectedType.children.map((child) => {
+              const enabled = parseFloat(editSubWeights[child.id] || "0") > 0;
+              return (
+                <div key={child.id} className="flex items-center gap-2 bg-white rounded px-2 py-2 border border-outline-variant">
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={(e) => {
+                      if (!e.target.checked) setEditSubWeights((prev) => ({ ...prev, [child.id]: "" }));
+                      else setEditSubWeights((prev) => ({ ...prev, [child.id]: "0" }));
+                    }}
+                    className="rounded border-outline-variant text-[#002046]"
+                  />
+                  <span className="flex-1 text-sm text-on-surface">{child.name}
+                    <span className="ml-1.5 text-xs text-on-surface-variant">({child.code})</span>
+                  </span>
+                  <input
+                    type="number" min={0} max={editParentWeight} step={0.5}
+                    value={editSubWeights[child.id] ?? ""}
+                    disabled={!enabled}
+                    onChange={(e) => setEditSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
+                    placeholder="0"
+                    className="w-16 border border-outline-variant rounded p-1 text-sm text-right disabled:opacity-40"
+                  />
+                  <span className="text-xs text-on-surface-variant">marks</span>
+                </div>
+              );
+            })}
           </div>
-          <div className={`flex items-center justify-between pt-1.5 border-t border-outline-variant text-xs ${editWeightValid ? "text-green-700" : "text-red-600"}`}>
-            <span>Sub-total</span>
-            <span className="font-semibold">{editSubTotal.toFixed(1)}% {editWeightValid ? "✓" : `(must equal ${editParentWeight}%)`}</span>
+          <div className={`flex items-center justify-between pt-1.5 border-t border-outline-variant text-xs font-medium ${editWeightValid ? "text-green-700" : "text-red-600"}`}>
+            <span>Total</span>
+            <span>{editSubTotal.toFixed(1)} / {editParentWeight} {editWeightValid ? "✓" : `(must equal ${editParentWeight})`}</span>
           </div>
         </div>
       )}

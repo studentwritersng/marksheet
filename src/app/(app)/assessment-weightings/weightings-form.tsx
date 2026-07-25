@@ -226,8 +226,22 @@ function WeightingsSection({
 
       {mode === "default" && (
         <div className="bg-white border border-outline-variant rounded-xl p-6">
-          <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-4">School-wide defaults</h3>
+        <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-4">School-wide defaults</h3>
           {defaultWeightings.length === 0 && <p className="mb-4 font-body-sm text-body-sm text-on-surface-variant">No defaults set.</p>}
+          {defaultWeightings.length > 0 && (() => {
+            const total = defaultWeightings.reduce((s, d) => s + d.weightPercentage, 0);
+            return (
+              <div className={`mb-3 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                Math.abs(total - 100) < 0.01 ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
+              }`}>
+                <span>Total: {total} / 100 marks</span>
+                {Math.abs(total - 100) < 0.01
+                  ? <span>✓ Balanced</span>
+                  : <span>⚠ Must equal 100</span>
+                }
+              </div>
+            );
+          })()}
           <div className="mb-6 space-y-2">
             {defaultWeightings.map((d) => (
               <WeightRow key={d.id} id={d.id} schoolId={schoolId} subjectId={null}
@@ -252,9 +266,9 @@ function WeightingsSection({
               </select>
             </div>
             <div>
-              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Weight %</label>
-              <input name="weightPercentage" type="number" min={1} max={100} required placeholder="%"
-                className="border border-outline-variant rounded p-2.5 w-20 font-body-md text-body-md"
+              <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Marks</label>
+              <input name="weightPercentage" type="number" min={1} max={100} required placeholder="e.g. 40"
+                className="border border-outline-variant rounded p-2.5 w-24 font-body-md text-body-md"
               />
             </div>
             <button type="submit" disabled={pending}
@@ -268,9 +282,19 @@ function WeightingsSection({
         <div className="space-y-4">
           {subjects.map((subj) => {
             const rows = grouped[subj.id] ?? [];
+            const subjTotal = rows.reduce((s, r) => s + r.weightPercentage, 0);
             return (
               <div key={subj.id} className="bg-white border border-outline-variant rounded-xl p-6">
-                <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-3">{subj.name}</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">{subj.name}</h3>
+                  {rows.length > 0 && (
+                    <span className={`text-sm font-medium px-2 py-0.5 rounded ${
+                      Math.abs(subjTotal - 100) < 0.01 ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
+                    }`}>
+                      {subjTotal} / 100 {Math.abs(subjTotal - 100) < 0.01 ? "✓" : "⚠"}
+                    </span>
+                  )}
+                </div>
                 {rows.length === 0 && <p className="mb-3 font-body-sm text-body-sm text-on-surface-variant">Using school-wide defaults.</p>}
                 <div className="mb-4 space-y-2">
                   {rows.map((r) => (
@@ -288,15 +312,15 @@ function WeightingsSection({
                     <select name="assessmentTypeId" required
                       className="rounded border border-outline-variant p-2 text-sm font-body-md text-body-md"
                     >
-                      <option value="">Select…</option>
+                      <option value="">Select type…</option>
                       {assessmentTypes.map((t) => (
                         <option key={t.code} value={t.code}>{t.name} ({t.code})</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <input name="weightPercentage" type="number" min={1} max={100} required placeholder="%"
-                      className="rounded border border-outline-variant p-2 w-16 font-body-sm text-body-sm"
+                    <input name="weightPercentage" type="number" min={1} max={100} required placeholder="marks"
+                      className="rounded border border-outline-variant p-2 w-20 font-body-sm text-body-sm"
                     />
                   </div>
                   <button type="submit" disabled={pending}

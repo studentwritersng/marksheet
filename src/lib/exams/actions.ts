@@ -409,3 +409,121 @@ export async function assignResitAction(examId: string, studentIds: string[]): P
   revalidatePath("/exams");
   return { success: `${studentIds.length} student(s) marked for resit.` };
 }
+
+// ---------------------------------------------------------------------------
+// Manual score entry — teacher enters raw scores for a sub-assessment component
+// (Practical, offline Theory/Objective paper) or overrides a platform score.
+// ---------------------------------------------------------------------------
+
+export interface ManualScoreInput {
+  studentId: string;
+  subAssessmentTypeCode: string; // "OBJ" | "THEORY" | "PRC"
+  rawScore: number;
+  maxRawScore: number;
+  note?: string;
+}
+
+export async function upsertManualScoresAction(
+  examId: string,
+  scores: ManualScoreInput[],
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
+  if (!exam) return { error: "Exam not found." };
+
+  if (scores.length === 0) return { error: "No scores provided." };
+
+  for (const s of scores) {
+    if (s.rawScore < 0) return { error: `Raw score cannot be negative (student ${s.studentId}).` };
+    if (s.maxRawScore <= 0) return { error: `Max raw score must be greater than zero.` };
+    if (s.rawScore > s.maxRawScore) return { error: `Score ${s.rawScore} exceeds max ${s.maxRawScore}.` };
+  }
+
+  await prisma.$transaction(
+    scores.map((s) =>
+      prisma.manualScore.upsert({
+        where: {
+          examId_studentId_subAssessmentTypeCode: {
+            examId,
+            studentId: s.studentId,
+            subAssessmentTypeCode: s.subAssessmentTypeCode,
+          },
+        },
+        update: {
+          rawScore: s.rawScore,
+          maxRawScore: s.maxRawScore,
+          note: s.note ?? null,
+          enteredBy: ctx.user.userId,
+        },
+        create: {
+          examId,
+          studentId: s.studentId,
+          subAssessmentTypeCode: s.subAssessmentTypeCode,
+          rawScore: s.rawScore,
+          maxRawScore: s.maxRawScore,
+          note: s.note ?? null,
+          enteredBy: ctx.user.userId,
+        },
+      }),
+    ),
+  );
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "update",
+    entityType: "manual_score",
+    afterValue: { examId, count: scores.length } as never,
+  });
+
+  revalidatePath(`/exams/${examId}`);
+  revalidatePath("/results");
+  return { success: `${scores.length} score(s) saved.` };
+}
+
+export async function getExamManualScoresAction(
+  examId: string,
+): Promise<{ studentId: string; subAssessmentTypeCode: string; rawScore: number; maxRawScore: number; note: string | null }[]> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return []; }
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
+  if (!exam) return [];
+
+  const scores = await prisma.manualScore.findMany({
+    where: { examId },
+    select: { studentId: true, subAssessmentTypeCode: true, rawScore: true, maxRawScore: true, note: true },
+  });
+  return scores;
+}
+
+export async function getExamStudentsAction(
+  examId: string,
+): Promise<{ id: string; admissionNumber: string; fullName: string }[]> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return []; }
+
+  const exam = await prisma.exam.findFirst({
+    where: { id: examId, schoolId: ctx.schoolId },
+    include: { classes: { include: { class: true } } },
+  });
+  if (!exam) return [];
+
+  const classIds = exam.classes.map((ec) => ec.classId);
+  if (classIds.length === 0) return [];
+
+  const students = await prisma.student.findMany({
+    where: { schoolId: ctx.schoolId, currentClassId: { in: classIds }, status: "active" },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    select: { id: true, admissionNumber: true, firstName: true, lastName: true },
+  });
+
+  return students.map((s) => ({
+    id: s.id,
+    admissionNumber: s.admissionNumber,
+    fullName: `${s.lastName}, ${s.firstName}`,
+  }));
+}

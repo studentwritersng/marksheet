@@ -26,8 +26,9 @@ export default async function AssessmentWeightingsPage() {
     <div>
       <h1 className="font-headline-lg text-headline-lg text-on-surface">Assessment Types &amp; Weightings</h1>
       <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
-        Define your assessment types (CA1, CA2, CA3, Exam, etc.) then set their weight percentages.
-        School-wide defaults apply when no per-subject weight is configured.
+        Define your assessment types (CA, Mid Term, Exam, etc.), then set their mark allocations.
+        All types must add up to <strong>100 marks</strong> — this becomes the student's final term score out of 100.
+        School-wide defaults apply when no per-subject override is set.
       </p>
 
       <div className="mt-6">

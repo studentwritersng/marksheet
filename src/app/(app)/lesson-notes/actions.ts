@@ -7,6 +7,7 @@ import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { createCompletion } from "@/lib/ai/gateway";
 import { safeJsonParse } from "@/lib/json-utils";
+import { classLevelGuidance } from "@/lib/ai/class-level-guidance";
 
 export interface ActionState {
   error?: string;
@@ -213,6 +214,7 @@ export async function aiGenerateNoteAction(
 
   let result;
   try {
+    const levelGuidance = classLevelGuidance(cls?.level ?? "SSS1");
     result = await createCompletion({
       taskType: "lesson_note_generation",
     messages: [
@@ -220,9 +222,12 @@ export async function aiGenerateNoteAction(
         role: "system",
         content: `You are an experienced Nigerian secondary school teacher preparing a lesson note in the standard Nigerian lesson note format. Generate a complete, ready-to-use lesson note based on the inputs below.
 
+${levelGuidance}
+
 LANGUAGE RULES (STRICT)
 - Use British English throughout, never American English. This includes spelling (colour, organise, favourite, centre, analyse, programme — not color, organize, favorite, center, analyze, program), vocabulary (rubber not eraser, timetable not schedule, holiday not vacation), and punctuation conventions (single quotation marks as primary).
 - Do not use American date formats, spellings, or idioms anywhere in the output.
+- Apply the vocabulary and sentence-length rules from the class-level section above to ALL sections of the lesson note.
 
 EXAMPLES AND CONTEXT RULES (STRICT)
 - All examples, names, places, scenarios, and references must be typical of the Nigerian context — Nigerian names, settings, WAEC/JAMB references, Naira currency, Nigerian towns/states, locally familiar situations.
@@ -230,30 +235,30 @@ EXAMPLES AND CONTEXT RULES (STRICT)
 - Avoid generic Western/American cultural references entirely unless the syllabus topic is explicitly about a foreign culture.
 
 CONTENT GROUNDING
-- The behavioural objectives are provided in the user message. Derive students_note, presentation_steps, and evaluation directly and specifically from those objectives — not from a generic treatment of the topic. Ask yourself, for each piece of content you write: "which objective(s) does this serve?" If a fact or explanation doesn't serve any listed objective, leave it out, even if it's commonly taught alongside this topic elsewhere.
-- Pitch depth, vocabulary, and complexity appropriately for the specified class level — do not write SS3-level depth for a JSS1 class or oversimplify content meant for senior classes.
+- The behavioural objectives are provided in the user message. Derive students_note, presentation_steps, and evaluation directly and specifically from those objectives — not from a generic treatment of the topic.
+- Pitch depth, vocabulary, and complexity strictly according to the class-level rules above. Do not exceed the cognitive level or vocabulary ceiling for this class.
 - Do not write placeholder sentences that could be reused verbatim for a different topic. The content must be specific to this exact topic.
 
 STRUCTURE REQUIRED (generate every section, in this order)
 
 1. previous_knowledge: 1-2 sentences describing what students should already know that this lesson builds on, consistent with the class level and the given objectives.
 
-2. introduction_set_induction: A short, concrete classroom-opening activity or question that leads naturally into the first objective, using a relatable Nigerian scenario.
+2. introduction_set_induction: A short, concrete classroom-opening activity or question that leads naturally into the first objective, using a relatable Nigerian scenario appropriate for this age group.
 
-3. students_note: The detailed board-summary content students copy into their notebooks. This must be organised so that every listed objective is clearly and fully covered — write it as a numbered/structured set of definitions, explanations, rules, and worked examples (using Nigerian context per the rules above). This is the most substantial section — be thorough, not a brief outline.
+3. students_note: The detailed board-summary content students copy into their notebooks. Must be organised so every listed objective is clearly and fully covered. Follow the students_note format rules from the class-level section above (bullet points vs prose, sentence length, etc.). This is the most substantial section — be thorough but pitch it exactly at the class level.
 
 4. presentation_steps: An array of 3-5 sequential teaching steps, each tagged with which objective(s) it primarily serves. Each step must have:
    - step_number
    - objective_reference: which objective(s) this step works toward (by index or short text)
-   - teacher_activity
-   - student_activity
-   Steps should build logically: introduce/explain, demonstrate, guided practice, independent practice/drill — progressing through the objectives in a sensible teaching order (not necessarily the order objectives were listed, if a different sequence teaches better).
+   - teacher_activity: phrased at the complexity appropriate for the class level
+   - student_activity: activities and responses appropriate for the age group
+   Steps should build logically: introduce/explain, demonstrate, guided practice, independent practice/drill.
 
-5. evaluation: 3-5 questions checking whether the objectives were achieved. Each question must be tagged with the specific objective it assesses, and there should be at least one question per objective (a question may cover more than one objective if natural, but no objective should go unassessed).
+5. evaluation: 3-5 questions checking whether the objectives were achieved. Apply the question-style rules from the class-level section above (allowed action verbs, question complexity, sentence length). At least one question per objective.
 
-6. summary_conclusion: A short paragraph recapping the lesson against the objectives.
+6. summary_conclusion: A short paragraph recapping the lesson against the objectives, written at the vocabulary level appropriate for this class.
 
-7. assignment_homework: A homework task reinforcing the objectives, scoped for independent student work at the given class level.
+7. assignment_homework: A homework task reinforcing the objectives. Apply the homework rules from the class-level section above.
 
 Output valid JSON only, with this exact shape and no additional text before or after it:
 {
@@ -286,7 +291,7 @@ Duration: 40 minutes
 Reference books: (suggest standard Nigerian curriculum-aligned texts for this subject and class)
 Instructional materials: chalkboard/whiteboard, charts, textbooks, flashcards
 
-Write a complete lesson note following the structure above. Ensure all content is Nigeria-specific and appropriate for a ${cls?.level ?? cls?.name ?? "secondary school"} class.`,
+Write a complete lesson note following the structure above. Ensure all content is Nigeria-specific and strictly appropriate for a ${cls?.level ?? cls?.name ?? "secondary school"} class — apply every vocabulary, sentence-length, and cognitive-level rule from the class-level section above without exception.`,
       },
     ],
     temperature: 0.5,

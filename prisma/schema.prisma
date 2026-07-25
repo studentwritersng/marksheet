@@ -362,6 +362,7 @@ model Student {
   subjectResults    SubjectResult[]
   termResults       TermResult[]
   examAttempts      ExamAttempt[]
+  manualScores      ManualScore[]
   consentRecords    ConsentRecord[]
   taughtTopics      TaughtTopic[]
   attendanceRecords AttendanceRecord[]
@@ -770,6 +771,7 @@ model Exam {
   examQuestions ExamQuestion[]
   attempts      ExamAttempt[]
   classes       ExamClass[]
+  manualScores  ManualScore[]
 
   @@index([schoolId])
   @@index([subjectId, classId, termId])
@@ -889,13 +891,40 @@ model AssessmentWeighting {
   id               String  @id @default(cuid())
   schoolId         String
   subjectId        String?
-  assessmentTypeId String // references AssessmentType.name (string, not FK for compatibility)
-  weightPercentage Float
+  assessmentTypeId String // references AssessmentType.code
+  weightPercentage Float   // percentage of total term score (all types must sum to 100)
 
   school School @relation(fields: [schoolId], references: [id])
 
   @@unique([schoolId, subjectId, assessmentTypeId])
   @@map("assessment_weightings")
+}
+
+// ---------------------------------------------------------------------------
+// ManualScore — teacher-entered raw scores for exam components that are not
+// delivered on-platform (e.g. a maths theory paper, practicals).
+// Also used to override platform-computed scores (e.g. AI essay grade override).
+// One row per student × exam × sub-assessment component.
+// ---------------------------------------------------------------------------
+model ManualScore {
+  id                    String   @id @default(cuid())
+  examId                String
+  studentId             String
+  subAssessmentTypeCode String   // "OBJ" | "THEORY" | "PRC" — matches AssessmentType.code
+  rawScore              Float    // raw score as entered by the teacher
+  maxRawScore           Float    // denominator the teacher scored out of (for scaling)
+  enteredBy             String   // staff id
+  note                  String?  // optional teacher note
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  exam    Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, studentId, subAssessmentTypeCode])
+  @@index([examId])
+  @@index([studentId])
+  @@map("manual_scores")
 }
 
 model SubjectResult {
