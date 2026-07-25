@@ -118,6 +118,9 @@ export async function aiGenerateNoteAction(
     "Agricultural Science": ["Agriculture"],
     "Computer Science": ["Information Technology", "IT", "Computer Studies"],
     "Home Economics": ["Home Management"],
+    "Christian Religious Studies": ["CRS", "Christian Religious Knowledge", "Christian Religious Education"],
+    "Islamic Studies": ["IRS", "Islamic Religious Studies"],
+    "Home Economics": ["Home Management"],
   };
 
   if (cls && term && subject) {
@@ -155,7 +158,7 @@ export async function aiGenerateNoteAction(
       }
     }
 
-    // 2) Fall back to NERDC system defaults
+    // 2) Fall back to NERDC system defaults (schoolId null = owner console entries)
     outer2: for (const subjectName of subjectVariations) {
       for (const tf of topicFilters) {
         curriculum = await prisma.curriculumTopic.findFirst({
@@ -164,7 +167,6 @@ export async function aiGenerateNoteAction(
             subject: subjectName,
             term: termName,
             schoolId: null,
-            isSystem: true,
             ...tf,
           },
           orderBy: { week: "asc" },
@@ -180,10 +182,7 @@ export async function aiGenerateNoteAction(
           classLevel: cls.level,
           subject: { in: subjectVariations },
           term: termName,
-          OR: [
-            { schoolId: null, isSystem: true },
-            { schoolId: ctx.schoolId },
-          ],
+          schoolId: null,
         },
         orderBy: { week: "asc" },
       });
@@ -344,7 +343,7 @@ export async function getCurriculumTopicsAction(
         term,
         ...(sid
           ? { schoolId: sid }
-          : { schoolId: null, isSystem: true }),
+          : { schoolId: null }),
       },
       orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
       select: { id: true, topic: true, week: true, weekSuffix: true },
