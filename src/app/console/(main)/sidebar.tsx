@@ -20,6 +20,7 @@ const navItems: NavItem[] = [
   { label: "Notifications", href: "/console/notifications", icon: "notifications" },
   { label: "Addons", href: "/console/addons", icon: "extension" },
   { label: "AI Config", href: "/console/ai", icon: "settings" },
+  { label: "AI Usage", href: "/console/ai/call-log", icon: "monitoring" },
   { label: "Tickets", href: "/console/tickets", icon: "support" },
   { label: "Audit Log", href: "/console/audit", icon: "history" },
 ];
