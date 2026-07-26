@@ -70,14 +70,13 @@ export async function AdminPeriodView({
 
   return (
     <div className="space-y-6">
-      {/* Class filter */}
+      {/* Class filter — plain GET form, no client JS needed */}
       <form method="GET" className="flex items-end gap-3 flex-wrap">
         <div>
           <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Filter by class</label>
           <select
             name="classId"
             defaultValue={selectedClassId ?? ""}
-            onChange={(e) => e.target.form?.submit()}
             className="border border-outline-variant rounded p-2.5 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary"
           >
             <option value="">All classes</option>
@@ -86,6 +85,12 @@ export async function AdminPeriodView({
             ))}
           </select>
         </div>
+        <button
+          type="submit"
+          className="pb-0 font-label-sm text-label-sm text-on-primary bg-primary px-4 py-2.5 rounded hover:bg-primary-container transition-colors"
+        >
+          Filter
+        </button>
         {selectedClassId && (
           <a href="/period-tracker" className="font-label-sm text-label-sm text-primary hover:underline pb-2.5">
             Clear
