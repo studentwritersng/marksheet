@@ -1,11 +1,88 @@
 "use client";
 
-import { useState, useActionState } from "react";
+import { useState, useActionState, useRef, useEffect } from "react";
 import { ClassTermSelector, type StudentVM } from "../term-data-form";
 import { saveRemarksAction } from "../term-actions";
 
+interface Template {
+  id: string;
+  text: string;
+}
+
+function TemplateDropdown({
+  templates,
+  onSelect,
+}: {
+  templates: Template[];
+  onSelect: (text: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  if (templates.length === 0) return null;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs text-primary underline hover:no-underline focus:outline-none"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        Use template ▾
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 top-full z-50 mt-1 w-[420px] max-w-[90vw] rounded-lg border border-outline-variant bg-surface-container shadow-lg overflow-hidden"
+        >
+          <p className="px-3 py-2 text-xs font-semibold text-on-surface-variant border-b border-outline-variant bg-surface-container-low">
+            Templates — best to worst
+          </p>
+          <ul className="max-h-64 overflow-y-auto divide-y divide-outline-variant">
+            {templates.map((t, i) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  role="option"
+                  className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-surface-container-highest transition-colors"
+                  onClick={() => {
+                    onSelect(t.text);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="font-medium text-on-surface-variant mr-2">{i + 1}.</span>
+                  {t.text}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RemarksForm({
-  classes, terms, selectedClassId, selectedTermId, students, existingRemarks,
+  classes,
+  terms,
+  selectedClassId,
+  selectedTermId,
+  students,
+  existingRemarks,
+  teacherTemplates = [],
+  principalTemplates = [],
 }: {
   classes: { id: string; name: string }[];
   terms: { id: string; name: string }[];
@@ -13,6 +90,8 @@ export function RemarksForm({
   selectedTermId: string;
   students: StudentVM[];
   existingRemarks: Record<string, { teacherComment: string; principalComment: string }>;
+  teacherTemplates?: Template[];
+  principalTemplates?: Template[];
 }) {
   const [state, action, pending] = useActionState(saveRemarksAction, {});
   const [remarks, setRemarks] = useState<Record<string, { teacherComment: string; principalComment: string }>>(existingRemarks);
@@ -46,22 +125,37 @@ export function RemarksForm({
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Teacher&apos;s Comment</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-label-sm text-label-sm text-on-surface-variant">Teacher&apos;s Comment</label>
+                      <TemplateDropdown
+                        templates={teacherTemplates}
+                        onSelect={(text) => setField(s.id, "teacherComment", text)}
+                      />
+                    </div>
                     <textarea
                       value={remarks[s.id]?.teacherComment ?? ""}
                       onChange={(e) => setField(s.id, "teacherComment", e.target.value)}
+                      onFocus={() => {
+                        /* dropdown is triggered by the button, not focus; kept for future extension */
+                      }}
                       rows={3}
-                      placeholder="Write teacher's comment..."
+                      placeholder="Write teacher's comment or use template above..."
                       className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
-                    <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Principal&apos;s Comment</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-label-sm text-label-sm text-on-surface-variant">Principal&apos;s Comment</label>
+                      <TemplateDropdown
+                        templates={principalTemplates}
+                        onSelect={(text) => setField(s.id, "principalComment", text)}
+                      />
+                    </div>
                     <textarea
                       value={remarks[s.id]?.principalComment ?? ""}
                       onChange={(e) => setField(s.id, "principalComment", e.target.value)}
                       rows={3}
-                      placeholder="Write principal's comment..."
+                      placeholder="Write principal's comment or use template above..."
                       className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary"
                     />
                   </div>
@@ -71,9 +165,13 @@ export function RemarksForm({
           </div>
 
           <div className="mt-4 flex items-center gap-4">
-            <button type="submit" disabled={pending}
+            <button
+              type="submit"
+              disabled={pending}
               className="bg-[#002046] text-white font-label-md text-label-md py-2 px-6 rounded hover:bg-[#003366] disabled:opacity-60"
-            >{pending ? "Saving..." : "Save All Remarks"}</button>
+            >
+              {pending ? "Saving..." : "Save All Remarks"}
+            </button>
             {state.success && <p className="text-green-700 font-body-sm text-body-sm">{state.success}</p>}
             {state.error && <p className="text-red-600 font-body-sm text-body-sm">{state.error}</p>}
           </div>

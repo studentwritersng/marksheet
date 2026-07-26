@@ -64,6 +64,7 @@ model School {
   exams                    Exam[]
   assessmentWeightings     AssessmentWeighting[]
   assessmentTypes          AssessmentType[]
+  remarkTemplates          RemarkTemplate[]
   reportCardTemplates      ReportCardTemplate[]
   timetablePeriods         TimetablePeriod[]
   timetableEntries         TimetableEntry[]
@@ -885,6 +886,23 @@ model AssessmentType {
   @@unique([schoolId, code])
   @@index([schoolId])
   @@map("assessment_types")
+}
+
+// ---------------------------------------------------------------------------
+// RemarkTemplate — school-seeded comment templates for teacher/principal remarks
+// ---------------------------------------------------------------------------
+model RemarkTemplate {
+  id        String   @id @default(cuid())
+  schoolId  String
+  type      String   // "teacher" | "principal"
+  text      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, type])
+  @@map("remark_templates")
 }
 
 model AssessmentWeighting {

@@ -15,12 +15,22 @@ export default async function RemarksPage(props: {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
-  const [classes, terms] = await Promise.all([
+  const [classes, terms, teacherTemplates, principalTemplates] = await Promise.all([
     prisma.class.findMany({ where: { schoolId: user.schoolId, archived: false }, orderBy: { name: "asc" } }),
     prisma.term.findMany({
       where: { session: { schoolId: user.schoolId, isCurrent: true } },
       include: { session: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.remarkTemplate.findMany({
+      where: { schoolId: user.schoolId, type: "teacher" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, text: true },
+    }),
+    prisma.remarkTemplate.findMany({
+      where: { schoolId: user.schoolId, type: "principal" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, text: true },
     }),
   ]);
 
@@ -59,6 +69,8 @@ export default async function RemarksPage(props: {
           selectedTermId={selectedTermId ?? ""}
           students={students.map((s) => ({ id: s.id, name: `${s.firstName} ${s.lastName}`, admissionNumber: s.admissionNumber }))}
           existingRemarks={remarksMap}
+          teacherTemplates={teacherTemplates}
+          principalTemplates={principalTemplates}
         />
       </div>
     </div>
