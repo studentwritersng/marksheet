@@ -18,7 +18,7 @@ interface SubjectScoreRow {
   admissionNumber: string;
   subjectId: string;
   subjectName: string;
-  rawScores: Record<string, number>; // assessmentTypeId -> raw score
+  rawScores: Record<string, number>; // parent assessmentTypeCode -> raw marks (for display)
   weightedScore: number;
   grade: string;
   rank: number;
@@ -358,13 +358,44 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
 
       const grade = applyGradingScale(weightedScore, gradingScale);
 
+      // Build display scores: parent assessment type code → raw marks (for broadsheet columns).
+      // For sub-component exams (WBT → THEORY/OBJ), collapse sub-component scores into the
+      // parent code using the actual raw values so the broadsheet shows e.g. WBT:12 (out of 15).
+      const displayScores: Record<string, number> = {};
+      for (const [code, rawVal] of Object.entries(studentScores)) {
+        if (parentCodes.has(code)) {
+          // Already keyed by parent code — store as-is (raw marks)
+          displayScores[code] = (displayScores[code] ?? 0) + rawVal;
+        } else {
+          // Sub-component code — find its parent exam's assessmentTypeId
+          const parentExam = exams.find((e) => {
+            if (e.subjectId !== subject.id) return false;
+            const sws = examSubWeights[e.id] ?? [];
+            return sws.some((sw) => (atIdToCode.get(sw.subAssessmentTypeId) ?? "") === code);
+          });
+          const parentCode = parentExam?.assessmentTypeId ?? code;
+
+          // rawVal here is already scaled to compMarks units. To get the actual raw mark
+          // (e.g. 12 out of 15 for WBT), back-calculate from the ManualScore via manualMap.
+          // Find any ManualScore entry for this student/exam/code and use its raw value.
+          const manualEntry = Object.entries(manualMap[parentExam?.id ?? ""] ?? {})
+            .find(([c]) => c === code)?.[1]?.[student.id];
+          if (manualEntry) {
+            displayScores[parentCode] = (displayScores[parentCode] ?? 0) + manualEntry.raw;
+          } else {
+            // Fallback: use scaled value
+            displayScores[parentCode] = (displayScores[parentCode] ?? 0) + rawVal;
+          }
+        }
+      }
+
       subjectResults.push({
         studentId: student.id,
         studentName: `${student.firstName} ${student.lastName}`,
         admissionNumber: student.admissionNumber,
         subjectId: subject.id,
         subjectName: subject.name,
-        rawScores: studentScores,
+        rawScores: displayScores,
         weightedScore: Math.round(weightedScore),
         grade,
         rank: 0, // set after sorting
