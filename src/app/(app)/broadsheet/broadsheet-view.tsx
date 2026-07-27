@@ -187,7 +187,7 @@ function BroadsheetTable({ data }: { data: BroadsheetData }) {
                   );
                 })}
                 <td className="score-cell total">
-                  {student.totals[sub.id] != null ? Math.round(student.totals[sub.id]) : "-"}
+                  {(() => { const v = student.totals[sub.id]; return v != null ? Math.round(v) : "-"; })()}
                 </td>
                 <td className="score-cell grade">
                   {student.grades[sub.id] ?? "-"}
