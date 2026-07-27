@@ -69,12 +69,76 @@ export default async function DashboardPage() {
   if (user.role === "student") {
     const myStudent = await prisma.student.findUnique({
       where: { userId: user.userId },
-      select: { id: true, firstName: true, lastName: true, passportPhoto: true, currentClass: { select: { name: true } } },
+      select: { id: true, firstName: true, lastName: true, passportPhoto: true, currentClassId: true, currentClass: { select: { name: true, level: true } } },
     });
     const termResultCount = myStudent
       ? await prisma.termResult.count({ where: { studentId: myStudent.id } })
       : 0;
     const initial = myStudent ? `${myStudent.firstName.charAt(0)}${myStudent.lastName.charAt(0)}` : "S";
+
+    // Fetch today's (or next day's) timetable
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const isAfterSchool = currentHour > 15 || (currentHour === 15 && currentMinute > 0);
+    // JS day: 0=Sun..6=Sat; our timetable: 0=Mon..4=Fri
+    let jsDay = now.getDay();
+    if (isAfterSchool) jsDay = jsDay >= 5 ? 0 : jsDay + 1; // wrap to Mon on weekends
+    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1; // convert to 0=Mon..6=Sun
+    const timetableDayName = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][dayOfWeek];
+
+    let timetableEntries: { period: string; startTime: string; endTime: string; subject: string; periodType: string }[] = [];
+    if (myStudent?.currentClassId && dayOfWeek < 5) {
+      const entries = await prisma.timetableEntry.findMany({
+        where: { classId: myStudent.currentClassId, dayOfWeek },
+        include: { period: { select: { name: true, startTime: true, endTime: true, periodType: true } }, subject: { select: { name: true } } },
+        orderBy: { period: { startTime: "asc" } },
+      });
+      timetableEntries = entries.map((e) => ({
+        period: e.period.name,
+        startTime: e.period.startTime,
+        endTime: e.period.endTime,
+        subject: e.subject.name,
+        periodType: e.period.periodType,
+      }));
+    }
+
+    // Curriculum period tracker (only if addon active)
+    const addonActive = await isAddonActive(schoolId, "Period Tracker");
+    let curriculumStats: { subject: string; total: number; taught: number; pct: number }[] = [];
+    let overallPct = 0;
+    if (addonActive && myStudent?.currentClassId) {
+      const currentTerm = await prisma.term.findFirst({
+        where: { session: { schoolId, isCurrent: true }, isCurrent: true },
+        select: { name: true },
+      });
+      if (currentTerm) {
+        const classSubjects = await prisma.classSubject.findMany({
+          where: { classId: myStudent.currentClassId },
+          include: { subject: { select: { id: true, name: true } } },
+        });
+        for (const cs of classSubjects) {
+          const total = await prisma.curriculumTopic.count({
+            where: { classLevel: myStudent.currentClass.level, subject: cs.subject.name, term: currentTerm.name },
+          });
+          if (total === 0) continue;
+          const taught = await prisma.taughtTopic.count({
+            where: { classId: myStudent.currentClassId, subjectId: cs.subject.id, teacherMarked: true, captainMarked: true },
+          });
+          curriculumStats.push({
+            subject: cs.subject.name,
+            total,
+            taught,
+            pct: Math.round((taught / total) * 100),
+          });
+        }
+        if (curriculumStats.length > 0) {
+          const allTaught = curriculumStats.reduce((a, r) => a + r.taught, 0);
+          const allTotal = curriculumStats.reduce((a, r) => a + r.total, 0);
+          overallPct = Math.round((allTaught / allTotal) * 100);
+        }
+      }
+    }
 
     return (
       <section className="flex flex-col gap-stack-lg">
@@ -93,6 +157,85 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        {/* Today's Timetable */}
+        {timetableEntries.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-label-md text-label-md text-on-surface-variant flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px]">calendar_view_week</span>
+                {isAfterSchool ? "Tomorrow's" : "Today's"} Timetable — {timetableDayName}
+              </h3>
+              <Link href="/my-timetable" className="font-label-sm text-label-sm text-primary hover:underline">View full →</Link>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-outline-variant">
+                    <th className="py-1.5 pr-2 text-left font-label-sm text-label-sm text-on-surface-variant">Time</th>
+                    <th className="py-1.5 pr-2 text-left font-label-sm text-label-sm text-on-surface-variant">Period</th>
+                    <th className="py-1.5 text-left font-label-sm text-label-sm text-on-surface-variant">Subject</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {timetableEntries.map((e, i) => (
+                    <tr key={i} className="border-b border-outline-variant/50">
+                      <td className="py-1.5 pr-2 text-on-surface-variant">{e.startTime}–{e.endTime}</td>
+                      <td className="py-1.5 pr-2 text-on-surface">{e.period}</td>
+                      <td className="py-1.5 font-medium text-on-surface">{e.subject}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Curriculum Period Tracker */}
+        {curriculumStats.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-label-md text-label-md text-on-surface-variant flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px]">checklist</span>
+                Curriculum Progress
+              </h3>
+              <div className="flex items-center gap-1">
+                <span className="font-label-sm text-label-sm font-semibold">{overallPct}%</span>
+                <span className="font-body-sm text-body-sm text-on-surface-variant">covered</span>
+              </div>
+            </div>
+            <div className="h-2 bg-surface-container rounded-full mb-4 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${overallPct}%`,
+                  backgroundColor: overallPct >= 75 ? "#15803d" : overallPct >= 50 ? "#d97706" : "#dc2626",
+                }}
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-outline-variant">
+                    <th className="py-1.5 pr-2 font-label-sm text-label-sm text-on-surface-variant">Subject</th>
+                    <th className="py-1.5 pr-2 font-label-sm text-label-sm text-on-surface-variant text-right">%</th>
+                    <th className="py-1.5 font-label-sm text-label-sm text-on-surface-variant text-right">Done</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {curriculumStats.map((r, i) => (
+                    <tr key={i} className="border-b border-outline-variant/50">
+                      <td className="py-1.5 pr-2 text-on-surface">{r.subject}</td>
+                      <td className="py-1.5 pr-2 text-right font-semibold" style={{ color: r.pct >= 75 ? "#15803d" : r.pct >= 50 ? "#d97706" : "#dc2626" }}>{r.pct}%</td>
+                      <td className="py-1.5 text-right text-on-surface-variant">{r.taught}/{r.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Link href="/curriculum-tracker" className="mt-3 block text-center font-label-sm text-label-sm text-primary hover:underline">View full tracker →</Link>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard label="Term Results" value={termResultCount} icon="analytics" gradient="from-emerald-500 to-emerald-700" />
           <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5 hover:shadow-md transition-shadow col-span-1 sm:col-span-2">
@@ -102,6 +245,7 @@ export default async function DashboardPage() {
                 { href: "/my-exams", icon: "quiz", label: "My Exams" },
                 { href: "/my-results", icon: "analytics", label: "My Results" },
                 { href: "/my-timetable", icon: "calendar_view_week", label: "Timetable" },
+                { href: "/curriculum-tracker", icon: "checklist", label: "Curriculum" },
                 { href: "/settings/profile", icon: "person", label: "Profile" },
               ].map(({ href, icon, label }) => (
                 <Link key={href} href={href}
@@ -204,6 +348,12 @@ export default async function DashboardPage() {
               </p>
             )}
           </div>
+          {perms.subjectTeacherClassIds.size > 0 && (
+            <Link href="/curriculum-tracker" className="mt-4 inline-flex items-center gap-1 font-label-sm text-label-sm text-primary hover:underline">
+              <span className="material-symbols-outlined text-[16px]">checklist</span>
+              View Curriculum Tracker
+            </Link>
+          )}
         </div>
       )}
     </section>

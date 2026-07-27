@@ -43,6 +43,7 @@ export function buildNav(
       ]},
       { label: "Teaching Resources", icon: "menu_book", children: [
         { label: "Period Tracker", href: "/period-tracker", icon: "checklist" },
+        { label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" },
         { label: "Lesson Notes", href: "/lesson-notes", icon: "note" },
         { label: "Question Bank", href: "/questions", icon: "quiz" },
       ]},
@@ -79,6 +80,7 @@ export function buildNav(
   } else if (user.role === "parent") {
     items.push(
       { label: "My Wards", href: "/parent", icon: "family_history" },
+      { label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" },
       { label: "Notification Prefs", href: "/parent/settings", icon: "notifications" },
     );
   } else if (user.role === "student") {
@@ -86,6 +88,7 @@ export function buildNav(
       { label: "My Exams", href: "/my-exams", icon: "quiz" },
       { label: "My Results", href: "/my-results", icon: "analytics" },
       { label: "My Timetable", href: "/my-timetable", icon: "calendar_view_week" },
+      { label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" },
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
     ];
     if (isStudentCaptain) {
@@ -102,6 +105,7 @@ export function buildNav(
     if (perms.subjectTeacherSubjectIds.size > 0) {
       items.push({ label: "Lesson Notes", href: "/lesson-notes", icon: "note" });
       items.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });
+      items.push({ label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" });
     }
     if (perms.subjectTeacherSubjectIds.size > 0 || perms.isReceptionist) {
       items.push({ label: "Daily Attendance", href: "/attendance", icon: "fact_check" });
