@@ -265,6 +265,8 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
   for (const student of students) {
     const subjectResults: SubjectScoreRow[] = [];
     const registered = studentRegisteredSubjects[student.id] ?? new Set();
+    let totalEarned = 0;
+    let totalAvailable = 0;
 
     for (const subject of subjects) {
       // Skip subjects this student is not registered for
@@ -371,6 +373,12 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
 
       const grade = applyGradingScale(weightedScore, gradingScale);
 
+      // Accumulate earned/available for overall percentage
+      for (const { earned, available } of Object.values(aggregatedScores)) {
+        totalEarned += earned;
+        totalAvailable += available;
+      }
+
       // Build display scores: parent assessment type code → raw marks (for broadsheet columns).
       // For sub-component exams (WBT → THEORY/OBJ), collapse sub-component scores into the
       // parent code using the actual raw values so the broadsheet shows e.g. WBT:12 (out of 15).
@@ -426,8 +434,8 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
     });
 
     const overallAverage =
-      subjectResults.length > 0
-        ? Math.round(subjectResults.reduce((s, r) => s + r.weightedScore, 0) / subjectResults.length)
+      totalAvailable > 0
+        ? Math.round((totalEarned / totalAvailable) * 100)
         : 0;
 
     results.push({
@@ -459,6 +467,15 @@ export async function persistResults(
   results: TermResultOutput[],
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    // Delete old subject results for students in this class to remove
+    // subjects the student is no longer registered for.
+    const studentIds = results.map((r) => r.studentId);
+    if (studentIds.length > 0) {
+      await tx.subjectResult.deleteMany({
+        where: { termId, studentId: { in: studentIds } },
+      });
+    }
+
     for (const tr of results) {
       for (const sr of tr.subjectResults) {
         await tx.subjectResult.upsert({

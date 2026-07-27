@@ -62,6 +62,45 @@ export default async function ResultsPage(props: {
     ]);
   }
 
+  // ── Department filtering for subject results ───────────────────────────────
+  // Fetch class-subject links with department info and student departments
+  // so we can filter out subjects a student is not registered for.
+  const classSubjectLinks = selectedClassId
+    ? await prisma.classSubject.findMany({
+        where: { classId: selectedClassId },
+        select: { subjectId: true, department: true },
+      })
+    : [];
+
+  // Build a map of studentId → set of registered subjectIds
+  const studentDeptMap = new Map<string, string>();
+  const studentRegisteredSubjects = new Map<string, Set<string>>();
+
+  if (selectedClassId && selectedTermId && subjectResults.length > 0) {
+    const studentIds = [...new Set(subjectResults.map((sr) => sr.studentId))];
+    const students = await prisma.student.findMany({
+      where: { schoolId: user.schoolId, id: { in: studentIds } },
+      select: { id: true, department: true },
+    });
+    for (const s of students) {
+      studentDeptMap.set(s.id, s.department || "");
+      const registered = new Set(
+        classSubjectLinks
+          .filter((cs) => {
+            if (cs.department === "general") return true;
+            return s.department && cs.department === s.department;
+          })
+          .map((cs) => cs.subjectId),
+      );
+      studentRegisteredSubjects.set(s.id, registered);
+    }
+    // Filter subjectResults to only include subjects the student is registered for
+    subjectResults = subjectResults.filter((sr) => {
+      const registered = studentRegisteredSubjects.get(sr.studentId);
+      return registered?.has(sr.subjectId) ?? true;
+    });
+  }
+
   // ── Scores tab data ──────────────────────────────────────────────────────
   // Subjects for the selected class
   const classSubjects = selectedClassId
@@ -107,8 +146,22 @@ export default async function ResultsPage(props: {
     const students = await prisma.student.findMany({
       where: { schoolId: user.schoolId, currentClassId: selectedClassId, status: "active" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      select: { id: true, admissionNumber: true, firstName: true, lastName: true },
+      select: { id: true, admissionNumber: true, firstName: true, lastName: true, department: true },
     });
+
+    // Determine which department the selected subject belongs to
+    const selectedSubjectDept = classSubjectLinks.find((cs) => cs.subjectId === effectiveSubjectId)?.department ?? "general";
+
+    // Filter students to only those registered for this subject's department
+    const eligibleStudentIds = new Set(
+      students
+        .filter((s) => {
+          const studentDept = s.department || "";
+          if (selectedSubjectDept === "general") return true;
+          return studentDept === selectedSubjectDept;
+        })
+        .map((s) => s.id),
+    );
 
     // SubjectResult for score display
     const subjectResultMap = new Map(
@@ -141,16 +194,18 @@ export default async function ResultsPage(props: {
         manualMap.set(ms.studentId, list);
       }
 
-      const rows = students.map((s) => {
-        const attempt = attemptMap.get(s.id);
-        const platformScore = attempt
-          ? attempt.answers.reduce((sum, a) => sum + Number(a.finalScore ?? a.aiSuggestedScore ?? a.gradedScore ?? 0), 0)
-          : null;
-        const sr = subjectResultMap.get(s.id);
-        return {
-          studentId: s.id,
-          studentName: `${s.lastName}, ${s.firstName}`,
-          admissionNumber: s.admissionNumber,
+       const rows = students
+         .filter((s) => eligibleStudentIds.has(s.id))
+         .map((s) => {
+           const attempt = attemptMap.get(s.id);
+           const platformScore = attempt
+             ? attempt.answers.reduce((sum, a) => sum + Number(a.finalScore ?? a.aiSuggestedScore ?? a.gradedScore ?? 0), 0)
+             : null;
+           const sr = subjectResultMap.get(s.id);
+           return {
+             studentId: s.id,
+             studentName: `${s.lastName}, ${s.firstName}`,
+             admissionNumber: s.admissionNumber,
           platformScore,
           platformMax: examMaxScore || null,
           manualScores: manualMap.get(s.id) ?? [],
