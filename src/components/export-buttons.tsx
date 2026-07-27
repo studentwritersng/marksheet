@@ -4,6 +4,7 @@ import { useState } from "react";
 import { exportToCSV } from "@/lib/export/csv";
 import { exportToPDF } from "@/lib/export/pdf";
 import { exportToDOC } from "@/lib/export/doc";
+import { exportTableToXLSX } from "@/lib/export/xlsx";
 
 interface ExportButtonsProps {
   contentId: string;
@@ -72,6 +73,19 @@ export function ExportButtons({
     }
   };
 
+  const handleXLSX = () => {
+    setExporting("xlsx");
+    try {
+      const el = document.getElementById(contentId);
+      if (!el) return;
+      const table = el.querySelector("table");
+      if (!table) return;
+      exportTableToXLSX(table, filename);
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const btnClass =
     "inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-50";
 
@@ -93,6 +107,12 @@ export function ExportButtons({
         {exporting === "doc" ? "..." : null}
         <span className="material-symbols-outlined text-base leading-none">description</span>
         DOC
+      </button>
+
+      <button onClick={handleXLSX} disabled={exporting === "xlsx"} className={btnClass}>
+        {exporting === "xlsx" ? "..." : null}
+        <span className="material-symbols-outlined text-base leading-none">table_view</span>
+        XLS
       </button>
 
       {csvData && (
