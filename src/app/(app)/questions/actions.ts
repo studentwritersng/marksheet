@@ -407,9 +407,13 @@ Number of MCQ questions to generate: {{question_count}}
 Marks per question: {{marks_per_question}}
 Grounding percentage: {{grounding_percentage}}
 Difficulty distribution (how many of each): {{difficulty_distribution}}
+Lesson note(s) — draw grounded questions directly from this content:
+{{lesson_note_content}}
+
+IMPORTANT — You must generate the EXACT NUMBER of questions specified in the inputs above ({{question_count}} questions). The "questions" array MUST contain exactly {{question_count}} items — no more, no fewer. Do not stop early. Do not summarise. Generate every single question fully.
 
 TASK
-For each MCQ:
+For each of the {{question_count}} MCQ questions:
 1. Write a clear stem (question) testing understanding of the topic, strictly obeying the class-level rules above.
 2. Provide exactly 4 options (A-D); mark which is correct.
 3. For each question, include a short "rationale" explaining why the correct answer is right.
@@ -538,7 +542,10 @@ Output valid JSON only, with this exact shape and no additional text before or a
     .replace(/\{\{question_count\}\}/g, String(questionCount))
     .replace(/\{\{marks_per_question\}\}/g, String(marksPerQuestion))
     .replace(/\{\{grounding_percentage\}\}/g, String(groundingPercentage))
-    .replace(/\{\{difficulty_distribution\}\}/g, difficultyDistribution);
+    .replace(/\{\{difficulty_distribution\}\}/g, difficultyDistribution)
+    .replace(/\{\{lesson_note_content\}\}/g, combinedContent.slice(0, 4000))
+    .replace(/\{\{topic\}\}/g, topic)
+    .replace(/\{\{theme_or_aspect\}\}/g, notes[0]?.class?.name ?? classLevel);
 
   const result = await createCompletion({
     taskType: "question_generation",
@@ -547,18 +554,24 @@ Output valid JSON only, with this exact shape and no additional text before or a
       { role: "system", content: filledSystemContent },
       {
         role: "user",
-        content: `Subject: ${subjectNames || "the subject"}
+        content: `Generate exactly ${questionCount} ${isMcq ? "MCQ" : "essay"} question${questionCount !== 1 ? "s" : ""} now.
+
+Subject: ${subjectNames || "the subject"}
 Class: ${classLevel}
-Number of ${isMcq ? "MCQ" : "essay"} questions to generate: ${questionCount}
+Number of questions: ${questionCount}
 Marks per question: ${marksPerQuestion}
 Grounding percentage: ${groundingPercentage}
-Difficulty distribution: ${easyCount} Easy, ${mediumCount} Medium, ${hardCount} Hard (distribute across the questions)
+Difficulty distribution: ${easyCount} Easy, ${mediumCount} Medium, ${hardCount} Hard
 
-Lesson note content:\n${combinedContent.slice(0, 8000)}`,
+${isMcq ? "" : `Lesson note content:\n${combinedContent.slice(0, 6000)}`}
+
+Remember: the "questions" array must have exactly ${questionCount} item${questionCount !== 1 ? "s" : ""}. Output JSON only.`,
       },
     ],
     temperature: 0.6,
-    maxTokens: isMcq ? 4096 : 8192,
+    // MCQ: each question ~300 tokens (stem + 4 options + rationale + fields) × count + JSON overhead
+    // Essay: each question ~800 tokens (stem + model answer + rubric) × count + JSON overhead
+    maxTokens: isMcq ? Math.max(4096, questionCount * 400 + 500) : Math.max(8192, questionCount * 900 + 500),
   });
 
   // Parse the AI JSON response — strip markdown fences first
