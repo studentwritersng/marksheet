@@ -11,12 +11,17 @@ export default async function RemarksPage(props: {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
-  if (!canManageSchool(perms) || !user.schoolId) {
+  const isClassTeacher = perms.classTeacherClassIds.size > 0;
+  if (!canManageSchool(perms) && !isClassTeacher || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
+  const classFilter = canManageSchool(perms)
+    ? { schoolId: user.schoolId, archived: false }
+    : { schoolId: user.schoolId, archived: false, id: { in: [...perms.classTeacherClassIds] } };
+
   const [classes, terms, teacherTemplates, principalTemplates] = await Promise.all([
-    prisma.class.findMany({ where: { schoolId: user.schoolId, archived: false }, orderBy: { name: "asc" } }),
+    prisma.class.findMany({ where: classFilter, orderBy: { name: "asc" } }),
     prisma.term.findMany({
       where: { session: { schoolId: user.schoolId, isCurrent: true } },
       include: { session: true },

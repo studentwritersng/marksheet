@@ -68,6 +68,25 @@ export default async function ReportCardPage(props: {
   ]);
   if (!student || !term) notFound();
 
+  // ── Find the class teacher for this student's class ──────────────────────
+  // Look for a staff member with a class_teacher assignment for this class
+  let classTeacherSignature: string | null = null;
+  let classTeacherName: string | null = null;
+  if (student.currentClassId) {
+    const classTeacherAssignment = await prisma.assignment.findFirst({
+      where: {
+        classId: student.currentClassId,
+        assignmentType: "class_teacher",
+        schoolId: user.schoolId ?? undefined,
+      },
+      include: { staff: { select: { fullName: true, signature: true } } },
+    });
+    if (classTeacherAssignment?.staff) {
+      classTeacherSignature = classTeacherAssignment.staff.signature ?? null;
+      classTeacherName = classTeacherAssignment.staff.fullName ?? null;
+    }
+  }
+
   const [subjectResults, termResult, totalStudentsInClass, rcConfig] = await Promise.all([
     prisma.subjectResult.findMany({
       where: { studentId, termId },
@@ -432,19 +451,22 @@ export default async function ReportCardPage(props: {
           {rcConfig.showSignatures && (
             <div className="px-6 pb-5 pt-3 border-t border-gray-300 grid grid-cols-3 gap-6 items-end text-xs text-gray-700">
               {/* Class Teacher signature — LEFT */}
-              <SignatureBox label="Class Teacher's Signature" />
+              <SignatureBox
+                label={classTeacherName ? `Class Teacher: ${classTeacherName}` : "Class Teacher's Signature"}
+                imageUrl={classTeacherSignature}
+              />
 
               {/* School Stamp — CENTER */}
               <div className="flex flex-col items-center gap-1">
                 <div className="h-20 w-20 flex items-center justify-center">
                   {rcConfig.showStamp && school?.stamp ? (
-                    <Image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
                       src={school.stamp}
                       alt="School stamp"
                       width={80}
                       height={80}
-                      className="object-contain"
-                      unoptimized
+                      className="object-contain max-h-20 max-w-20"
                     />
                   ) : rcConfig.showStamp ? (
                     <div className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
@@ -520,7 +542,8 @@ function SignatureBox({ label, imageUrl }: { label: string; imageUrl?: string | 
     <div className="flex flex-col items-center gap-1">
       <div className="h-14 w-full flex items-end justify-center">
         {imageUrl ? (
-          <Image src={imageUrl} alt={label} width={100} height={50} className="object-contain" unoptimized />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt={label} className="object-contain max-h-14 max-w-full" />
         ) : (
           <div className="w-full border-b border-gray-400" />
         )}

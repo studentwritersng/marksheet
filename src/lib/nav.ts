@@ -108,6 +108,15 @@ export function buildNav(
     }
     if (perms.classTeacherClassIds.size > 0) {
       items.push({ label: "Students", href: "/students", icon: "group" });
+      // Class teachers get their own Results submenu scoped to their classes
+      items.push({
+        label: "Results", icon: "analytics", children: [
+          { label: "Result", href: "/results", icon: "analytics" },
+          { label: "Attendance", href: "/results/attendance", icon: "fact_check" },
+          { label: "Remarks", href: "/results/remarks", icon: "rate_review" },
+          { label: "Broadsheet", href: "/broadsheet", icon: "table_chart" },
+        ],
+      });
     }
     if (perms.isFeeStatusManager) {
       items.push({ label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" });
