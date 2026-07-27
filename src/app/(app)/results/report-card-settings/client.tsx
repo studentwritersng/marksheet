@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import type { ReportCardConfig } from "./actions";
+import type { ReportCardConfig } from "./types";
 import { saveReportCardConfigAction } from "./actions";
 
 interface ToggleItem {

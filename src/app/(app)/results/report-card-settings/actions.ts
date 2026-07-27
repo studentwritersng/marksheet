@@ -4,45 +4,16 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
-
-export interface ReportCardConfig {
-  showAttendance: boolean;
-  showAffective: boolean;
-  showPosition: boolean;
-  showGrade: boolean;
-  showRemark: boolean;
-  showCumulativeAverage: boolean;
-  showTeacherComment: boolean;
-  showPrincipalComment: boolean;
-  showStamp: boolean;
-  showSignatures: boolean;
-  showGradingKey: boolean;
-  showPassportPhoto: boolean;
-  showWatermarkLogo: boolean;
-}
-
-export const DEFAULT_RC_CONFIG: ReportCardConfig = {
-  showAttendance: true,
-  showAffective: true,
-  showPosition: true,
-  showGrade: true,
-  showRemark: true,
-  showCumulativeAverage: true,
-  showTeacherComment: true,
-  showPrincipalComment: true,
-  showStamp: true,
-  showSignatures: true,
-  showGradingKey: true,
-  showPassportPhoto: true,
-  showWatermarkLogo: true,
-};
+import type { ReportCardConfig } from "./types";
+import { DEFAULT_RC_CONFIG } from "./types";
 
 export async function getReportCardConfig(schoolId: string): Promise<ReportCardConfig> {
   const school = await prisma.school.findUnique({
     where: { id: schoolId },
     select: { letterheadSettings: true },
   });
-  const stored = (school?.letterheadSettings as any)?.reportCardConfig as Partial<ReportCardConfig> | undefined;
+  const stored = (school?.letterheadSettings as Record<string, unknown> | null)
+    ?.reportCardConfig as Partial<ReportCardConfig> | undefined;
   return { ...DEFAULT_RC_CONFIG, ...stored };
 }
 
@@ -52,31 +23,33 @@ export async function saveReportCardConfigAction(
 ): Promise<{ error?: string; success?: string }> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
-  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : "License error." };
+  }
 
-  const boolField = (key: string) => formData.get(key) === "on";
+  const bool = (key: string) => formData.get(key) === "on";
 
   const config: ReportCardConfig = {
-    showAttendance: boolField("showAttendance"),
-    showAffective: boolField("showAffective"),
-    showPosition: boolField("showPosition"),
-    showGrade: boolField("showGrade"),
-    showRemark: boolField("showRemark"),
-    showCumulativeAverage: boolField("showCumulativeAverage"),
-    showTeacherComment: boolField("showTeacherComment"),
-    showPrincipalComment: boolField("showPrincipalComment"),
-    showStamp: boolField("showStamp"),
-    showSignatures: boolField("showSignatures"),
-    showGradingKey: boolField("showGradingKey"),
-    showPassportPhoto: boolField("showPassportPhoto"),
-    showWatermarkLogo: boolField("showWatermarkLogo"),
+    showAttendance:       bool("showAttendance"),
+    showAffective:        bool("showAffective"),
+    showPosition:         bool("showPosition"),
+    showGrade:            bool("showGrade"),
+    showRemark:           bool("showRemark"),
+    showCumulativeAverage:bool("showCumulativeAverage"),
+    showTeacherComment:   bool("showTeacherComment"),
+    showPrincipalComment: bool("showPrincipalComment"),
+    showStamp:            bool("showStamp"),
+    showSignatures:       bool("showSignatures"),
+    showGradingKey:       bool("showGradingKey"),
+    showPassportPhoto:    bool("showPassportPhoto"),
+    showWatermarkLogo:    bool("showWatermarkLogo"),
   };
 
   const school = await prisma.school.findUnique({
     where: { id: ctx.schoolId },
     select: { letterheadSettings: true },
   });
-  const existing = (school?.letterheadSettings as any) ?? {};
+  const existing = (school?.letterheadSettings as Record<string, unknown> | null) ?? {};
   await prisma.school.update({
     where: { id: ctx.schoolId },
     data: { letterheadSettings: { ...existing, reportCardConfig: config } },

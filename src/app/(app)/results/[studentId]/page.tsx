@@ -3,7 +3,8 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { PrintButton } from "./print-button";
 import Image from "next/image";
-import { getReportCardConfig, DEFAULT_RC_CONFIG } from "../report-card-settings/actions";
+import { getReportCardConfig } from "../report-card-settings/actions";
+import { DEFAULT_RC_CONFIG } from "../report-card-settings/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -105,12 +106,29 @@ export default async function ReportCardPage(props: {
     const scores = sr.assessmentScores as Record<string, number> | null;
     if (scores) Object.keys(scores).forEach((k) => allScoreKeys.add(k));
   }
-  // Preferred order — WBT first, then MDT, then EXAM (or CA1/CA2/EXAM)
+  // Preferred display order
   const PREFERRED_ORDER = ["WBT", "CA1", "CA2", "CA3", "MDT", "EXM", "EXAM"];
   const assessmentCols = [
     ...PREFERRED_ORDER.filter((k) => allScoreKeys.has(k)),
     ...[...allScoreKeys].filter((k) => !PREFERRED_ORDER.includes(k)),
   ];
+
+  // Fetch assessment type names for the key (code → full name + max marks)
+  const assessmentTypes = assessmentCols.length > 0 && user.schoolId
+    ? await prisma.assessmentType.findMany({
+        where: { schoolId: user.schoolId, code: { in: assessmentCols }, parentId: null },
+        select: { code: true, name: true },
+      })
+    : [];
+  // Also get weightings for max marks
+  const assessmentWeightings = assessmentCols.length > 0 && user.schoolId
+    ? await prisma.assessmentWeighting.findMany({
+        where: { schoolId: user.schoolId, subjectId: null, assessmentTypeId: { in: assessmentCols } },
+        select: { assessmentTypeId: true, weightPercentage: true },
+      })
+    : [];
+  const atNameMap = new Map(assessmentTypes.map((a) => [a.code, a.name]));
+  const atWeightMap = new Map(assessmentWeightings.map((w) => [w.assessmentTypeId, w.weightPercentage]));
 
   return (
     <div className="mx-auto max-w-[800px] p-6 print:p-0 print:max-w-none">
@@ -313,14 +331,34 @@ export default async function ReportCardPage(props: {
 
           {/* ── GRADING KEY ── */}
           {rcConfig.showGradingKey && gradingScale && gradingScale.length > 0 && (
-            <div className="px-6 pb-2">
+            <div className="px-6 pb-1">
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[9px] text-gray-600 border border-gray-200 rounded px-2 py-1 bg-gray-50">
-                <span className="font-semibold text-gray-700">Key:</span>
+                <span className="font-semibold text-gray-700">Grades:</span>
                 {gradingScale.map((band) => (
                   <span key={band.grade}>
                     <span className="font-bold">{band.grade}</span>{band.remark ? `: ${band.remark}` : ""} ({band.min}–{band.max})
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── ASSESSMENT KEY ── */}
+          {assessmentCols.length > 0 && (
+            <div className="px-6 pb-2">
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[9px] text-gray-600 border border-gray-200 rounded px-2 py-1 bg-gray-50">
+                <span className="font-semibold text-gray-700">Assessment Key:</span>
+                {assessmentCols.map((code) => {
+                  const name = atNameMap.get(code);
+                  const max  = atWeightMap.get(code);
+                  return (
+                    <span key={code}>
+                      <span className="font-bold">{code}</span>
+                      {name ? ` = ${name}` : ""}
+                      {max  ? ` (max ${max})` : ""}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
