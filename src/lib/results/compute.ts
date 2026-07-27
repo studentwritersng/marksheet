@@ -184,18 +184,13 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
 
     if (subWeights.length === 0) {
       // No sub-components configured: the platform attempt IS the whole assessment.
-      // Scale: (platformRaw / platformMax) * parentMarkAllocation
-      // We don't know the parent mark allocation here without the weightMap, so we store
-      // a normalised 0–100 percentage and let the weighted score step handle it.
-      // Store as the assessmentTypeCode (parent) keyed score, normalised to 100.
+      // Store raw score; weighting step will handle proportionality.
       if (platformMax > 0) {
-        const normalised = (platformRaw / platformMax) * 100;
         const existingManual = Object.values(manualMap[attempt.examId] ?? {})
           .some((byStudent) => byStudent[attempt.studentId] != null);
         if (!existingManual) {
-          // Store normalised score; weighting step will multiply by (weight/100)
           scoreMap[attempt.studentId][subjectId][assessmentTypeId] =
-            (scoreMap[attempt.studentId][subjectId][assessmentTypeId] ?? 0) + normalised;
+            (scoreMap[attempt.studentId][subjectId][assessmentTypeId] ?? 0) + platformRaw;
         }
       }
     } else {
@@ -243,10 +238,9 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
         if (!scoreMap[studentId][exam.subjectId]) scoreMap[studentId][exam.subjectId] = {};
 
         if (subWeights.length === 0) {
-          // No sub-component config: store normalised 0-100 score under parent code
+          // No sub-component config: store raw score under parent code
           if (scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] == null) {
-            scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] =
-              max > 0 ? (raw / max) * 100 : 0;
+            scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] = raw;
           }
         } else {
           // Find what marks this component is worth
@@ -302,12 +296,19 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
 
       for (const [code, raw] of Object.entries(studentScores)) {
         if (parentCodes.has(code)) {
-          // Case B: normalised percentage score (0–100) under the parent code
+          // Parent code with raw score: find the max marks for this assessment type
+          const parentExam = exams.find((e) => {
+            if (e.subjectId !== subject.id) return false;
+            return e.assessmentTypeId === code;
+          });
+          // For parent-level exams without sub-components, use the exam's max score
+          // If no exam found, use the weight as the max (fallback)
+          const examMax = parentExam ? (examMaxScores[parentExam.id] ?? weightMap.get(code) ?? 100) : (weightMap.get(code) ?? 100);
           const existing = aggregatedScores[code];
           aggregatedScores[code] = {
             earned: (existing?.earned ?? 0) + raw,
-            available: 100, // already normalised
-            mode: "pct",
+            available: (existing?.available ?? 0) + examMax,
+            mode: "marks",
           };
         } else {
           // Case A: sub-component score already in parent marks units
@@ -342,15 +343,10 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
       for (const [assessType, { earned, available, mode }] of Object.entries(aggregatedScores)) {
         const weight = weightMap.get(assessType) ?? 0;
         if (weight === 0) continue;
-        if (mode === "marks") {
-          // earned/available gives proportion of this assessment type's sat marks
-          // multiply by weight to get the contribution to the term total
-          const proportion = available > 0 ? earned / available : 0;
-          weightedScore += proportion * weight;
-        } else {
-          // Case B: earned is already 0–100 normalised → scale by weight/100
-          weightedScore += earned * (weight / 100);
-        }
+        // earned/available gives proportion of this assessment type's sat marks
+        // multiply by weight to get the contribution to the term total
+        const proportion = available > 0 ? earned / available : 0;
+        weightedScore += proportion * weight;
         totalWeight += weight;
       }
 
@@ -369,7 +365,7 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
         subjectId: subject.id,
         subjectName: subject.name,
         rawScores: studentScores,
-        weightedScore: Math.round(weightedScore * 100) / 100,
+        weightedScore: Math.round(weightedScore),
         grade,
         rank: 0, // set after sorting
       });
@@ -387,7 +383,7 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
 
     const overallAverage =
       subjectResults.length > 0
-        ? Math.round((subjectResults.reduce((s, r) => s + r.weightedScore, 0) / subjectResults.length) * 100) / 100
+        ? Math.round(subjectResults.reduce((s, r) => s + r.weightedScore, 0) / subjectResults.length)
         : 0;
 
     results.push({

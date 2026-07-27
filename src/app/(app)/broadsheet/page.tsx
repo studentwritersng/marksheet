@@ -215,7 +215,7 @@ async function fetchBroadsheetData(
     return {
       subjectId: sub.id,
       classAverage: totalsList.length > 0
-        ? Math.round((totalsList.reduce((a, b) => a + b, 0) / totalsList.length) * 10) / 10
+        ? Math.round(totalsList.reduce((a, b) => a + b, 0) / totalsList.length)
         : null,
       highest: totalsList.length > 0 ? Math.max(...totalsList) : null,
       lowest: totalsList.length > 0 ? Math.min(...totalsList) : null,

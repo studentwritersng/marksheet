@@ -179,7 +179,7 @@ function BroadsheetTable({ data }: { data: BroadsheetData }) {
                     <td key={`${student.id}-${sub.id}-${code}`} className="score-cell">
                       {score != null ? (
                         <span>
-                          {score}
+                          {Math.round(score)}
                           {isResit ? <sup className="text-red-600 font-bold">*</sup> : null}
                         </span>
                       ) : "-"}
@@ -187,15 +187,15 @@ function BroadsheetTable({ data }: { data: BroadsheetData }) {
                   );
                 })}
                 <td className="score-cell total">
-                  {student.totals[sub.id] != null ? student.totals[sub.id] : "-"}
+                  {student.totals[sub.id] != null ? Math.round(student.totals[sub.id]) : "-"}
                 </td>
                 <td className="score-cell grade">
                   {student.grades[sub.id] ?? "-"}
                 </td>
               </>
             ))}
-            <td className="summary-col">{student.grandTotal != null ? Math.round(student.grandTotal * 10) / 10 : "-"}</td>
-            <td className="summary-col">{student.average != null ? Math.round(student.average * 10) / 10 : "-"}</td>
+            <td className="summary-col">{student.grandTotal != null ? Math.round(student.grandTotal) : "-"}</td>
+            <td className="summary-col">{student.average != null ? Math.round(student.average) : "-"}</td>
             <td className="summary-col">{student.overallGrade ?? "-"}</td>
             <td className="summary-col pos">{student.position ?? "-"}</td>
           </tr>
@@ -405,7 +405,12 @@ function BroadsheetTable({ data }: { data: BroadsheetData }) {
   background: #ececec;
   border-top: 1.5px solid #666;
   padding: 3px 4px;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
 }
+.broadsheet-footer tr:nth-child(2) td { bottom: 24px; }
+.broadsheet-footer tr:nth-child(3) td { bottom: 48px; }
 .broadsheet-footer .footer-label {
   text-align: left;
   font-size: 9px;

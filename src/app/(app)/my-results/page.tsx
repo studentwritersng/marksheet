@@ -58,7 +58,7 @@ export default async function MyResultsPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                 <div className="bg-surface-container rounded p-3">
                   <div className="font-label-sm text-label-sm text-on-surface-variant">Average</div>
-                  <div className="font-headline-sm text-headline-sm text-on-surface mt-1">{tr.overallAverage?.toFixed(1) ?? "—"}</div>
+                  <div className="font-headline-sm text-headline-sm text-on-surface mt-1">{tr.overallAverage != null ? Math.round(tr.overallAverage) : "—"}</div>
                 </div>
                 <div className="bg-surface-container rounded p-3">
                   <div className="font-label-sm text-label-sm text-on-surface-variant">Position</div>
@@ -66,7 +66,7 @@ export default async function MyResultsPage() {
                 </div>
                 <div className="bg-surface-container rounded p-3">
                   <div className="font-label-sm text-label-sm text-on-surface-variant">Cumulative</div>
-                  <div className="font-headline-sm text-headline-sm text-on-surface mt-1">{tr.cumulativeAverage?.toFixed(1) ?? "—"}</div>
+                  <div className="font-headline-sm text-headline-sm text-on-surface mt-1">{tr.cumulativeAverage != null ? Math.round(tr.cumulativeAverage) : "—"}</div>
                 </div>
                 <div className="bg-surface-container rounded p-3">
                   <div className="font-label-sm text-label-sm text-on-surface-variant">Status</div>

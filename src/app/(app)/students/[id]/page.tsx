@@ -132,7 +132,7 @@ export default async function StudentProfilePage({
                       <tr key={tr.id} className="hover:bg-surface-container-low">
                         <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{tr.term.session.label}</td>
                         <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{tr.term.name}</td>
-                        <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{tr.overallAverage?.toFixed(1) ?? "—"}</td>
+                        <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{tr.overallAverage != null ? Math.round(tr.overallAverage) : "—"}</td>
                         <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{tr.overallPosition ? `${tr.overallPosition}` : "—"}</td>
                       </tr>
                     ))}
@@ -164,7 +164,7 @@ export default async function StudentProfilePage({
                         <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{sr.term.session.label}</td>
                         <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{sr.term.name}</td>
                         <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface font-medium">{sr.subject.name}</td>
-                        <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{sr.totalScore?.toFixed(1) ?? "—"}</td>
+                        <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{sr.totalScore != null ? Math.round(sr.totalScore) : "—"}</td>
                         <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{sr.grade || "—"}</td>
                         <td className="py-2 px-3 font-body-sm text-body-sm text-on-surface">{sr.subjectPosition ? `${sr.subjectPosition}` : "—"}</td>
                       </tr>

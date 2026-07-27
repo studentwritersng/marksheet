@@ -209,7 +209,7 @@ export function ResultsView({
                         <td className="px-3 py-2 font-label-md text-label-md text-on-surface">{tr.overallPosition ?? "—"}</td>
                         <td className="px-3 py-2 text-on-surface">{tr.studentName}</td>
                         <td className="px-3 py-2 font-label-sm text-label-sm text-on-surface-variant">{tr.admissionNumber}</td>
-                        <td className="px-3 py-2">{tr.overallAverage?.toFixed(1) ?? "—"}</td>
+                        <td className="px-3 py-2">{tr.overallAverage != null ? Math.round(tr.overallAverage) : "—"}</td>
                         <td className="px-3 py-2">
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                             tr.status === "finalised"
@@ -234,7 +234,7 @@ export function ResultsView({
                               <div key={sr.subjectName} className="flex items-center justify-between py-1 font-body-sm text-body-sm border-b border-outline-variant/40 last:border-0">
                                 <span className="text-on-surface">{sr.subjectName}</span>
                                 <div className="flex items-center gap-4">
-                                  <span className="text-on-surface-variant">{sr.totalScore?.toFixed(1) ?? "—"}</span>
+                                  <span className="text-on-surface-variant">{sr.totalScore != null ? Math.round(sr.totalScore) : "—"}</span>
                                   <span className="w-8 text-center font-label-md text-label-md text-on-surface">{sr.grade ?? "—"}</span>
                                   <span className="font-label-sm text-label-sm text-on-surface-variant">#{sr.subjectPosition ?? "—"}</span>
                                 </div>
@@ -345,7 +345,7 @@ export function ResultsView({
                                 <>
                                   {row.components.map((c) => {
                                     const ms = s.manualScores.find((m) => m.code === c.code);
-                                    const scaled = ms ? ((ms.raw / ms.max) * c.marks).toFixed(1) : null;
+                                    const scaled = ms ? Math.round((ms.raw / ms.max) * c.marks) : null;
                                     return (
                                       <td key={c.code} className="px-4 py-2 text-right">
                                         {scaled != null ? (
@@ -359,7 +359,7 @@ export function ResultsView({
                                   <td className="px-4 py-2 text-right">
                                     {submittedOnPlatform ? (
                                       <span className="font-label-sm text-label-sm text-on-surface">
-                                        {s.platformScore?.toFixed(1)}/{s.platformMax}
+                                        {s.platformScore != null ? Math.round(s.platformScore) : "—"}/{s.platformMax}
                                       </span>
                                     ) : (
                                       <span className="text-on-surface-variant text-xs">Not submitted</span>
@@ -370,7 +370,7 @@ export function ResultsView({
                                 <td className="px-4 py-2 text-right">
                                   {submittedOnPlatform ? (
                                     <span className="font-label-sm text-label-sm text-on-surface">
-                                      {s.platformScore?.toFixed(1)}/{s.platformMax}
+                                      {s.platformScore != null ? Math.round(s.platformScore) : "—"}/{s.platformMax}
                                     </span>
                                   ) : (
                                     <span className="text-on-surface-variant text-xs">Not submitted</span>
@@ -378,7 +378,7 @@ export function ResultsView({
                                 </td>
                               )}
                               <td className="px-4 py-2 text-right font-label-md text-label-md text-on-surface font-semibold">
-                                {s.subjectScore != null ? s.subjectScore.toFixed(1) : <span className="text-on-surface-variant font-normal text-xs">Not computed</span>}
+                                {s.subjectScore != null ? Math.round(s.subjectScore) : <span className="text-on-surface-variant font-normal text-xs">Not computed</span>}
                               </td>
                               <td className="px-4 py-2 text-center">
                                 {s.grade ? (

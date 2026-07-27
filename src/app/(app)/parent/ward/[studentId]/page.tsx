@@ -65,7 +65,7 @@ export default async function WardResultPage(props: {
               <p className="font-label-md text-label-md text-on-surface font-semibold">{tr.term.session.label}</p>
               <p className="font-body-sm text-body-sm text-on-surface-variant">{tr.term.name} Term</p>
               <p className="mt-2 font-headline-md text-headline-md text-primary">
-                {tr.overallAverage?.toFixed(1) ?? "—"}%
+                {tr.overallAverage != null ? Math.round(tr.overallAverage) : "—"}%
               </p>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
                 Position: #{tr.overallPosition ?? "—"}
@@ -100,7 +100,7 @@ export default async function WardResultPage(props: {
               {results.map((sr) => (
                 <tr key={sr.id} className="hover:bg-surface-container-low transition-colors">
                   <td className="py-3 px-4 font-body-md text-body-md text-on-surface">{sr.subject.name}</td>
-                  <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface">{sr.totalScore?.toFixed(1) ?? "—"}</td>
+                  <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface">{sr.totalScore != null ? Math.round(sr.totalScore) : "—"}</td>
                   <td className="py-3 px-4">
                     <span className="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded font-label-sm text-label-sm">
                       {sr.grade ?? "—"}

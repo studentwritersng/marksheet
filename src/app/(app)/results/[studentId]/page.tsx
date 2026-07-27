@@ -199,7 +199,7 @@ export default async function ReportCardPage(props: {
               <InfoRow label="Position" value={`${ordinal(termResult.overallPosition)} of ${totalStudentsInClass}`} bold />
             )}
             {termResult?.overallAverage != null && (
-              <InfoRow label="Overall Average" value={`${termResult.overallAverage.toFixed(1)}%`} bold />
+              <InfoRow label="Overall Average" value={`${Math.round(termResult.overallAverage)}%`} bold />
             )}
           </div>
         </div>
@@ -228,10 +228,10 @@ export default async function ReportCardPage(props: {
                 return (
                   <tr key={sr.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                     <td className="border border-gray-300 px-2 py-1 font-medium">{sr.subject.name}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-center">{ca1 != null ? ca1.toFixed(0) : "—"}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-center">{ca2 != null ? ca2.toFixed(0) : "—"}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-center">{exam != null ? exam.toFixed(0) : "—"}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-center font-bold">{sr.totalScore != null ? sr.totalScore.toFixed(1) : "—"}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-center">{ca1 != null ? Math.round(ca1) : "—"}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-center">{ca2 != null ? Math.round(ca2) : "—"}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-center">{exam != null ? Math.round(exam) : "—"}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-center font-bold">{sr.totalScore != null ? Math.round(sr.totalScore) : "—"}</td>
                     <td className={`border border-gray-300 px-2 py-1 text-center ${gradeColor(sr.grade)}`}>{sr.grade ?? "—"}</td>
                     <td className="border border-gray-300 px-2 py-1 text-center">{sr.subjectPosition != null ? ordinal(sr.subjectPosition) : "—"}</td>
                     <td className="border border-gray-300 px-2 py-1 text-center text-gray-600">{getGradeRemark(sr.grade)}</td>
@@ -247,7 +247,7 @@ export default async function ReportCardPage(props: {
             <tfoot>
               <tr className="bg-gray-100 font-bold">
                 <td colSpan={4} className="border border-gray-400 px-2 py-1.5 text-right">Overall Average:</td>
-                <td className="border border-gray-400 px-2 py-1.5 text-center">{termResult?.overallAverage?.toFixed(1) ?? "—"}%</td>
+                <td className="border border-gray-400 px-2 py-1.5 text-center">{termResult?.overallAverage != null ? Math.round(termResult.overallAverage) : "—"}%</td>
                 <td colSpan={3} className="border border-gray-400 px-2 py-1.5 text-center text-gray-600">
                   {termResult?.overallPosition ? `Position: ${ordinal(termResult.overallPosition)} of ${totalStudentsInClass}` : ""}
                 </td>
@@ -321,7 +321,7 @@ export default async function ReportCardPage(props: {
             {termResult?.cumulativeAverage != null && (
               <div className="mt-2 border border-gray-300 rounded px-2 py-1 bg-gray-50 text-xs">
                 <span className="font-semibold text-gray-700">Cumulative Average:</span>{" "}
-                <span className="font-bold text-gray-900">{termResult.cumulativeAverage.toFixed(1)}%</span>
+                <span className="font-bold text-gray-900">{Math.round(termResult.cumulativeAverage)}%</span>
               </div>
             )}
           </div>

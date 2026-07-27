@@ -65,7 +65,7 @@ export default async function ParentDashboardPage() {
               {latestResult && (
                 <div className="flex items-center gap-4 text-sm">
                   <span className="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded font-label-sm text-label-sm">
-                    Avg: {latestResult.overallAverage?.toFixed(1) ?? "—"}%
+                    Avg: {latestResult.overallAverage != null ? Math.round(latestResult.overallAverage) : "—"}%
                   </span>
                   <span className="font-body-sm text-body-sm text-on-surface-variant">
                     Pos: #{latestResult.overallPosition ?? "—"}
