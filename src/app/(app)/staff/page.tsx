@@ -13,15 +13,19 @@ export default async function StaffPage() {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
+  const currentSession = await prisma.session.findFirst({
+    where: { schoolId: user.schoolId, isCurrent: true },
+    select: { id: true },
+  });
+
   const staff = await prisma.staff.findMany({
     where: { schoolId: user.schoolId },
     include: {
       assignments: {
         include: { subject: true, class: true, term: true },
-        where: { sessionId: (await prisma.session.findFirst({
-          where: { schoolId: user.schoolId, isCurrent: true },
-          select: { id: true },
-        }))?.id ?? undefined },
+        where: currentSession
+          ? { OR: [{ sessionId: currentSession.id }, { sessionId: null }] }
+          : undefined,
       },
     },
     orderBy: { fullName: "asc" },

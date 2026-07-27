@@ -75,6 +75,15 @@ export default async function StaffDetailPage(props: { params: Promise<{ id: str
               {staff.user ? "Has login account" : "No login account"}
             </span>
           </div>
+          {staff.assignments.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {[...new Set(staff.assignments.map((a) => a.assignmentType))].map((type) => (
+                <span key={type} className="inline-block rounded bg-primary-container px-2 py-0.5 font-label-sm text-label-sm text-on-primary-container">
+                  {type.replace(/_/g, " ")}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

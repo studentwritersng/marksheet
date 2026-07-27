@@ -831,7 +831,7 @@ model ExamAttempt {
   endsAt              DateTime? // server-side timer end time (startedAt + durationMinutes)
   createdAt           DateTime      @default(now())
 
-  exam    Exam            @relation(fields: [examId], references: [id])
+  exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
   student Student         @relation(fields: [studentId], references: [id])
   answers StudentAnswer[]
 

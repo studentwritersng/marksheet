@@ -127,7 +127,11 @@ export async function deleteExamAction(examId: string): Promise<ActionState> {
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
-  await prisma.exam.delete({ where: { id: examId } });
+  try {
+    await prisma.exam.delete({ where: { id: examId } });
+  } catch (e: any) {
+    return { error: e.message ?? "Failed to delete exam." };
+  }
   revalidatePath("/exams");
   return { success: "Exam deleted." };
 }

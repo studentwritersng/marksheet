@@ -1,0 +1,27 @@
+feat: period tracker — class filter, collapsible subjects, progress badges
+
+All three views (admin, teacher, captain) updated:
+
+CollapsibleSubject component:
+- New "use client" accordion component used by all three views
+- Shows subject title + badge in the header, content expands on click
+- Defaults to collapsed so the page is not overwhelming
+
+Admin view:
+- Class filter dropdown at the top (URL param ?classId=) — select a class
+  to show only that class, "Clear" link resets to all
+- Each class has a heading, each subject is a CollapsibleSubject accordion
+- Badge shows coverage % and taught/total count (green/amber/red)
+- Inside the accordion: progress bar + pending captain verifications count
+- Fixed term casing bug (uppercase) and added subject filter to counts
+
+Teacher view:
+- Sections are now grouped by class first, then subjects within each class
+  as collapsible accordions
+- Badge shows taught/total for each subject (green/amber/red)
+- Topic table inside the accordion unchanged
+
+Captain view:
+- Each subject is now a collapsible accordion
+- Badge shows verified/total + pending count (teacher done but captain not)
+- Status column improved: "Not taught yet" / "Awaiting you" / "✓ Verified"

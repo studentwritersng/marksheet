@@ -27,13 +27,20 @@ export function StaffRow({ staff }: { staff: StaffVM }) {
         <p className="font-label-sm text-label-sm text-on-surface-variant">{staff.email}{staff.phone ? ` · ${staff.phone}` : ""}</p>
         {staff.assignments.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
+            {[...new Set(staff.assignments.map((a) => a.type))].map((type) => (
+              <span
+                key={type}
+                className="inline-block rounded bg-primary-container px-1.5 py-0.5 font-label-sm text-label-sm text-on-primary-container"
+              >
+                {type.replace(/_/g, " ")}
+              </span>
+            ))}
             {staff.assignments.map((a) => (
               <span
                 key={a.id}
                 className="inline-block rounded bg-surface-variant px-1.5 py-0.5 font-label-sm text-label-sm text-on-surface-variant"
               >
-                {a.type.replace("_", " ")}
-                {a.subject ? ` (${a.subject})` : ""}
+                {a.subject ? `${a.subject}` : ""}
                 {a.class ? ` · ${a.class}` : ""}
               </span>
             ))}
