@@ -52,7 +52,7 @@ export async function saveReportCardConfigAction(
   const existing = (school?.letterheadSettings as Record<string, unknown> | null) ?? {};
   await prisma.school.update({
     where: { id: ctx.schoolId },
-    data: { letterheadSettings: { ...existing, reportCardConfig: config } },
+    data: { letterheadSettings: { ...existing, reportCardConfig: config } as never },
   });
 
   revalidatePath("/results/report-card-settings");
