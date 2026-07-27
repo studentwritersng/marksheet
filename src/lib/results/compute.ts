@@ -301,9 +301,16 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
             if (e.subjectId !== subject.id) return false;
             return e.assessmentTypeId === code;
           });
-          // For parent-level exams without sub-components, use the exam's max score
-          // If no exam found, use the weight as the max (fallback)
-          const examMax = parentExam ? (examMaxScores[parentExam.id] ?? weightMap.get(code) ?? 100) : (weightMap.get(code) ?? 100);
+          // For offline exams (no question bank), examMaxScores[id] = 0.
+          // In that case use the maxRawScore from any ManualScore for this exam as the denominator.
+          let examMax = parentExam ? examMaxScores[parentExam.id] : 0;
+          if (examMax === 0 && parentExam) {
+            // Offline/manual-only exam — derive max from manualMap
+            const manualsByCode = manualMap[parentExam.id]?.[code] ?? {};
+            const firstEntry = Object.values(manualsByCode)[0];
+            examMax = firstEntry?.max ?? weightMap.get(code) ?? 100;
+          }
+          if (examMax === 0) examMax = weightMap.get(code) ?? 100;
           const existing = aggregatedScores[code];
           aggregatedScores[code] = {
             earned: (existing?.earned ?? 0) + raw,

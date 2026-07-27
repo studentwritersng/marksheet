@@ -61,6 +61,7 @@ export function buildNav(
         { label: "Attendance", href: "/results/attendance", icon: "fact_check" },
         { label: "Remarks", href: "/results/remarks", icon: "rate_review" },
         { label: "Broadsheet", href: "/broadsheet", icon: "table_chart" },
+        { label: "Report Card Settings", href: "/results/report-card-settings", icon: "tune" },
         { label: "Grading Scale", href: "/grading-scale", icon: "score" },
       ]},
       { label: "Billing", icon: "payments", children: [
