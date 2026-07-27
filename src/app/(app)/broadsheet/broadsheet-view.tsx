@@ -222,42 +222,52 @@ function BroadsheetTable({ data }: { data: BroadsheetData }) {
               <td className="bs-fixed-left bs-adm bs-td">{student.admissionNumber}</td>
               <td className="bs-fixed-left bs-name bs-td-name">{student.fullName}</td>
 
-              {subjects.map((sub) => (
-                <>
-                  {assessmentTypeCodes.map((code) => {
-                    const raw = student.scores[sub.id]?.[code];
-                    const isResit = data.resitIndicators.has(`${student.id}:${sub.id}`);
-                    return (
-                      <td key={`${student.id}-${sub.id}-${code}`} className="bs-td-center bs-score">
-                        {raw != null ? (
-                          <>
-                            {Math.round(raw)}
-                            {isResit && <sup className="text-red-500 font-bold ml-px">*</sup>}
-                          </>
-                        ) : (
-                          <span className="bs-null">—</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="bs-td-center bs-score bs-total-cell">
-                    {(() => {
-                      const v = student.totals[sub.id];
-                      return v != null ? (
-                        <span className={v >= 75 ? "bs-score-a1" : v >= 50 ? "bs-score-pass" : "bs-score-fail"}>
-                          {Math.round(v)}
-                        </span>
-                      ) : <span className="bs-null">—</span>;
-                    })()}
-                  </td>
-                  <td className="bs-td-center bs-grade-cell">
-                    {(() => {
-                      const g = student.grades[sub.id];
-                      return g ? <span className={gradeClass(g)}>{g}</span> : <span className="bs-null">—</span>;
-                    })()}
-                  </td>
-                </>
-              ))}
+              {subjects.map((sub) => {
+                const isRegistered = student.registeredSubjects.has(sub.id);
+                if (!isRegistered) {
+                  return (
+                    <td key={`${student.id}-${sub.id}-na`} colSpan={assessmentTypeCodes.length + 2} className="bs-td-center bs-score">
+                      <span className="bs-null text-gray-400 italic">NA</span>
+                    </td>
+                  );
+                }
+                return (
+                  <>
+                    {assessmentTypeCodes.map((code) => {
+                      const raw = student.scores[sub.id]?.[code];
+                      const isResit = data.resitIndicators.has(`${student.id}:${sub.id}`);
+                      return (
+                        <td key={`${student.id}-${sub.id}-${code}`} className="bs-td-center bs-score">
+                          {raw != null ? (
+                            <>
+                              {Math.round(raw)}
+                              {isResit && <sup className="text-red-500 font-bold ml-px">*</sup>}
+                            </>
+                          ) : (
+                            <span className="bs-null">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="bs-td-center bs-score bs-total-cell">
+                      {(() => {
+                        const v = student.totals[sub.id];
+                        return v != null ? (
+                          <span className={v >= 75 ? "bs-score-a1" : v >= 50 ? "bs-score-pass" : "bs-score-fail"}>
+                            {Math.round(v)}
+                          </span>
+                        ) : <span className="bs-null">—</span>;
+                      })()}
+                    </td>
+                    <td className="bs-td-center bs-grade-cell">
+                      {(() => {
+                        const g = student.grades[sub.id];
+                        return g ? <span className={gradeClass(g)}>{g}</span> : <span className="bs-null">—</span>;
+                      })()}
+                    </td>
+                  </>
+                );
+              })}
 
               {/* Summary — sticky right */}
               <td className="bs-td-center bs-summary-col bs-sticky-right-0">

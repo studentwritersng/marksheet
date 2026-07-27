@@ -262,6 +262,37 @@ export async function deleteStaffAction(staffId: string): Promise<ActionState> {
   return { success: "Staff deleted." };
 }
 
+export async function updateStaffSignatureAction(
+  staffId: string,
+  signatureUrl: string,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const staff = await prisma.staff.findFirst({
+    where: { id: staffId, schoolId: ctx.schoolId },
+  });
+  if (!staff) return { error: "Staff not found." };
+
+  await prisma.staff.update({
+    where: { id: staffId },
+    data: { signature: signatureUrl || null },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "update",
+    entityType: "staff",
+    entityId: staffId,
+    afterValue: { signatureUpdated: true } as never,
+  });
+
+  revalidatePath(`/staff/${staffId}`);
+  return { success: "Signature updated." };
+}
+
 export async function createStaffLoginAction(
   staffId: string,
 ): Promise<ActionState & { generatedPassword?: string }> {

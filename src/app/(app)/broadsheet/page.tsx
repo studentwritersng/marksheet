@@ -76,6 +76,7 @@ interface StudentRow {
   totals: Record<string, number | null>; // subjectId -> totalScore
   grades: Record<string, string | null>; // subjectId -> grade
   positions: Record<string, number | null>;
+  registeredSubjects: Set<string>; // subjectIds the student is registered for
   grandTotal: number | null;
   average: number | null;
   overallGrade: string | null;
@@ -132,8 +133,24 @@ async function fetchBroadsheetData(
   // Active students in class
   const students = await prisma.student.findMany({
     where: { schoolId, currentClassId: classId, status: "active" },
+    select: { id: true, firstName: true, lastName: true, admissionNumber: true, department: true },
     orderBy: { lastName: "asc" },
   });
+
+  // Determine which subjects each student is registered for
+  // General subjects are for everyone; department-specific subjects only for matching students
+  const classDepartment = cls.department || "";
+  function studentSubjectIds(studentDept: string): Set<string> {
+    return new Set(
+      classSubjects
+        .filter((cs) => {
+          if (cs.department === "general") return true;
+          if (!classDepartment) return true; // no class dept = no filtering at class level
+          return studentDept && cs.department === studentDept;
+        })
+        .map((cs) => cs.subjectId),
+    );
+  }
 
   // Subject results for this class/term
   const studentIds = students.map((s) => s.id);
@@ -160,6 +177,7 @@ async function fetchBroadsheetData(
   const studentRows: StudentRow[] = students.map((s) => {
     sn++;
     const tr = trMap.get(s.id);
+    const registeredSubjects = studentSubjectIds(s.department || "");
 
     const scores: Record<string, Record<string, number | null>> = {};
     const totals: Record<string, number | null> = {};
@@ -167,6 +185,17 @@ async function fetchBroadsheetData(
     const positions: Record<string, number | null> = {};
 
     for (const sub of subjects) {
+      if (!registeredSubjects.has(sub.id)) {
+        // Student is not registered for this subject
+        scores[sub.id] = {};
+        for (const code of assessmentTypeCodes) {
+          scores[sub.id][code] = null;
+        }
+        totals[sub.id] = null;
+        grades[sub.id] = null;
+        positions[sub.id] = null;
+        continue;
+      }
       const sr = srMap.get(`${s.id}:${sub.id}`);
       const rawScores = (sr?.assessmentScores as Record<string, number> | null) ?? {};
       scores[sub.id] = {};
@@ -187,6 +216,7 @@ async function fetchBroadsheetData(
       totals,
       grades,
       positions,
+      registeredSubjects,
       grandTotal: tr?.overallAverage != null ? tr.overallAverage * subjects.length : null,
       average: tr?.overallAverage ?? null,
       overallGrade: null, // computed below

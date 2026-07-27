@@ -44,34 +44,36 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
   });
   const gradingScale = (school?.gradingScale != null ? (school.gradingScale as unknown as GradeBand[]) : defaultGradingScale);
 
-  // 2. Get class details (including department)
-  const cls = await prisma.class.findUnique({
-    where: { id: classId },
-    select: { id: true, department: true },
-  });
-
   // 3. Get subject-class links for this class (department filtering)
   const classSubjects = await prisma.classSubject.findMany({
     where: { classId },
     select: { subjectId: true, department: true },
   });
-  const deptFilteredSubjectIds = new Set(
-    classSubjects
-      .filter((cs) => cs.department === "general" || (cls && cls.department && cs.department === cls.department))
-      .map((cs) => cs.subjectId)
-  );
-  const hasDepartmentFilter = classSubjects.some((cs) => cs.department !== "general");
-
   // 4. Get all students in this class
   const students = await prisma.student.findMany({
     where: { schoolId, currentClassId: classId, status: "active" },
+    select: { id: true, firstName: true, lastName: true, admissionNumber: true, department: true },
     orderBy: { lastName: "asc" },
   });
 
-  // 5. Get subjects — only those linked to this class with compatible department
-  const subjects = hasDepartmentFilter
+  // 5. Get subjects — union of all students' eligible subjects
+  const allSubjectIds = new Set<string>();
+  const studentRegisteredSubjects: Record<string, Set<string>> = {};
+  for (const student of students) {
+    const sIds = new Set(
+      classSubjects
+        .filter((cs) => {
+          if (cs.department === "general") return true;
+          return student.department && cs.department === student.department;
+        })
+        .map((cs) => cs.subjectId),
+    );
+    studentRegisteredSubjects[student.id] = sIds;
+    for (const sid of sIds) allSubjectIds.add(sid);
+  }
+  const subjects = allSubjectIds.size > 0
     ? await prisma.subject.findMany({
-        where: { schoolId, id: { in: [...deptFilteredSubjectIds] } },
+        where: { schoolId, id: { in: [...allSubjectIds] } },
       })
     : await prisma.subject.findMany({
         where: { schoolId },
@@ -262,8 +264,12 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
 
   for (const student of students) {
     const subjectResults: SubjectScoreRow[] = [];
+    const registered = studentRegisteredSubjects[student.id] ?? new Set();
 
     for (const subject of subjects) {
+      // Skip subjects this student is not registered for
+      if (!registered.has(subject.id)) continue;
+
       const studentScores = scoreMap[student.id]?.[subject.id] ?? {};
       const subjectAssessments = Object.keys(studentScores);
 

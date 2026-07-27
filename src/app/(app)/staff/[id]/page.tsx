@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { AssignmentForm } from "./assignment-form";
 import { AssignmentList } from "./assignment-list";
 import { StaffActions } from "./staff-actions";
+import { SignatureUpload } from "./signature-upload";
 
 export default async function StaffDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
@@ -85,6 +86,10 @@ export default async function StaffDetailPage(props: { params: Promise<{ id: str
             </div>
           )}
         </div>
+      </div>
+
+      <div className="mt-8">
+        <SignatureUpload staffId={staff.id} currentSignature={staff.signature} />
       </div>
 
       <div className="mt-8">

@@ -68,6 +68,23 @@ export default async function ReportCardPage(props: {
   ]);
   if (!student || !term) notFound();
 
+  // Fetch class-subject links for department filtering
+  const classSubjects = student.currentClassId
+    ? await prisma.classSubject.findMany({
+        where: { classId: student.currentClassId },
+        select: { subjectId: true, department: true },
+      })
+    : [];
+  const studentDept = (student as any).department || "";
+  const registeredSubjectIds = new Set(
+    classSubjects
+      .filter((cs) => {
+        if (cs.department === "general") return true;
+        return studentDept && cs.department === studentDept;
+      })
+      .map((cs) => cs.subjectId),
+  );
+
   // ── Find the class teacher for this student's class ──────────────────────
   // Look for a staff member with a class_teacher assignment for this class
   let classTeacherSignature: string | null = null;
@@ -89,12 +106,13 @@ export default async function ReportCardPage(props: {
 
   const [subjectResults, termResult, totalStudentsInClass, rcConfig] = await Promise.all([
     prisma.subjectResult.findMany({
-      where: { studentId, termId },
+      where: { studentId, termId, subjectId: registeredSubjectIds.size > 0 ? { in: [...registeredSubjectIds] } : undefined },
       include: { subject: { select: { name: true } } },
       orderBy: { subject: { name: "asc" } },
     }),
     prisma.termResult.findUnique({
       where: { studentId_termId: { studentId, termId } },
+      include: { verificationCodes: { where: { status: "active" }, take: 1 } },
     }),
     prisma.student.count({
       where: { currentClassId: student.currentClassId ?? undefined, status: "active" },
@@ -483,10 +501,23 @@ export default async function ReportCardPage(props: {
           )}
 
           {/* ── FOOTER ── */}
-          <div className="bg-[#002046] text-white px-6 py-2 text-center text-[10px]">
-            {termResult?.status === "finalised"
-              ? "This report has been finalised. Verify authenticity via the school's verification portal."
-              : "This is a draft report and has not been finalised."}
+          <div className="bg-[#002046] text-white px-6 py-3 text-center text-[10px] leading-relaxed">
+            {termResult?.status === "finalised" && termResult.verificationCodes[0] ? (
+              <div className="space-y-1">
+                <p className="font-semibold">This report has been finalised and is verifiable.</p>
+                <p>
+                  Verify at:{" "}
+                  <span className="font-semibold">
+                    marksheet.sch.ng/{school?.shortcode?.toLowerCase()}/verify?code={termResult.verificationCodes[0].code}
+                  </span>
+                </p>
+                <p>
+                  Verification Code: <span className="font-semibold tracking-wider">{termResult.verificationCodes[0].code}</span>
+                </p>
+              </div>
+            ) : (
+              "This is a draft report and has not been finalised."
+            )}
           </div>
 
         </div>

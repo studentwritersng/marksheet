@@ -19,6 +19,9 @@ const LEVEL_ORDER = ["JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
 export function CreateStudentForm({ classes }: { classes: ClassOption[] }) {
   const [state, action, pending] = useActionState(createStudentAction, init);
   const [photoUrl, setPhotoUrl] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState("");
+
+  const isSSS = selectedLevel.startsWith("SSS");
 
   // Group classes by level in order
   const grouped = LEVEL_ORDER.reduce<Record<string, ClassOption[]>>((acc, lvl) => {
@@ -43,7 +46,10 @@ export function CreateStudentForm({ classes }: { classes: ClassOption[] }) {
             <option value="Male">Male</option>
             <option value="Female">Female</option>
           </select>
-          <select name="classId" className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
+          <select name="classId" onChange={(e) => {
+            const cls = classes.find((c) => c.id === e.target.value);
+            setSelectedLevel(cls?.level ?? "");
+          }} className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
             <option value="">— Class —</option>
             {Object.entries(grouped).map(([level, cls]) => (
               <optgroup key={level} label={level}>
@@ -56,6 +62,14 @@ export function CreateStudentForm({ classes }: { classes: ClassOption[] }) {
             ))}
           </select>
         </div>
+        {isSSS && (
+          <select name="department" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
+            <option value="">— Department —</option>
+            <option value="science">Science</option>
+            <option value="art">Art</option>
+            <option value="commercial">Commercial</option>
+          </select>
+        )}
         <div className="flex gap-2">
           <input name="dateOfBirth" type="date" placeholder="Date of birth" className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
           <input name="ethnicity" placeholder="Ethnicity (optional)" className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />

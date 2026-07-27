@@ -53,6 +53,7 @@ export async function createStudentAction(
   const guardianEmail = String(formData.get("guardianEmail") ?? "").trim().toLowerCase() || null;
   const guardianRelation = String(formData.get("guardianRelation") ?? "").trim() || "father";
   const passportPhoto = String(formData.get("passportPhoto") ?? "").trim() || null;
+  const department = String(formData.get("department") ?? "").trim() || "";
   const dataConsent = formData.get("dataConsent") === "true";
 
   if (!firstName || !lastName) {
@@ -106,6 +107,7 @@ export async function createStudentAction(
       passportPhoto,
       gender,
       currentClassId: classId,
+      department,
       userId: user.id,
       guardians: guardianName
         ? { create: [{ fullName: guardianName, phone: guardianPhone || "", email: guardianEmail, relationship: guardianRelation }] }
@@ -432,4 +434,39 @@ export async function transferStudentFromBranchAction(
   return {
     success: `${originStudent.firstName} ${originStudent.lastName} transferred from ${originStudent.school.name}. New admission number: ${newAdmissionNumber}. Login: ${email}`,
   };
+}
+
+export async function updateStudentDepartmentAction(
+  studentId: string,
+  department: string,
+): Promise<ActionState> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const student = await prisma.student.findFirst({
+    where: { id: studentId, schoolId: ctx.schoolId },
+  });
+  if (!student) return { error: "Student not found." };
+
+  if (department && !["science", "art", "commercial"].includes(department)) {
+    return { error: "Invalid department." };
+  }
+
+  await prisma.student.update({
+    where: { id: studentId },
+    data: { department },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId,
+    actorId: ctx.user.userId,
+    action: "update",
+    entityType: "student",
+    entityId: studentId,
+    afterValue: { department } as never,
+  });
+
+  revalidatePath(`/students/${studentId}`);
+  return { success: "Department updated." };
 }

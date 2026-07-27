@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { StudentActions } from "./student-actions";
+import { DepartmentEditor } from "./department-editor";
 
 export default async function StudentProfilePage({
   params,
@@ -62,6 +63,17 @@ export default async function StudentProfilePage({
           <h1 className="text-center font-headline-sm text-headline-sm text-on-surface">{student.firstName} {student.lastName}</h1>
           <p className="text-center font-label-sm text-label-sm text-primary mt-1">{student.admissionNumber}</p>
           <p className="text-center font-label-sm text-label-sm text-on-surface-variant mt-1">{student.currentClass?.name || "No class"}{student.currentClass?.department ? ` (${student.currentClass.department})` : ""}</p>
+
+          {student.currentClass?.level?.startsWith("SSS") && (
+            <div className="mt-3 flex flex-col items-center gap-1">
+              <span className="font-body-sm text-body-sm text-on-surface-variant">Department:</span>
+              <DepartmentEditor
+                studentId={student.id}
+                currentDepartment={student.department || ""}
+                classLevel={student.currentClass?.level ?? ""}
+              />
+            </div>
+          )}
 
           <hr className="my-4 border-outline-variant" />
 

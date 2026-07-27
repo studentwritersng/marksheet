@@ -346,6 +346,7 @@ model Student {
   gender             String?
   passportPhoto      String?
   currentClassId     String?
+  department         String        @default("") // SSS only: "science" / "art" / "commercial" / ""
   admissionDate      DateTime?
   status             StudentStatus @default(active)
   userId             String?       @unique // links to User for student login

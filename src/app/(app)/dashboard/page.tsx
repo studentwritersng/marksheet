@@ -107,7 +107,7 @@ export default async function DashboardPage() {
     const addonActive = await isAddonActive(schoolId, "Period Tracker");
     let curriculumStats: { subject: string; total: number; taught: number; pct: number }[] = [];
     let overallPct = 0;
-    if (addonActive && myStudent?.currentClassId) {
+    if (addonActive && myStudent?.currentClassId && myStudent.currentClass) {
       const currentTerm = await prisma.term.findFirst({
         where: { session: { schoolId, isCurrent: true }, isCurrent: true },
         select: { name: true },
