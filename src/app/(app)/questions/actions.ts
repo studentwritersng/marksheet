@@ -530,11 +530,21 @@ Output valid JSON only, with this exact shape and no additional text before or a
   ]
 }`;
 
+  // Replace {{placeholders}} in system prompt with actual values
+  const difficultyDistribution = `${easyCount} Easy, ${mediumCount} Medium, ${hardCount} Hard`;
+  const filledSystemContent = systemContent
+    .replace(/\{\{subject\}\}/g, subjectNames || "the subject")
+    .replace(/\{\{class_level\}\}/g, classLevel)
+    .replace(/\{\{question_count\}\}/g, String(questionCount))
+    .replace(/\{\{marks_per_question\}\}/g, String(marksPerQuestion))
+    .replace(/\{\{grounding_percentage\}\}/g, String(groundingPercentage))
+    .replace(/\{\{difficulty_distribution\}\}/g, difficultyDistribution);
+
   const result = await createCompletion({
     taskType: "question_generation",
     schoolId: ctx.schoolId,
     messages: [
-      { role: "system", content: systemContent },
+      { role: "system", content: filledSystemContent },
       {
         role: "user",
         content: `Subject: ${subjectNames || "the subject"}
