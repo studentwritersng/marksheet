@@ -44,7 +44,7 @@ export function ResultsView({
   selectedTermId: string;
   selectedSubjectId: string;
   activeTab: "compute" | "scores";
-  subjectResults: { studentId: string; subjectName: string; totalScore: number | null; grade: string | null; subjectPosition: number | null }[];
+  subjectResults: { studentId: string; subjectName: string; totalScore: number | null; grade: string | null; subjectPosition: number | null; assessmentScores: Record<string, number> | null }[];
   termResults: { studentId: string; studentName: string; admissionNumber: string; overallAverage: number | null; overallPosition: number | null; status: string }[];
   examScoreRows: ExamScoreRow[];
 }) {
@@ -231,11 +231,23 @@ export function ResultsView({
                               <p className="font-label-sm text-label-sm text-on-surface-variant">No subject results yet.</p>
                             )}
                             {(subjectByStudent[tr.studentId] ?? []).map((sr) => (
-                              <div key={sr.subjectName} className="flex items-center justify-between py-1 font-body-sm text-body-sm border-b border-outline-variant/40 last:border-0">
-                                <span className="text-on-surface">{sr.subjectName}</span>
-                                <div className="flex items-center gap-4">
-                                  <span className="text-on-surface-variant">{sr.totalScore != null ? Math.round(sr.totalScore) : "—"}</span>
-                                  <span className="w-8 text-center font-label-md text-label-md text-on-surface">{sr.grade ?? "—"}</span>
+                              <div key={sr.subjectName} className="flex items-center justify-between py-1.5 font-body-sm text-body-sm border-b border-outline-variant/40 last:border-0">
+                                <span className="text-on-surface min-w-[140px]">{sr.subjectName}</span>
+                                <div className="flex items-center gap-3 text-xs flex-wrap justify-end">
+                                  {/* Raw assessment scores */}
+                                  {sr.assessmentScores && Object.entries(sr.assessmentScores).map(([code, raw]) => (
+                                    <span key={code} className="text-on-surface-variant">
+                                      {code}: <span className="font-semibold text-on-surface">{Math.round(raw as number)}</span>
+                                    </span>
+                                  ))}
+                                  {/* Separator */}
+                                  {sr.assessmentScores && Object.keys(sr.assessmentScores).length > 0 && (
+                                    <span className="text-outline-variant">|</span>
+                                  )}
+                                  <span className="font-label-md text-label-md text-on-surface">
+                                    Total: {sr.totalScore != null ? Math.round(sr.totalScore) : "—"}
+                                  </span>
+                                  <span className="w-8 text-center font-label-md text-label-md text-primary bg-primary/10 rounded px-1">{sr.grade ?? "—"}</span>
                                   <span className="font-label-sm text-label-sm text-on-surface-variant">#{sr.subjectPosition ?? "—"}</span>
                                 </div>
                               </div>
@@ -278,7 +290,17 @@ export function ResultsView({
             </div>
           ) : (
             <div className="space-y-6">
-              {examScoreRows.map((row) => (
+              {examScoreRows.map((row) => {
+                // For simple offline exams (no sub-components), each student has exactly
+                // one ManualScore keyed by the parent assessmentTypeId (e.g. "WBT").
+                // `maxRawScore` is the actual max for that assessment (15, 25, 60).
+                const isOfflineSimple = row.components.length === 0;
+                // Derive max from the first student's manual score (consistent across students)
+                const offlineMax = isOfflineSimple
+                  ? (row.students.find((s) => s.manualScores.length > 0)?.manualScores[0]?.max ?? null)
+                  : null;
+
+                return (
                 <div key={row.examId} className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
                   {/* Exam header */}
                   <div className="px-5 py-3 bg-surface-container-low border-b border-outline-variant flex items-center justify-between gap-4 flex-wrap">
@@ -298,6 +320,11 @@ export function ResultsView({
                             </span>
                           ))}
                         </div>
+                      )}
+                      {isOfflineSimple && offlineMax != null && (
+                        <span className="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">
+                          Max: {offlineMax}
+                        </span>
                       )}
                     </div>
                     <a
@@ -326,8 +353,9 @@ export function ResultsView({
                               <th className="px-4 py-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right">Platform</th>
                             </>
                           ) : (
+                            /* Simple offline exam — show raw score column */
                             <th className="px-4 py-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right">
-                              Platform Score
+                              Score{offlineMax != null ? ` /${offlineMax}` : ""}
                             </th>
                           )}
                           <th className="px-4 py-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right">Subject Total</th>
@@ -345,11 +373,13 @@ export function ResultsView({
                                 <>
                                   {row.components.map((c) => {
                                     const ms = s.manualScores.find((m) => m.code === c.code);
-                                    const scaled = ms ? Math.round((ms.raw / ms.max) * c.marks) : null;
+                                    // Show raw score out of this component's max, NOT scaled
                                     return (
                                       <td key={c.code} className="px-4 py-2 text-right">
-                                        {scaled != null ? (
-                                          <span className="font-label-md text-label-md text-on-surface">{scaled}</span>
+                                        {ms != null ? (
+                                          <span className="font-label-md text-label-md text-on-surface">
+                                            {Math.round(ms.raw)}
+                                          </span>
                                         ) : (
                                           <span className="text-on-surface-variant text-xs">—</span>
                                         )}
@@ -367,14 +397,29 @@ export function ResultsView({
                                   </td>
                                 </>
                               ) : (
+                                /* Simple offline exam — show the raw ManualScore directly */
                                 <td className="px-4 py-2 text-right">
-                                  {submittedOnPlatform ? (
-                                    <span className="font-label-sm text-label-sm text-on-surface">
-                                      {s.platformScore != null ? Math.round(s.platformScore) : "—"}/{s.platformMax}
-                                    </span>
-                                  ) : (
-                                    <span className="text-on-surface-variant text-xs">Not submitted</span>
-                                  )}
+                                  {(() => {
+                                    // Manual score for this exam is keyed by the assessment code
+                                    const ms = s.manualScores.find(
+                                      (m) => m.code === row.assessmentTypeId
+                                    ) ?? s.manualScores[0];
+                                    if (ms) {
+                                      return (
+                                        <span className="font-label-md text-label-md text-on-surface">
+                                          {Math.round(ms.raw)}
+                                        </span>
+                                      );
+                                    }
+                                    if (submittedOnPlatform) {
+                                      return (
+                                        <span className="font-label-sm text-label-sm text-on-surface">
+                                          {s.platformScore != null ? Math.round(s.platformScore) : "—"}/{s.platformMax}
+                                        </span>
+                                      );
+                                    }
+                                    return <span className="text-on-surface-variant text-xs">—</span>;
+                                  })()}
                                 </td>
                               )}
                               <td className="px-4 py-2 text-right font-label-md text-label-md text-on-surface font-semibold">
@@ -396,7 +441,8 @@ export function ResultsView({
                     </table>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>

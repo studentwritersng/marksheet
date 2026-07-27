@@ -191,6 +191,7 @@ export default async function ResultsPage(props: {
             totalScore: sr.totalScore,
             grade: sr.grade,
             subjectPosition: sr.subjectPosition,
+            assessmentScores: (sr.assessmentScores ?? null) as Record<string, number> | null,
           }))}
           termResults={termResults.map((tr) => ({
             studentId: tr.studentId,
