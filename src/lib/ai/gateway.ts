@@ -92,7 +92,7 @@ async function loadBestConfig(): Promise<GatewayConfig> {
 
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 500;
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 120_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));

@@ -295,6 +295,7 @@ Write a complete lesson note following the structure above. Ensure all content i
       },
     ],
     temperature: 0.5,
+    maxTokens: 8192,
     });
   } catch (e: any) {
     const msg = e?.message ?? "AI generation failed.";
@@ -303,6 +304,13 @@ Write a complete lesson note following the structure above. Ensure all content i
 
   // Parse the JSON response (with markdown fence / truncation resilience)
   const parsed = safeJsonParse<Record<string, unknown>>(result.content) ?? {};
+
+  // If JSON parsing failed and we got no structured fields, return an error
+  // instead of storing raw AI text as the lesson note content
+  const hasStructuredFields = parsed.students_note || parsed.previous_knowledge || parsed.presentation_steps;
+  if (!hasStructuredFields && result.content.trim().length > 0) {
+    return { error: "AI did not return a valid lesson note structure. Please try again — you can also try a different AI model in Console → AI Config." };
+  }
 
   await prisma.lessonNote.create({
     data: {
