@@ -276,19 +276,21 @@ export async function saveRoomsAction(
     roomMap.set(`${r.roomTypeName}|${r.name}`, created.id);
   }
 
-  // Link rooms to classes
-  const roomIdByClass = new Map<string, string>(); // classId → roomId
-  for (const [classId, roomId] of Object.entries(classRooms)) {
-    if (roomId) roomIdByClass.set(classId, roomId);
+  // classRooms maps classId → roomName (from the UI select).
+  // Convert roomName → actual room ID using the roomMap built above.
+  const roomNameToId = new Map<string, string>(); // roomName → roomId
+  for (const [key, id] of roomMap.entries()) {
+    const name = key.split("|")[1];
+    roomNameToId.set(name, id);
   }
 
-  // Update class default rooms
   const classes = await prisma.class.findMany({
     where: { schoolId: ctx.schoolId, archived: false },
     select: { id: true },
   });
   for (const cls of classes) {
-    const defaultRoomId = roomIdByClass.get(cls.id) ?? null;
+    const roomName = classRooms[cls.id] ?? null;
+    const defaultRoomId = roomName ? (roomNameToId.get(roomName) ?? null) : null;
     await prisma.class.update({
       where: { id: cls.id },
       data: { defaultRoomId },
