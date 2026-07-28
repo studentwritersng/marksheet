@@ -560,7 +560,7 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
   const subjectClassTotalPlaced = new Map<string, number>(); // "subjectId|classId" -> total count
   const staffDayPlaced = new Map<string, Map<number, number>>(); // staffId -> day -> count
   const staffWeekPlaced = new Map<string, number>(); // staffId -> total
-  const occupied = new Set<string>(); // "classId|day|periodId"
+  const slotEntries = new Map<string, { subjectId: string; department: string }[]>(); // "classId|day|periodId" -> entries
   const teacherOccupied = new Set<string>(); // "staffId|day|periodId" — teacher cannot be in two places at once
   const roomOccupied = new Map<string, Set<string>>(); // "day|periodId" -> Set(roomId)
 
@@ -585,166 +585,177 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
     return result;
   }
 
-  // Sort subjects by frequency descending so high-frequency subjects get placed first
-  for (const cls of classes) {
-    const reqs = (classReqMap.get(cls.id) ?? []).sort(
-      (a, b) => b.weeklyPeriodsRequired - a.weeklyPeriodsRequired,
+  // ── SSS pairing: for SSS classes with departmental subjects, place them in
+  //    shared slots (up to 1 per department per slot). General subjects get their own slots.
+
+  // Helper: place a subject into a slot with a teacher, respecting all constraints
+  function tryPlace(
+    classId: string, day: number, periodId: string, subjectId: string,
+    cls: { level: string; department: string; defaultRoomId: string | null },
+  ): boolean {
+    const slotKey = `${classId}|${day}|${periodId}`;
+    const isSSS = SSS_LEVELS.includes(cls.level);
+    const subjectDept = isSSS ? getSubjectDepartment(classId, subjectId) : null;
+    const entriesInSlot = slotEntries.get(slotKey) ?? [];
+
+    if (!isSSS) {
+      // JSS: one subject per slot
+      if (entriesInSlot.length > 0) return false;
+    } else {
+      // SSS: 1 general subject alone, OR 1 departmental subject from each dept (max 2 different depts)
+      if (subjectDept === "general") {
+        // general subjects: slot must be empty
+        if (entriesInSlot.length > 0) return false;
+      } else {
+        // departmental subject: same dept already placed? skip. 2 depts max.
+        if (entriesInSlot.some((e) => e.department === subjectDept)) return false;
+        if (entriesInSlot.length >= 2) return false;
+      }
+    }
+
+    // SSS pairing constraint (same dept on same day prevented by subjectClassDayPlaced anyway,
+    // but this keeps the slot-level constraint checked)
+    if (!isSlotValidForPair(classId, day, periodId, subjectId, cls)) return false;
+
+    const scKey = `${subjectId}|${classId}`;
+    if (subjectClassDayPlaced.get(scKey)?.has(day)) return false;
+
+    const candidates = validAssignments.filter(
+      (a) => a.subjectId === subjectId && a.classId === classId,
     );
+    for (const candidate of shuffleArray(candidates)) {
+      const teacherSlotKey = `${candidate.staffId}|${day}|${periodId}`;
+      if (teacherOccupied.has(teacherSlotKey)) continue;
+
+      const dayPlaced = staffDayPlaced.get(candidate.staffId)?.get(day) ?? 0;
+      const weekPlaced = staffWeekPlaced.get(candidate.staffId) ?? 0;
+      const avail = availMap.get(candidate.staffId)?.get(day);
+      if (dayPlaced >= (avail?.maxPerDay ?? 8)) continue;
+      if (weekPlaced >= (avail?.maxPerWeek ?? 40)) continue;
+
+      let assignedRoomId: string | null = cls.defaultRoomId ?? null;
+      const roomKey = `${day}|${periodId}`;
+      if (assignedRoomId && roomOccupied.get(roomKey)?.has(assignedRoomId)) assignedRoomId = null;
+
+      entriesToCreate.push({
+        classId, periodId, subjectId,
+        staffId: candidate.staffId, dayOfWeek: day, roomId: assignedRoomId,
+      });
+
+      if (!subjectClassDayPlaced.has(scKey)) subjectClassDayPlaced.set(scKey, new Set());
+      subjectClassDayPlaced.get(scKey)!.add(day);
+      const cur = subjectClassTotalPlaced.get(scKey) ?? 0;
+      subjectClassTotalPlaced.set(scKey, cur + 1);
+      if (!slotEntries.has(slotKey)) slotEntries.set(slotKey, []);
+      slotEntries.get(slotKey)!.push({ subjectId, department: subjectDept ?? "" });
+      teacherOccupied.add(teacherSlotKey);
+      if (assignedRoomId) {
+        if (!roomOccupied.has(roomKey)) roomOccupied.set(roomKey, new Set());
+        roomOccupied.get(roomKey)!.add(assignedRoomId);
+      }
+      if (!staffDayPlaced.has(candidate.staffId)) staffDayPlaced.set(candidate.staffId, new Map());
+      staffDayPlaced.get(candidate.staffId)!.set(day, dayPlaced + 1);
+      staffWeekPlaced.set(candidate.staffId, weekPlaced + 1);
+      return true;
+    }
+    return false;
+  }
+
+  // ── SSS pairing placement (replaces the old single-entry SSS flow) ──
+  for (const cls of classes) {
+    const reqs = classReqMap.get(cls.id) ?? [];
     if (reqs.length === 0) continue;
+    const isSSS = SSS_LEVELS.includes(cls.level);
 
-    // Build placements per subject — evenly distributed across days
-    const placements: { subjectId: string; day: number }[] = [];
-    for (const req of reqs) {
-      const subjectDays = distributePeriods(req.weeklyPeriodsRequired);
-      for (const day of subjectDays) {
-        placements.push({ subjectId: req.subjectId, day });
-      }
-    }
-
-    // Shuffle placements for randomness
-    const shuffledPlacements = shuffleArray(placements);
-
-    // First pass: place each subject on its assigned day
-    for (const p of shuffledPlacements) {
-      const day = p.day;
-      const scKey = `${p.subjectId}|${cls.id}`;
-
-      if (subjectClassDayPlaced.get(scKey)?.has(day)) continue;
-
-      const totalPlaced = subjectClassTotalPlaced.get(scKey) ?? 0;
-      const req = reqs.find((r) => r.subjectId === p.subjectId);
-      if (!req || totalPlaced >= req.weeklyPeriodsRequired) continue;
-
-      // Try each period on this day (shuffled so not always period 1)
-      for (const period of shuffleArray(periods)) {
-        const slotKey = `${cls.id}|${day}|${period.id}`;
-        if (occupied.has(slotKey)) continue;
-
-        // SSS departmental pairing check
-        if (!isSlotValidForPair(cls.id, day, period.id, p.subjectId, cls)) continue;
-
-        const candidates = validAssignments.filter(
-          (a) => a.subjectId === p.subjectId && a.classId === cls.id,
-        );
-
-        for (const candidate of shuffleArray(candidates)) {
-          const teacherSlotKey = `${candidate.staffId}|${day}|${period.id}`;
-          if (teacherOccupied.has(teacherSlotKey)) continue;
-
-          const dayPlaced = staffDayPlaced.get(candidate.staffId)?.get(day) ?? 0;
-          const weekPlaced = staffWeekPlaced.get(candidate.staffId) ?? 0;
-          const avail = availMap.get(candidate.staffId)?.get(day);
-
-          if (dayPlaced >= (avail?.maxPerDay ?? 8)) continue;
-          if (weekPlaced >= (avail?.maxPerWeek ?? 40)) continue;
-
-          // Room assignment: default to class's defaultRoomId, or find special room
-          let assignedRoomId: string | null = cls.defaultRoomId ?? null;
-          // Room conflict check — if the room is already occupied this slot, leave null
-          const roomKey = `${day}|${period.id}`;
-          if (assignedRoomId && roomOccupied.get(roomKey)?.has(assignedRoomId)) {
-            assignedRoomId = null;
-          }
-
-          entriesToCreate.push({
-            classId: cls.id,
-            periodId: period.id,
-            subjectId: p.subjectId,
-            staffId: candidate.staffId,
-            dayOfWeek: day,
-            roomId: assignedRoomId,
-          });
-
-          if (!subjectClassDayPlaced.has(scKey)) subjectClassDayPlaced.set(scKey, new Set());
-          subjectClassDayPlaced.get(scKey)!.add(day);
-          subjectClassTotalPlaced.set(scKey, totalPlaced + 1);
-          occupied.add(slotKey);
-          teacherOccupied.add(teacherSlotKey);
-          if (assignedRoomId) {
-            if (!roomOccupied.has(roomKey)) roomOccupied.set(roomKey, new Set());
-            roomOccupied.get(roomKey)!.add(assignedRoomId);
-          }
-
-          if (!staffDayPlaced.has(candidate.staffId)) staffDayPlaced.set(candidate.staffId, new Map());
-          staffDayPlaced.get(candidate.staffId)!.set(day, dayPlaced + 1);
-          staffWeekPlaced.set(candidate.staffId, weekPlaced + 1);
-
-          break;
+    if (!isSSS) {
+      // ── JSS (and single-dept) classes — original algorithm, one subject per slot ──
+      const placements: { subjectId: string; day: number }[] = [];
+      for (const req of reqs.sort((a, b) => b.weeklyPeriodsRequired - a.weeklyPeriodsRequired)) {
+        for (const day of distributePeriods(req.weeklyPeriodsRequired)) {
+          placements.push({ subjectId: req.subjectId, day });
         }
-        if (occupied.has(slotKey)) break;
+      }
+      for (const p of shuffleArray(placements)) {
+        for (const period of shuffleArray(periods)) {
+          if (tryPlace(cls.id, p.day, period.id, p.subjectId, cls)) break;
+        }
+      }
+      continue;
+    }
+
+    // ── SSS: departmental subjects pair in the same slot with a different-department subject ──
+    const generalReqs = reqs.filter((r) => getSubjectDepartment(cls.id, r.subjectId) === "general");
+    const deptReqs = reqs.filter((r) => getSubjectDepartment(cls.id, r.subjectId) !== "general");
+
+    // Place general subjects (JSS-style, one per slot)
+    for (const req of generalReqs) {
+      for (let i = 0; i < req.weeklyPeriodsRequired; i++) {
+        for (const day of shuffleArray(days)) {
+          if (tryPlace(cls.id, day, shuffleArray(periods)[0]?.id, req.subjectId, cls)) break;
+        }
       }
     }
 
-    // Second pass: fill remaining unmet placements on any free day
-    for (const req of reqs) {
-      const scKey = `${req.subjectId}|${cls.id}`;
-      const totalPlaced = subjectClassTotalPlaced.get(scKey) ?? 0;
-      let stillNeeded = req.weeklyPeriodsRequired - totalPlaced;
-      if (stillNeeded <= 0) continue;
+    if (!isSSS || deptReqs.length < 2) {
+      // Not SSS or nothing to pair — place remaining departmental subjects as singles
+      for (const req of deptReqs) {
+        for (let i = 0; i < req.weeklyPeriodsRequired; i++) {
+          for (const day of shuffleArray(days)) {
+            if (tryPlace(cls.id, day, shuffleArray(periods)[0]?.id, req.subjectId, cls)) break;
+          }
+        }
+      }
+      continue;
+    }
 
-      for (const day of shuffleArray(days)) {
-        if (stillNeeded <= 0) break;
-        if (subjectClassDayPlaced.get(scKey)?.has(day)) continue;
+    // SSS with 2+ departmental subjects: create as many pairings as possible.
+    // Group by department, then pair each subject with a different-department subject.
+    const deptList: { subjectId: string; weeklyPeriodsRequired: number; department: string }[] =
+      deptReqs.map((r) => ({ ...r, department: getSubjectDepartment(cls.id, r.subjectId) }));
 
-        for (const period of shuffleArray(periods)) {
-          const slotKey = `${cls.id}|${day}|${period.id}`;
-          if (occupied.has(slotKey)) continue;
+    const pairingQueue: { subjectId: string; weeklyPeriodsRequired: number; department: string; remaining: number }[] =
+      deptList.map((r) => ({ ...r, remaining: r.weeklyPeriodsRequired }));
 
-          // SSS departmental pairing check
-          if (!isSlotValidForPair(cls.id, day, period.id, req.subjectId, cls)) continue;
+    // Round-robin: cycle departments, pick one from each per slot
+    const byDept = new Map<string, typeof pairingQueue>();
+    for (const r of pairingQueue) {
+      if (!byDept.has(r.department)) byDept.set(r.department, []);
+      byDept.get(r.department)!.push(r);
+    }
 
-          const candidates = shuffleArray(
-            validAssignments.filter((a) => a.subjectId === req.subjectId && a.classId === cls.id),
-          );
+    const deptNames = [...byDept.keys()].sort();
+    const perDept = new Map<string, number>(); // dept → next subject index
+    for (const d of deptNames) perDept.set(d, 0);
 
-          for (const candidate of candidates) {
-            const teacherSlotKey = `${candidate.staffId}|${day}|${period.id}`;
-            if (teacherOccupied.has(teacherSlotKey)) continue;
+    // Estimated total slots = max across departments
+    const maxDeptSlots = Math.max(...deptNames.map((d) =>
+      byDept.get(d)!.reduce((s, r) => s + r.weeklyPeriodsRequired, 0)
+    ));
 
-            const dayPlaced = staffDayPlaced.get(candidate.staffId)?.get(day) ?? 0;
-            const weekPlaced = staffWeekPlaced.get(candidate.staffId) ?? 0;
-            const avail = availMap.get(candidate.staffId)?.get(day);
+    for (let slotIdx = 0; slotIdx < maxDeptSlots; slotIdx++) {
+      const placed: boolean[] = [];
+      // Try to place one subject per department in this slot
+      for (const d of deptNames) {
+        const queue = byDept.get(d)!;
+        const idx = perDept.get(d)!;
+        if (idx >= queue.length) continue;
+        const subj = queue[idx];
+        if (subj.remaining <= 0) continue;
 
-            if (dayPlaced >= (avail?.maxPerDay ?? 8)) continue;
-            if (weekPlaced >= (avail?.maxPerWeek ?? 40)) continue;
-
-            // Room assignment
-            let assignedRoomId: string | null = cls.defaultRoomId ?? null;
-            const roomKey = `${day}|${period.id}`;
-            if (assignedRoomId && roomOccupied.get(roomKey)?.has(assignedRoomId)) {
-              assignedRoomId = null;
-            }
-
-            entriesToCreate.push({
-              classId: cls.id,
-              periodId: period.id,
-              subjectId: req.subjectId,
-              staffId: candidate.staffId,
-              dayOfWeek: day,
-              roomId: assignedRoomId,
-            });
-
-            if (!subjectClassDayPlaced.has(scKey)) subjectClassDayPlaced.set(scKey, new Set());
-            subjectClassDayPlaced.get(scKey)!.add(day);
-            const currentPlaced = subjectClassTotalPlaced.get(scKey) ?? 0;
-            subjectClassTotalPlaced.set(scKey, currentPlaced + 1);
-            occupied.add(slotKey);
-            teacherOccupied.add(teacherSlotKey);
-            if (assignedRoomId) {
-              const roomKey2 = `${day}|${period.id}`;
-              if (!roomOccupied.has(roomKey2)) roomOccupied.set(roomKey2, new Set());
-              roomOccupied.get(roomKey2)!.add(assignedRoomId);
-            }
-
-            if (!staffDayPlaced.has(candidate.staffId)) staffDayPlaced.set(candidate.staffId, new Map());
-            staffDayPlaced.get(candidate.staffId)!.set(day, dayPlaced + 1);
-            staffWeekPlaced.set(candidate.staffId, weekPlaced + 1);
-            stillNeeded--;
+        for (const day of shuffleArray(days)) {
+          const slotIdxVersion = idx <= slotIdx ? slotIdx : idx;
+          const period = shuffleArray(periods)[slotIdxVersion % periods.length];
+          if (!period) continue;
+          if (tryPlace(cls.id, day, period.id, subj.subjectId, cls)) {
+            subj.remaining--;
+            perDept.set(d, idx + 1);
+            placed.push(true);
+            // Only place ONE subject per department per iteration
             break;
           }
-          if (occupied.has(slotKey)) break;
         }
       }
+      if (placed.length === 0) break;
     }
   }
 

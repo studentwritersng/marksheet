@@ -13,6 +13,7 @@ interface TimetableEntry {
   className: string;
   periodId: string;
   dayOfWeek: number;
+  subjectId: string;
   subjectName: string;
   staffId: string;
   staffName: string;
@@ -29,11 +30,6 @@ interface FreeTeacher {
 interface CellSlot {
   entries: TimetableEntry[];
   isPaired: boolean;
-}
-
-function trunc(name: string, len = 10): string {
-  if (name.length <= len) return name;
-  return name.slice(0, len - 1) + "…";
 }
 
 export function TimetableView({
@@ -59,11 +55,12 @@ export function TimetableView({
   const [freeTeachers, setFreeTeachers] = useState<FreeTeacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
-  const [ftPending, startFtTransition] = useTransition();
+  const [, startTransition] = useTransition();
+
+  const selectedClassObj = classes.find((c) => c.id === selectedClass) ?? null;
 
   const classEntries = entries.filter((e) => e.classId === selectedClass);
 
-  // Group entries by periodId+dayOfWeek → CellSlot (1 or 2 entries)
   function getCellSlot(periodId: string, dayOfWeek: number): CellSlot {
     const cell = classEntries.filter(
       (e) => e.periodId === periodId && e.dayOfWeek === dayOfWeek,
@@ -71,19 +68,42 @@ export function TimetableView({
     return { entries: cell, isPaired: cell.length === 2 };
   }
 
-  function handleCellClick(periodId: string, dayOfWeek: number) {
+  const isSSS = selectedClassObj?.name?.startsWith("SSS") ?? false;
+
+  // On cell click: fetch free teachers for the class+subject(s) in that slot
+  async function handleCellClick(periodId: string, dayOfWeek: number) {
     setEditCell({ periodId, dayOfWeek });
     setLoadingTeachers(true);
-    startFtTransition(async () => {
-      const result = await getFreeTeachersAction(periodId, dayOfWeek);
-      if ("error" in result) {
-        setFreeTeachers(staff.map((s) => ({ ...s, isFree: true })));
-      } else {
-        setFreeTeachers(result);
+    startTransition(async () => {
+      // Get all subjects assigned to this class
+      const cellEntries = getCellSlot(periodId, dayOfWeek).entries;
+      const subjectsInSlot = [...new Set(cellEntries.map((e) => e.subjectId))];
+
+      // For each subject in the slot, get its assigned teachers
+      const allFree: FreeTeacher[] = [];
+      for (const subjId of subjectsInSlot.length > 0 ? subjectsInSlot : [""]) {
+        if (!subjId) continue;
+        const result = await getFreeTeachersAction(periodId, dayOfWeek, selectedClass, subjId);
+        allFree.push(...result);
       }
+      setFreeTeachers(allFree);
       setLoadingTeachers(false);
     });
   }
+
+  function handleSubjectChange(periodId: string, dayOfWeek: number, subjectId: string) {
+    // Auto-fetch teacher when subject is picked in the edit form
+    if (subjectId && editCell) {
+      setLoadingTeachers(true);
+      startTransition(async () => {
+        const result = await getFreeTeachersAction(editCell.periodId, editCell.dayOfWeek, selectedClass, subjectId);
+        setFreeTeachers(result);
+        setLoadingTeachers(false);
+      });
+    }
+  }
+
+
 
   // Filter out assembly and closing periods
   const filteredPeriods = periods.filter(
@@ -108,7 +128,6 @@ export function TimetableView({
     periods: string[];
   }[] = [];
 
-  // 1. Teacher Double-Booking Check
   const teacherSlotMap = new Map<string, typeof classEntries>();
   for (const entry of classEntries) {
     if (!entry.staffId) continue;
@@ -119,18 +138,16 @@ export function TimetableView({
   for (const [, conflicting] of teacherSlotMap) {
     if (conflicting.length < 2) continue;
     const first = conflicting[0];
-    const conflictingClassNames = [...new Set(conflicting.map((e) => e.className))];
     teacherClashes.push({
       staffId: first.staffId,
       staffName: first.staffName,
       dayOfWeek: first.dayOfWeek,
       periodId: first.periodId,
       periodName: periods.find((p) => p.id === first.periodId)?.name || "Unknown",
-      classes: conflictingClassNames,
+      classes: [...new Set(conflicting.map((e) => e.className))],
     });
   }
 
-  // 2. Check subject duplicate clashes (same subject multiple times per day per class)
   const subjectDayMap = new Map<string, typeof classEntries>();
   for (const entry of classEntries) {
     const key = `${entry.classId}|${entry.dayOfWeek}|${entry.subjectName}`;
@@ -163,15 +180,13 @@ export function TimetableView({
       let row = `<td style="border:1px solid #000;padding:4px;font-weight:600;">${dayName}</td>`;
       for (const period of pnc) {
         if (period.periodType === "break") {
-          row += `<td style="border:1px solid #000;padding:4px;background:#f5f5f5;font-weight:600;text-align:center;" rowSpan="5"><span style="writing-mode:vertical-lr;text-orientation:mixed;display:inline-block;transform:rotate(180deg);letter-spacing:2px;">${period.name}</span></td>`;
+          row += `<td style="border:1px solid #000;padding:4px;background:#e5e5e5;font-weight:600;text-align:center;" rowSpan="5"><span style="writing-mode:vertical-lr;text-orientation:mixed;display:inline-block;transform:rotate(180deg);letter-spacing:2px;">${period.name}</span></td>`;
           continue;
         }
         const slot = getCellSlot(period.id, dayIndex);
         if (slot.entries.length > 0) {
           const subjectText = slot.entries.map((e) => e.subjectName).join(" / ");
-          const teacherText = slot.isPaired
-            ? "" // paired departmental subjects — skip teachers
-            : slot.entries[0]?.staffName ?? "";
+          const teacherText = slot.isPaired ? "" : slot.entries[0]?.staffName ?? "";
           const roomText = slot.entries[0]?.roomName ?? "";
           row += `<td style="border:1px solid #000;padding:4px;text-align:center;">
             <div style="font-weight:600;font-size:12px;">${subjectText}</div>
@@ -210,11 +225,9 @@ export function TimetableView({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div>
-            <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Timetable</h2>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">Manage periods and schedule subjects per class.</p>
-          </div>
+        <div>
+          <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Timetable</h2>
+          <p className="font-body-sm text-body-sm text-on-surface-variant">Manage periods and schedule subjects per class.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={handlePrint} className="bg-primary text-on-primary font-label-sm text-label-sm py-1.5 px-3 rounded-lg hover:bg-primary/90 text-xs">
@@ -226,7 +239,6 @@ export function TimetableView({
         </div>
       </div>
 
-      {/* Clash Warnings */}
       {hasClashes && (
         <div className="bg-red-50 border-2 border-red-300 rounded-xl p-3">
           <h3 className="font-headline-sm text-headline-sm text-red-700 flex items-center gap-2 mb-1">
@@ -248,7 +260,6 @@ export function TimetableView({
         </div>
       )}
 
-      {/* Class Selector + Period Form Toggle */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2">
         <div className="flex items-center gap-2">
           <label className="font-label-sm text-label-sm text-on-surface-variant">Class</label>
@@ -297,16 +308,15 @@ export function TimetableView({
         <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{entryState.error}</p>
       )}
 
-      {/* Timetable Grid — Compact */}
       <div className="overflow-x-auto" ref={printRef}>
         <table className="border-collapse w-full min-w-[640px] text-xs">
           <thead>
             <tr className="bg-surface-container-lowest">
-              <th className="py-2 px-2 border border-outline-variant text-left font-semibold text-on-surface-variant text-xs w-20"></th>
+              <th className="py-2 px-2 border border-outline-variant text-left font-semibold text-on-surface-variant text-xs w-16"></th>
               {filteredPeriods.map((period) => (
-                <th key={period.id} className="py-2 px-2 border border-outline-variant text-center font-semibold text-on-surface text-xs">
+                <th key={period.id} className={`py-2 px-2 border border-outline-variant text-center font-semibold text-xs ${period.periodType === "break" ? "bg-neutral-100 text-neutral-500" : "text-on-surface"}`}>
                   <div className="font-semibold">{period.name}</div>
-                  <div className="text-on-surface-variant font-normal">{period.startTime}–{period.endTime}</div>
+                  <div className="font-normal">{period.startTime}–{period.endTime}</div>
                 </th>
               ))}
             </tr>
@@ -324,8 +334,9 @@ export function TimetableView({
                   if (period.periodType === "break") {
                     if (dayIndex > 0) return null;
                     return (
-                      <td key={period.id} rowSpan={5} className="py-4 px-2 border-r border-outline-variant text-center align-middle bg-surface-container-low font-bold text-xs">
-                        <div style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }} className="tracking-widest text-on-surface-variant uppercase inline-block my-auto select-none mx-auto py-4">
+                      <td key={period.id} rowSpan={5}
+                        className="py-4 px-2 border-r border-outline-variant text-center align-middle bg-neutral-100 font-bold text-xs">
+                        <div style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }} className="tracking-widest text-neutral-400 uppercase inline-block my-auto select-none mx-auto py-4">
                           {period.name}
                         </div>
                       </td>
@@ -348,13 +359,10 @@ export function TimetableView({
                   const isClashing = cellTeacherClash || cellSubjectClash;
 
                   return (
-                    <td key={period.id} className={`py-1.5 px-1.5 border-r border-outline-variant transition-colors ${isClashing ? "bg-red-50 text-red-900 border-red-200" : ""} ${isEditing ? "bg-blue-50" : ""}`}>
+                    <td key={period.id} className={`py-1.5 px-1.5 border border-outline-variant transition-colors ${isClashing ? "bg-red-50 text-red-900 border-red-200" : ""} ${isEditing ? "bg-blue-50" : ""}`}>
                       {isEditing ? (
                         <div className="space-y-1">
                           <form action={entryAction} className="flex flex-col gap-1">
-                            {slot.entries.map((entry, idx) => (
-                              <input key={entry.id} type="hidden" name={`entryId_${idx}`} value={entry.id} />
-                            ))}
                             <input type="hidden" name="classId" value={selectedClass} />
                             <input type="hidden" name="periodId" value={period.id} />
                             <input type="hidden" name="dayOfWeek" value={dayIndex} />
@@ -365,26 +373,24 @@ export function TimetableView({
                             )}
                             {!loadingTeachers && freeTeachers.length > 0 && (
                               <div className="text-xs">
-                                <p className="text-on-surface-variant mb-0.5">Free teachers:</p>
+                                <p className="text-on-surface-variant mb-0.5">Available for this subject:</p>
                                 <div className="flex flex-wrap gap-0.5 mb-1">
                                   {freeTeachers.map((t) => (
                                     <span key={t.id} className={`px-1.5 py-0.5 rounded text-xs font-medium ${t.isFree ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700 line-through"}`}>
-                                      {trunc(t.name, 14)}
+                                      {t.name}
                                     </span>
                                   ))}
                                 </div>
                               </div>
                             )}
 
-                            <select name="subjectId" required defaultValue={slot.entries[0]?.subjectName ?? ""} className="border border-outline-variant rounded p-1 font-body-sm text-body-sm bg-surface-container-lowest text-xs w-full">
+                            <select name="subjectId" required
+                              onChange={(e) => handleSubjectChange(period.id, dayIndex, e.target.value)}
+                              className="border border-outline-variant rounded p-1 font-body-sm text-body-sm bg-surface-container-lowest text-xs w-full">
                               <option value="">Subject</option>
                               {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
-                            <select name="staffId" required defaultValue={slot.entries[0]?.staffId ?? ""} className="border border-outline-variant rounded p-1 font-body-sm text-body-sm bg-surface-container-lowest text-xs w-full">
-                              <option value="">Teacher</option>
-                              {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
-                            <select name="roomId" defaultValue={slot.entries[0]?.roomId ?? ""} className="border border-outline-variant rounded p-1 font-body-sm text-body-sm bg-surface-container-lowest text-xs w-full">
+                            <select name="roomId" className="border border-outline-variant rounded p-1 font-body-sm text-body-sm bg-surface-container-lowest text-xs w-full">
                               <option value="">No Room</option>
                               {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                             </select>
@@ -402,9 +408,11 @@ export function TimetableView({
                         <div
                           className="group cursor-pointer text-center"
                           onClick={() => handleCellClick(period.id, dayIndex)}
-                          title="Click to edit"
+                          title={`Click to edit — ${slot.isPaired ? "paired departmental subjects" : "single subject"}`}
                         >
-                          <p className="font-medium text-on-surface leading-tight">{slot.entries.map((e) => e.subjectName).join(" / ")}</p>
+                          <p className={`font-medium leading-tight text-xs ${slot.isPaired && isSSS ? "text-blue-800" : "text-on-surface"}`}>
+                            {slot.entries.map((e) => e.subjectName).join(" / ")}
+                          </p>
                           {!slot.isPaired && (
                             <p className="text-on-surface-variant text-[10px] leading-tight mt-0.5">{slot.entries[0]?.staffName}</p>
                           )}
@@ -420,7 +428,8 @@ export function TimetableView({
                       ) : (
                         <button
                           onClick={() => handleCellClick(period.id, dayIndex)}
-                          className="text-on-surface-variant text-[10px] hover:bg-primary-container hover:text-on-primary-container rounded px-2 py-0.5 opacity-0 group-hover:opacity-100 transition-all"
+                          className="w-full text-on-surface-variant/40 text-[11px] hover:bg-primary-container hover:text-on-primary-container rounded py-1 transition-all"
+                          title="Click to assign subject"
                         >
                           +
                         </button>
@@ -433,9 +442,6 @@ export function TimetableView({
           </tbody>
         </table>
       </div>
-      <style>{`
-        @media print { body * { visibility: hidden; } #report-card, #report-card * { visibility: visible; } #report-card { position: absolute; left: 0; top: 0; width: 100%; border: none !important; } }
-      `}</style>
     </div>
   );
 }

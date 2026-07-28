@@ -44,7 +44,7 @@ export default async function TimetablePage() {
       where: { schoolId: user.schoolId },
       include: {
         period: { select: { name: true } },
-        subject: { select: { name: true } },
+        subject: { select: { id: true, name: true } },
         staff: { select: { id: true, fullName: true } },
         class: { select: { name: true } },
         room: { select: { id: true, name: true } },
@@ -90,6 +90,7 @@ export default async function TimetablePage() {
           className: e.class.name,
           periodId: e.periodId,
           dayOfWeek: e.dayOfWeek,
+          subjectId: e.subject.id,
           subjectName: e.subject.name,
           staffId: e.staff.id,
           staffName: e.staff.fullName,

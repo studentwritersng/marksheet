@@ -35,20 +35,27 @@ export async function setEntryAction(_prev: ActionState, formData: FormData): Pr
   const classId = formData.get("classId") as string;
   const periodId = formData.get("periodId") as string;
   const subjectId = formData.get("subjectId") as string;
-  const staffId = formData.get("staffId") as string;
   const dayOfWeek = parseInt(formData.get("dayOfWeek") as string);
   const roomId = (formData.get("roomId") as string)?.trim() || null;
 
-  // With pairing allowed for SSS, there may be up to 2 entries per slot.
-  // Delete existing entries for this slot and create the new one.
-  // If the class is SSS and has departmental subjects, this creates a new entry alongside.
-  const existing = await prisma.timetableEntry.findFirst({
-    where: { classId, periodId, dayOfWeek },
-    include: { subject: { select: { name: true } } },
+  // Auto-resolve teacher from the subject_teacher assignment for this class+subject.
+  // Teacher is no longer user-editable in the grid — it's determined by the assignment.
+  const assignment = await prisma.assignment.findFirst({
+    where: { schoolId: ctx.schoolId, classId, subjectId, assignmentType: "subject_teacher" },
+    select: { staffId: true },
   });
+  const staffId = assignment?.staffId ?? (formData.get("staffId") as string) ?? "";
 
-  if (existing) {
-    await prisma.timetableEntry.delete({ where: { id: existing.id } });
+  if (!staffId) return { error: "No teacher assigned to this subject for this class. Go to Staff → Assignments to link one." };
+
+  // With pairing allowed for SSS, delete existing entries in this slot before creating.
+  // There can be up to 2 entries per slot (paired departmental subjects).
+  const existing = await prisma.timetableEntry.findMany({
+    where: { classId, periodId, dayOfWeek },
+    select: { id: true },
+  });
+  for (const e of existing) {
+    await prisma.timetableEntry.delete({ where: { id: e.id } });
   }
 
   await prisma.timetableEntry.create({
