@@ -500,24 +500,52 @@ export default async function ReportCardPage(props: {
             </div>
           )}
 
-          {/* ── FOOTER ── */}
-          <div className="bg-[#002046] text-white px-6 py-3 text-center text-[10px] leading-relaxed">
-            {termResult?.status === "finalised" && termResult.verificationCodes[0] ? (
-              <div className="space-y-1">
-                <p className="font-semibold">This report has been finalised and is verifiable.</p>
-                <p>
-                  Verify at:{" "}
-                  <span className="font-semibold">
-                    marksheet.sch.ng/{school?.shortcode?.toLowerCase()}/verify?code={termResult.verificationCodes[0].code}
-                  </span>
-                </p>
-                <p>
-                  Verification Code: <span className="font-semibold tracking-wider">{termResult.verificationCodes[0].code}</span>
-                </p>
+          {/* ── VERIFICATION CODE ── */}
+          <div className="px-6 py-3 border-t-2 border-dashed border-gray-400">
+            {termResult?.status === "finalised" && termResult.verificationCodes?.[0] ? (
+              <div className="flex items-start justify-between gap-4">
+                {/* Left: verification details */}
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                    ✓ Verified Result — Authentication Code
+                  </p>
+                  <p
+                    className="text-lg font-extrabold tracking-[0.25em] text-gray-900 font-mono"
+                    style={{ fontFamily: "monospace" }}
+                  >
+                    {termResult.verificationCodes[0].code}
+                  </p>
+                  <p className="text-[9px] text-gray-500">
+                    Verify this result at:{" "}
+                    <span className="font-semibold text-gray-700">
+                      {school?.shortcode
+                        ? `[your-domain]/${school.shortcode.toLowerCase()}/verify`
+                        : "[your-domain]/verify"}
+                    </span>
+                    {" "}or use the school&apos;s portal and enter the code above.
+                  </p>
+                </div>
+                {/* Right: verified badge */}
+                <div className="flex-shrink-0 border-2 border-gray-700 rounded px-3 py-1.5 text-center">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-gray-700">Authentic</p>
+                  <p className="text-[8px] text-gray-500 mt-0.5">Marksheet Platform</p>
+                </div>
               </div>
             ) : (
-              "This is a draft report and has not been finalised."
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-amber-400 flex-shrink-0" />
+                <p className="text-[10px] text-gray-500 italic">
+                  {termResult?.status === "withheld"
+                    ? "This result is currently withheld. Please contact the school office."
+                    : "This is a draft report. A unique verification code will appear here once the principal finalises the results."}
+                </p>
+              </div>
             )}
+          </div>
+
+          {/* ── FOOTER ── */}
+          <div className="bg-[#002046] text-white px-6 py-2 text-center text-[10px]">
+            {school?.name ?? "Marksheet School"} · Result generated on Marksheet Platform
           </div>
 
         </div>

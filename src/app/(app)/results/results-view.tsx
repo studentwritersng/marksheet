@@ -255,9 +255,11 @@ export function ResultsView({
                             <div className="mt-3">
                               <a
                                 href={`/results/${tr.studentId}?termId=${selectedTermId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="font-label-sm text-label-sm text-primary hover:underline"
                               >
-                                View report card →
+                                View report card ↗
                               </a>
                             </div>
                           </td>
