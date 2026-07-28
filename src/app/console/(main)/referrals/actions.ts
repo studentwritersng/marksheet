@@ -64,6 +64,8 @@ export async function deleteReferralAction(
   const referral = await prisma.referral.findUnique({ where: { id: referralId } });
   if (!referral) return { error: "Referral not found." };
 
+  // Delete linked User account
+  await prisma.user.deleteMany({ where: { referralId } });
   await prisma.referral.delete({ where: { id: referralId } });
 
   await recordAudit({
@@ -117,4 +119,49 @@ export async function updateSchoolRegistrationStatusAction(
 
   revalidatePath("/console/referrals");
   return { success: `Registration ${status}.` };
+}
+
+export async function updateCommissionStatusAction(
+  _prev: ReferralManageActionResult,
+  formData: FormData,
+): Promise<ReferralManageActionResult> {
+  let user;
+  try {
+    user = await getCurrentUser();
+    if (!user || user.role !== "platform_owner") throw new Error("Not authorised.");
+  } catch {
+    return { error: "Not authorised." };
+  }
+
+  const commissionId = formData.get("commissionId") as string;
+  const status = formData.get("status") as string;
+  const notes = (formData.get("notes") as string)?.trim() || null;
+
+  if (!commissionId || !["pending", "paid", "rejected"].includes(status)) {
+    return { error: "Invalid input." };
+  }
+
+  const commission = await prisma.referralCommission.findUnique({ where: { id: commissionId } });
+  if (!commission) return { error: "Commission not found." };
+
+  await prisma.referralCommission.update({
+    where: { id: commissionId },
+    data: {
+      status,
+      notes,
+      paidAt: status === "paid" ? new Date() : null,
+    },
+  });
+
+  await recordAudit({
+    actorId: user.userId,
+    action: "update",
+    entityType: "referral_commission",
+    entityId: commissionId,
+    beforeValue: { status: commission.status } as any,
+    afterValue: { status, notes } as any,
+  });
+
+  revalidatePath("/console/referrals");
+  return { success: `Commission ${status}.` };
 }

@@ -5,5 +5,6 @@ export default async function Home() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role === "platform_owner") redirect("/console");
+  if (user.role === "referral") redirect("/referral/dashboard");
   redirect("/dashboard");
 }

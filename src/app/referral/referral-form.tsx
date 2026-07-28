@@ -15,8 +15,8 @@ export function ReferralForm() {
         <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <span className="material-symbols-outlined text-3xl text-emerald-600" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
-        <p className="text-sm text-gray-500 mb-6">Share your referral code or link with schools to earn referrals.</p>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Account Created!</h2>
+        <p className="text-sm text-gray-500 mb-6">You can now log in at <a href="/referral/login" className="text-blue-600 font-medium hover:underline">/referral/login</a> with your email and password.</p>
 
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Your Referral Code</p>
@@ -29,9 +29,7 @@ export function ReferralForm() {
         </div>
 
         <button
-          onClick={() => {
-            navigator.clipboard.writeText(referralLink);
-          }}
+          onClick={() => navigator.clipboard.writeText(referralLink)}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-sm"
         >
           Copy Link
@@ -43,7 +41,7 @@ export function ReferralForm() {
   return (
     <form action={action} className="bg-white border border-gray-200 rounded-2xl shadow-lg p-8 max-w-lg mx-auto">
       <h2 className="text-xl font-bold text-gray-900 mb-1">Become a Referral Agent</h2>
-      <p className="text-sm text-gray-500 mb-6">Register below to get your unique referral code and link.</p>
+      <p className="text-sm text-gray-500 mb-6">Register to get your unique referral code and start earning.</p>
 
       <div className="space-y-4">
         <div>
@@ -95,6 +93,20 @@ export function ReferralForm() {
             <input name="bankAccountName" required placeholder="John Doe" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
           </div>
         </div>
+
+        <hr className="border-gray-200" />
+        <p className="text-xs text-gray-400 uppercase tracking-wide">Account Password</p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+            <input name="password" type="password" required minLength={6} placeholder="Min 6 characters" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
+            <input name="confirmPassword" type="password" required minLength={6} placeholder="Re-enter password" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          </div>
+        </div>
       </div>
 
       {state.error && (
@@ -108,7 +120,7 @@ export function ReferralForm() {
         disabled={pending}
         className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 text-sm"
       >
-        {pending ? "Registering..." : "Register"}
+        {pending ? "Creating Account..." : "Create Account"}
       </button>
     </form>
   );

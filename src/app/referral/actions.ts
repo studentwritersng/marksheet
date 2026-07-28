@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export interface ReferralActionResult {
   error?: string;
@@ -31,6 +32,8 @@ export async function registerReferralAction(
   const bankName = (formData.get("bankName") as string)?.trim();
   const bankAccountNumber = (formData.get("bankAccountNumber") as string)?.trim();
   const bankAccountName = (formData.get("bankAccountName") as string)?.trim();
+  const password = (formData.get("password") as string)?.trim();
+  const confirmPassword = (formData.get("confirmPassword") as string)?.trim();
 
   if (!fullName) return { error: "Full name is required." };
   if (!address) return { error: "Address is required." };
@@ -41,9 +44,15 @@ export async function registerReferralAction(
   if (!bankName) return { error: "Bank name is required." };
   if (!bankAccountNumber) return { error: "Bank account number is required." };
   if (!bankAccountName) return { error: "Bank account name is required." };
+  if (!password) return { error: "Password is required." };
+  if (password.length < 6) return { error: "Password must be at least 6 characters." };
+  if (password !== confirmPassword) return { error: "Passwords do not match." };
 
-  const existing = await prisma.referral.findUnique({ where: { email } });
-  if (existing) return { error: "A referral account with this email already exists." };
+  const existingEmail = await prisma.referral.findUnique({ where: { email } });
+  if (existingEmail) return { error: "A referral account with this email already exists." };
+
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) return { error: "An account with this email already exists." };
 
   let referralCode = generateReferralCode();
   let attempts = 0;
@@ -53,6 +62,8 @@ export async function registerReferralAction(
     referralCode = generateReferralCode();
     attempts++;
   }
+
+  const passwordHash = await bcrypt.hash(password, 12);
 
   const referral = await prisma.referral.create({
     data: {
@@ -65,12 +76,23 @@ export async function registerReferralAction(
       bankName,
       bankAccountNumber,
       bankAccountName,
+      passwordHash,
       referralCode,
     },
   });
 
+  // Create a User account so the referral can log in
+  await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      role: "referral",
+      referralId: referral.id,
+    },
+  });
+
   return {
-    success: "Registration successful! Your referral code is ready.",
+    success: "Registration successful! You can now log in with your email and password.",
     referralCode: referral.referralCode,
     referralId: referral.id,
   };
