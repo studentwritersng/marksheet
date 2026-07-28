@@ -153,18 +153,20 @@ model Term {
 }
 
 model Class {
-  id         String   @id @default(cuid())
-  schoolId   String
-  sessionId  String
-  name       String // auto-generated: level + section (e.g. "JSS1" or "JSS1A")
-  level      String // JSS1 / JSS2 / JSS3 / SSS1 / SSS2 / SSS3
-  section    String   @default("") // optional arm: "A", "B", "C"... "" means single-section
-  department String   @default("") // SSS only: "science" / "art" / "commercial" / ""
-  archived   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(cuid())
+  schoolId     String
+  sessionId    String
+  name         String // auto-generated: level + section (e.g. "JSS1" or "JSS1A")
+  level        String // JSS1 / JSS2 / JSS3 / SSS1 / SSS2 / SSS3
+  section      String   @default("") // optional arm: "A", "B", "C"... "" means single-section
+  department   String   @default("") // SSS only: "science" / "art" / "commercial" / ""
+  defaultRoomId String?
+  archived     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   session               Session                       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  defaultRoom           Room?                          @relation(fields: [defaultRoomId], references: [id])
   assignments           Assignment[]
   students              Student[]
   promotionsFrom        PromotionRecord[]             @relation("PromotionFromClass")
@@ -1064,12 +1066,14 @@ model TimetableEntry {
   subjectId String
   staffId   String
   dayOfWeek Int // 0=Monday .. 4=Friday
+  roomId    String? // nullable — for manual room assignment after generation
 
   school  School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   class   Class           @relation(fields: [classId], references: [id])
   period  TimetablePeriod @relation(fields: [periodId], references: [id])
   subject Subject         @relation(fields: [subjectId], references: [id])
   staff   Staff           @relation(fields: [staffId], references: [id])
+  room    Room?           @relation(fields: [roomId], references: [id])
 
   @@unique([classId, periodId, dayOfWeek])
   @@index([classId, dayOfWeek])
@@ -1185,7 +1189,9 @@ model Room {
   roomTypeId String
   capacity   Int    @default(40)
 
-  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  roomType        RoomType          @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  timetableEntries TimetableEntry[]
+  classes         Class[]
 
   @@map("rooms")
 }

@@ -35,7 +35,7 @@ export default async function TimetablePage() {
     );
   }
 
-  const [classes, periods, subjects, staff, entries, wizard] = await Promise.all([
+  const [classes, periods, subjects, staff, entries, wizard, rooms] = await Promise.all([
     prisma.class.findMany({ where: { schoolId: user.schoolId, archived: false }, orderBy: { name: "asc" } }),
     prisma.timetablePeriod.findMany({ where: { schoolId: user.schoolId }, orderBy: { startTime: "asc" } }),
     prisma.subject.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } }),
@@ -47,9 +47,11 @@ export default async function TimetablePage() {
         subject: { select: { name: true } },
         staff: { select: { id: true, fullName: true } },
         class: { select: { name: true } },
+        room: { select: { id: true, name: true } },
       },
     }),
     prisma.timetableWizard.findUnique({ where: { schoolId: user.schoolId } }),
+    prisma.room.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } }),
   ]);
 
   // Redirect to wizard if not completed
@@ -81,6 +83,7 @@ export default async function TimetablePage() {
         periods={periods.map((p) => ({ id: p.id, name: p.name, startTime: p.startTime, endTime: p.endTime, periodType: p.periodType }))}
         subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
         staff={staff.map((s) => ({ id: s.id, name: s.fullName }))}
+        rooms={rooms.map((r) => ({ id: r.id, name: r.name }))}
         entries={entries.map((e) => ({
           id: e.id,
           classId: e.classId,
@@ -90,6 +93,8 @@ export default async function TimetablePage() {
           subjectName: e.subject.name,
           staffId: e.staff.id,
           staffName: e.staff.fullName,
+          roomId: e.roomId ?? null,
+          roomName: e.room?.name ?? null,
         }))}
       />
     </div>

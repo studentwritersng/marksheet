@@ -228,7 +228,89 @@ export async function savePeriodsAction(
   return { step: 5 };
 }
 
-// ── Step 5: Subject frequency per class ───────────────────────────────
+// ── Step 5: Rooms — manage room types, rooms, and class default rooms ──
+
+export async function saveRoomsAction(
+  _prev: WizardState,
+  formData: FormData,
+): Promise<WizardState> {
+  const ctx = await requireSchoolAdmin();
+  try { await guardTimetableAddon(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const roomsRaw = String(formData.get("rooms") ?? "[]");
+  const roomTypesRaw = String(formData.get("roomTypes") ?? "[]");
+  const classRoomsRaw = String(formData.get("classRooms") ?? "{}");
+
+  let roomTypes: { name: string }[];
+  let rooms: { name: string; roomTypeName: string }[];
+  let classRooms: Record<string, string>; // classId → roomId
+
+  try { roomTypes = JSON.parse(roomTypesRaw); } catch { return { error: "Invalid room types." }; }
+  try { rooms = JSON.parse(roomsRaw); } catch { return { error: "Invalid rooms." }; }
+  try { classRooms = JSON.parse(classRoomsRaw); } catch { return { error: "Invalid class rooms." }; }
+
+  // Delete existing rooms and room types
+  await prisma.timetableEntry.deleteMany({ where: { schoolId: ctx.schoolId, roomId: { not: null } } });
+  const existingRooms = await prisma.room.findMany({ where: { schoolId: ctx.schoolId }, select: { id: true } });
+  for (const r of existingRooms) {
+    await prisma.room.delete({ where: { id: r.id } });
+  }
+
+  // Recreate room types — keyed by name for reference
+  const roomTypeMap = new Map<string, string>(); // name → roomTypeId
+  for (const rt of roomTypes) {
+    const created = await prisma.roomType.create({
+      data: { schoolId: ctx.schoolId, name: rt.name },
+    });
+    roomTypeMap.set(rt.name, created.id);
+  }
+
+  // Recreate rooms
+  const roomMap = new Map<string, string>(); // "roomType|name" → roomId
+  for (const r of rooms) {
+    const roomTypeId = roomTypeMap.get(r.roomTypeName);
+    if (!roomTypeId) continue;
+    const created = await prisma.room.create({
+      data: { schoolId: ctx.schoolId, name: r.name, roomTypeId },
+    });
+    roomMap.set(`${r.roomTypeName}|${r.name}`, created.id);
+  }
+
+  // Link rooms to classes
+  const roomIdByClass = new Map<string, string>(); // classId → roomId
+  for (const [classId, roomId] of Object.entries(classRooms)) {
+    if (roomId) roomIdByClass.set(classId, roomId);
+  }
+
+  // Update class default rooms
+  const classes = await prisma.class.findMany({
+    where: { schoolId: ctx.schoolId, archived: false },
+    select: { id: true },
+  });
+  for (const cls of classes) {
+    const defaultRoomId = roomIdByClass.get(cls.id) ?? null;
+    await prisma.class.update({
+      where: { id: cls.id },
+      data: { defaultRoomId },
+    });
+  }
+
+  const existing = await prisma.timetableWizard.findUnique({ where: { schoolId: ctx.schoolId } });
+  const stepData = (existing?.stepData as Record<string, unknown>) ?? {};
+  stepData.rooms = rooms;
+  stepData.roomTypes = roomTypes;
+  stepData.classRooms = classRooms;
+
+  await prisma.timetableWizard.upsert({
+    where: { schoolId: ctx.schoolId },
+    update: { currentStep: 6, stepData: stepData as Prisma.InputJsonValue },
+    create: { schoolId: ctx.schoolId, currentStep: 6, stepData: stepData as Prisma.InputJsonValue },
+  });
+
+  return { step: 6 };
+}
+
+// ── Step 6: Subject frequency per class ───────────────────────────────
 
 export async function saveSubjectFrequencyAction(
   _prev: WizardState,
@@ -264,14 +346,14 @@ export async function saveSubjectFrequencyAction(
 
   await prisma.timetableWizard.upsert({
     where: { schoolId: ctx.schoolId },
-    update: { currentStep: 6, stepData: stepData as Prisma.InputJsonValue },
-    create: { schoolId: ctx.schoolId, currentStep: 6, stepData: stepData as Prisma.InputJsonValue },
+    update: { currentStep: 7, stepData: stepData as Prisma.InputJsonValue },
+    create: { schoolId: ctx.schoolId, currentStep: 7, stepData: stepData as Prisma.InputJsonValue },
   });
 
-  return { step: 6 };
+  return { step: 7 };
 }
 
-// ── Step 6: Teacher load limits ───────────────────────────────────────
+// ── Step 7: Teacher load limits ───────────────────────────────────────
 
 export async function saveTeacherLoadAction(
   _prev: WizardState,
@@ -319,14 +401,14 @@ export async function saveTeacherLoadAction(
 
   await prisma.timetableWizard.upsert({
     where: { schoolId: ctx.schoolId },
-    update: { currentStep: 7, stepData: stepData as Prisma.InputJsonValue },
-    create: { schoolId: ctx.schoolId, currentStep: 7, stepData: stepData as Prisma.InputJsonValue },
+    update: { currentStep: 8, stepData: stepData as Prisma.InputJsonValue },
+    create: { schoolId: ctx.schoolId, currentStep: 8, stepData: stepData as Prisma.InputJsonValue },
   });
 
-  return { step: 7 };
+  return { step: 8 };
 }
 
-// ── Step 7: Mark wizard complete + auto-generate timetable ───────────
+// ── Step 8: Mark wizard complete + auto-generate timetable ───────────
 
 export async function completeWizardAction(): Promise<WizardState> {
   const ctx = await requireSchoolAdmin();
@@ -353,8 +435,8 @@ export async function completeWizardAction(): Promise<WizardState> {
 }
 
 async function generateFromWizard(schoolId: string): Promise<{ error?: string; count?: number }> {
-  const [classes, periods, subjectReqs, assignments, staffAvail] = await Promise.all([
-    prisma.class.findMany({ where: { schoolId, archived: false }, select: { id: true, level: true, name: true } }),
+  const [classes, periods, subjectReqs, assignments, staffAvail, rooms, classSubjects] = await Promise.all([
+    prisma.class.findMany({ where: { schoolId, archived: false }, select: { id: true, level: true, name: true, department: true, defaultRoomId: true } }),
     prisma.timetablePeriod.findMany({
       where: { schoolId, periodType: "period" },
       orderBy: { startTime: "asc" },
@@ -372,12 +454,30 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
       where: { schoolId },
       select: { staffId: true, day: true, maxPeriodsPerDay: true, maxPeriodsPerWeek: true },
     }),
+    prisma.room.findMany({
+      where: { schoolId },
+      select: { id: true, name: true, roomTypeId: true },
+    }),
+    // Load ClassSubject with department info for SSS pairing
+    prisma.classSubject.findMany({
+      where: { schoolId },
+      select: { classId: true, subjectId: true, department: true },
+    }),
   ]);
 
   if (periods.length === 0) return { error: "No teaching periods defined." };
   if (classes.length === 0) return { error: "No classes found." };
 
   const days = [0, 1, 2, 3, 4]; // Mon-Fri
+
+  // Build room-type map — special rooms (non-default) go here
+  const roomTypeMap = new Map<string, string>(); // subjectId → roomTypeId
+  const roomsByType = new Map<string, typeof rooms>(); // roomTypeId → rooms[]
+  for (const r of rooms) {
+    const arr = roomsByType.get(r.roomTypeId) ?? [];
+    arr.push(r);
+    roomsByType.set(r.roomTypeId, arr);
+  }
 
   // Build teacher-subject-class map
   const validAssignments = assignments.filter((a) => a.subjectId && a.classId)
@@ -390,6 +490,60 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
     const arr = classReqMap.get(r.classId) ?? [];
     arr.push({ subjectId: r.subjectId, weeklyPeriodsRequired: r.weeklyPeriodsRequired });
     classReqMap.set(r.classId, arr);
+  }
+
+  // Build ClassSubject department map — subjectId → department for each class
+  // Used for SSS departmental pairing rule
+  const subjectDepartmentMap = new Map<string, string>(); // `${classId}|${subjectId}` → department
+  for (const cs of classSubjects) {
+    if (!cs.department) cs.department = "general";
+    subjectDepartmentMap.set(`${cs.classId}|${cs.subjectId}`, cs.department);
+  }
+
+  // SSS departmental pairing: map each SSS class-level to its paired class-level
+  // e.g., SSS1 pairs with SSS2, SSS2 pairs with SSS1, SSS2 pairs with SSS3, SSS3 pairs with SSS2
+  const SSS_LEVELS = ["SSS1", "SSS2", "SSS3"];
+  const getPairedLevel = (level: string): string | null => {
+    const idx = SSS_LEVELS.indexOf(level);
+    if (idx < 0 || SSS_LEVELS.length < 2) return null;
+    return SSS_LEVELS[(idx + 1) % SSS_LEVELS.length];
+  };
+
+  // Build "subject is general or departmental" helper for a class
+  function getSubjectDepartment(classId: string, subjectId: string): string {
+    return subjectDepartmentMap.get(`${classId}|${subjectId}`) ?? "general";
+  }
+
+  // Check if a subject pair is valid for departmental pairing
+  function isValidPair(classId: string, subjectA: string, subjectB: string, cls: { level: string; department: string }): boolean {
+    const isSSS = SSS_LEVELS.includes(cls.level);
+    if (!isSSS) return true; // JSS has no departmental pairing rule
+    const deptA = getSubjectDepartment(classId, subjectA);
+    const deptB = getSubjectDepartment(classId, subjectB);
+    // Rule: can't have two subjects from the same non-general department
+    if (deptA !== "general" && deptA === deptB) return false;
+    // Rule: departmental subject must be paired with a departmental subject from a DIFFERENT department
+    // OR paired with a general subject — but never two departmental subjects from the same department
+    return true;
+  }
+
+  // Check if a subject placement is valid for a given day/period slot
+  function isSlotValidForPair(
+    classId: string, day: number, periodId: string, subjectId: string, cls: { level: string; department: string },
+  ): boolean {
+    const isSSS = SSS_LEVELS.includes(cls.level);
+    if (!isSSS) return true;
+    const dept = getSubjectDepartment(classId, subjectId);
+    if (dept === "general") return true; // General subjects always OK
+
+    // Find other subjects already placed in this class on this day
+    for (const entry of entriesToCreate) {
+      if (entry.classId === classId && day === entry.dayOfWeek && entry.periodId !== periodId) {
+        const otherDept = getSubjectDepartment(entry.classId, entry.subjectId);
+        if (otherDept === dept) return false; // Same department — not allowed
+      }
+    }
+    return true;
   }
 
   // Build availability map
@@ -406,8 +560,9 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
   const staffWeekPlaced = new Map<string, number>(); // staffId -> total
   const occupied = new Set<string>(); // "classId|day|periodId"
   const teacherOccupied = new Set<string>(); // "staffId|day|periodId" — teacher cannot be in two places at once
+  const roomOccupied = new Map<string, Set<string>>(); // "day|periodId" -> Set(roomId)
 
-  const entriesToCreate: { classId: string; periodId: string; subjectId: string; staffId: string; dayOfWeek: number }[] = [];
+  const entriesToCreate: { classId: string; periodId: string; subjectId: string; staffId: string; dayOfWeek: number; roomId: string | null }[] = [];
 
   function shuffleArray<T>(arr: T[]): T[] {
     const a = [...arr];
@@ -463,6 +618,9 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
         const slotKey = `${cls.id}|${day}|${period.id}`;
         if (occupied.has(slotKey)) continue;
 
+        // SSS departmental pairing check
+        if (!isSlotValidForPair(cls.id, day, period.id, p.subjectId, cls)) continue;
+
         const candidates = validAssignments.filter(
           (a) => a.subjectId === p.subjectId && a.classId === cls.id,
         );
@@ -478,12 +636,21 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
           if (dayPlaced >= (avail?.maxPerDay ?? 8)) continue;
           if (weekPlaced >= (avail?.maxPerWeek ?? 40)) continue;
 
+          // Room assignment: default to class's defaultRoomId, or find special room
+          let assignedRoomId: string | null = cls.defaultRoomId ?? null;
+          // Room conflict check — if the room is already occupied this slot, leave null
+          const roomKey = `${day}|${period.id}`;
+          if (assignedRoomId && roomOccupied.get(roomKey)?.has(assignedRoomId)) {
+            assignedRoomId = null;
+          }
+
           entriesToCreate.push({
             classId: cls.id,
             periodId: period.id,
             subjectId: p.subjectId,
             staffId: candidate.staffId,
             dayOfWeek: day,
+            roomId: assignedRoomId,
           });
 
           if (!subjectClassDayPlaced.has(scKey)) subjectClassDayPlaced.set(scKey, new Set());
@@ -491,6 +658,10 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
           subjectClassTotalPlaced.set(scKey, totalPlaced + 1);
           occupied.add(slotKey);
           teacherOccupied.add(teacherSlotKey);
+          if (assignedRoomId) {
+            if (!roomOccupied.has(roomKey)) roomOccupied.set(roomKey, new Set());
+            roomOccupied.get(roomKey)!.add(assignedRoomId);
+          }
 
           if (!staffDayPlaced.has(candidate.staffId)) staffDayPlaced.set(candidate.staffId, new Map());
           staffDayPlaced.get(candidate.staffId)!.set(day, dayPlaced + 1);
@@ -517,6 +688,9 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
           const slotKey = `${cls.id}|${day}|${period.id}`;
           if (occupied.has(slotKey)) continue;
 
+          // SSS departmental pairing check
+          if (!isSlotValidForPair(cls.id, day, period.id, req.subjectId, cls)) continue;
+
           const candidates = shuffleArray(
             validAssignments.filter((a) => a.subjectId === req.subjectId && a.classId === cls.id),
           );
@@ -532,12 +706,20 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
             if (dayPlaced >= (avail?.maxPerDay ?? 8)) continue;
             if (weekPlaced >= (avail?.maxPerWeek ?? 40)) continue;
 
+            // Room assignment
+            let assignedRoomId: string | null = cls.defaultRoomId ?? null;
+            const roomKey = `${day}|${period.id}`;
+            if (assignedRoomId && roomOccupied.get(roomKey)?.has(assignedRoomId)) {
+              assignedRoomId = null;
+            }
+
             entriesToCreate.push({
               classId: cls.id,
               periodId: period.id,
               subjectId: req.subjectId,
               staffId: candidate.staffId,
               dayOfWeek: day,
+              roomId: assignedRoomId,
             });
 
             if (!subjectClassDayPlaced.has(scKey)) subjectClassDayPlaced.set(scKey, new Set());
@@ -546,6 +728,11 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
             subjectClassTotalPlaced.set(scKey, currentPlaced + 1);
             occupied.add(slotKey);
             teacherOccupied.add(teacherSlotKey);
+            if (assignedRoomId) {
+              const roomKey2 = `${day}|${period.id}`;
+              if (!roomOccupied.has(roomKey2)) roomOccupied.set(roomKey2, new Set());
+              roomOccupied.get(roomKey2)!.add(assignedRoomId);
+            }
 
             if (!staffDayPlaced.has(candidate.staffId)) staffDayPlaced.set(candidate.staffId, new Map());
             staffDayPlaced.get(candidate.staffId)!.set(day, dayPlaced + 1);
@@ -587,8 +774,9 @@ export async function resetWizardAction(): Promise<WizardState> {
 
 export async function getWizardInitData(): Promise<{
   wizard: { currentStep: number; stepData: Record<string, unknown>; completed: boolean } | null;
-  classes: { id: string; level: string; section: string; department: string }[];
-  classSubjects: { classId: string; subjectId: string; subject: { id: string; name: string } }[];
+  classes: { id: string; level: string; section: string; department: string; defaultRoomId: string | null }[];
+  rooms: { id: string; name: string; roomType: string }[];
+  classSubjects: { classId: string; subjectId: string; department: string | null; subject: { id: string; name: string } }[];
   staff: { id: string; fullName: string; partTime: boolean; workDays: number[]; dayStartTime: string | null; dayEndTime: string | null }[];
   missingTeachers: { classLevel: string; subjectName: string }[];
   currentSessionId: string | null;
@@ -596,16 +784,16 @@ export async function getWizardInitData(): Promise<{
   const ctx = await requireSchoolAdmin();
   await guardTimetableAddon(ctx.schoolId);
 
-  const [wizard, classes, classSubjects, staff, currentSession] = await Promise.all([
+  const [wizard, classes, classSubjects, staff, currentSession, existingRooms] = await Promise.all([
     prisma.timetableWizard.findUnique({ where: { schoolId: ctx.schoolId } }),
     prisma.class.findMany({
       where: { schoolId: ctx.schoolId, archived: false },
-      select: { id: true, level: true, section: true, department: true },
+      select: { id: true, level: true, section: true, department: true, defaultRoomId: true },
       orderBy: [{ level: "asc" }, { section: "asc" }],
     }),
     prisma.classSubject.findMany({
       where: { schoolId: ctx.schoolId },
-      include: { subject: { select: { id: true, name: true } } },
+      select: { classId: true, subjectId: true, department: true, subject: { select: { id: true, name: true } } },
     }),
     prisma.staff.findMany({
       where: { schoolId: ctx.schoolId, accountStatus: "active" },
@@ -615,6 +803,11 @@ export async function getWizardInitData(): Promise<{
     prisma.session.findFirst({
       where: { schoolId: ctx.schoolId, isCurrent: true },
       select: { id: true },
+    }),
+    prisma.room.findMany({
+      where: { schoolId: ctx.schoolId },
+      include: { roomType: { select: { name: true } } },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -645,7 +838,8 @@ export async function getWizardInitData(): Promise<{
   return {
     wizard: wizard ? { currentStep: wizard.currentStep, stepData: wizard.stepData as Record<string, unknown> ?? {}, completed: wizard.completed } : null,
     classes,
-    classSubjects: classSubjects.map((cs) => ({ classId: cs.classId, subjectId: cs.subjectId, subject: cs.subject })),
+    rooms: existingRooms.map((r) => ({ id: r.id, name: r.name, roomType: r.roomType.name })),
+    classSubjects: classSubjects.map((cs) => ({ classId: cs.classId, subjectId: cs.subjectId, department: cs.department ?? null, subject: cs.subject })),
     staff: staff.map((s) => ({ ...s, workDays: s.workDays ?? [], dayStartTime: s.dayStartTime, dayEndTime: s.dayEndTime })),
     missingTeachers: missing,
     currentSessionId: currentSession?.id ?? null,

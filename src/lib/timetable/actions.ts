@@ -37,11 +37,12 @@ export async function setEntryAction(_prev: ActionState, formData: FormData): Pr
   const subjectId = formData.get("subjectId") as string;
   const staffId = formData.get("staffId") as string;
   const dayOfWeek = parseInt(formData.get("dayOfWeek") as string);
+  const roomId = (formData.get("roomId") as string)?.trim() || null;
 
   await prisma.timetableEntry.upsert({
     where: { classId_periodId_dayOfWeek: { classId, periodId, dayOfWeek } },
-    update: { subjectId, staffId },
-    create: { schoolId: ctx.schoolId, classId, periodId, subjectId, staffId, dayOfWeek },
+    update: { subjectId, staffId, ...(roomId !== undefined ? { roomId } : {}) },
+    create: { schoolId: ctx.schoolId, classId, periodId, subjectId, staffId, dayOfWeek, roomId },
   });
 
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];

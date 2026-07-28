@@ -9,6 +9,7 @@ import {
   validateTeacherAssignmentsAction,
   saveTeacherAvailabilityAction,
   savePeriodsAction,
+  saveRoomsAction,
   saveSubjectFrequencyAction,
   saveTeacherLoadAction,
   completeWizardAction,
@@ -69,10 +70,19 @@ export function WizardClient({
     { name: "Closing", startTime: "10:40", endTime: "10:45", periodType: "closing" },
   ]);
 
-  // Step 5 state
-  const [subjectFreq, setSubjectFreq] = useState<SubjectFreq[]>([]);
+  // Step 5 state (rooms)
+  const [roomTypes, setRoomTypes] = useState<{ name: string }[]>([{ name: "Classroom" }, { name: "Science Lab" }, { name: "Computer Lab" }, { name: "Library" }, { name: "Hall" }]);
+  const [rooms, setRooms] = useState<{ name: string; roomTypeName: string }[]>([
+    { name: "Main Block 1", roomTypeName: "Classroom" },
+    { name: "Main Block 2", roomTypeName: "Classroom" },
+    { name: "Main Block 3", roomTypeName: "Classroom" },
+  ]);
+  const [classRooms, setClassRooms] = useState<Record<string, string>>({}); // classId → roomId
 
   // Step 6 state
+  const [subjectFreq, setSubjectFreq] = useState<SubjectFreq[]>([]);
+
+  // Step 7 state
   const [globalMaxPerDay, setGlobalMaxPerDay] = useState(8);
   const [globalMaxPerWeek, setGlobalMaxPerWeek] = useState(40);
   const [teacherLoadOverrides, setTeacherLoadOverrides] = useState<Record<string, { maxPerDay: number; maxPerWeek: number }>>({});
@@ -88,6 +98,13 @@ export function WizardClient({
       setData(initData);
       setMissingTeachers(initData.missingTeachers);
       setStaffState(initData.staff);
+
+      // Pre-load classRooms from existing defaultRoomId values
+      const initialClassRooms: Record<string, string> = {};
+      for (const cls of initData.classes) {
+        if (cls.defaultRoomId) initialClassRooms[cls.id] = cls.defaultRoomId;
+      }
+      setClassRooms(initialClassRooms);
 
       // Build subject frequency defaults
       const freq: SubjectFreq[] = [];
@@ -117,6 +134,9 @@ export function WizardClient({
       // Restore step data if available
       const sd = wizardRes.stepData;
       if (sd?.periods) setPeriods(sd.periods as PeriodEntry[]);
+      if (sd?.rooms) setRooms(sd.rooms as { name: string; roomTypeName: string }[]);
+      if (sd?.roomTypes) setRoomTypes(sd.roomTypes as { name: string }[]);
+      if (sd?.classRooms) setClassRooms(sd.classRooms as Record<string, string>);
       if (sd?.subjectFrequency) setSubjectFreq(sd.subjectFrequency as SubjectFreq[]);
       if (sd?.teacherLoad) {
         const tl = sd.teacherLoad as { globalMaxPerDay: number; globalMaxPerWeek: number; overrides: { staffId: string; maxPerDay: number; maxPerWeek: number }[] };
@@ -200,6 +220,24 @@ export function WizardClient({
       else if (res.step) setStep(res.step);
     } catch (e: any) {
       setError(e?.message ?? "Failed to save periods.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSaveRooms() {
+    setLoading(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.set("rooms", JSON.stringify(rooms));
+      fd.set("roomTypes", JSON.stringify(roomTypes));
+      fd.set("classRooms", JSON.stringify(classRooms));
+      const res = await saveRoomsAction({}, fd);
+      if (res.error) setError(res.error);
+      else if (res.step) setStep(res.step);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save rooms.");
     } finally {
       setLoading(false);
     }
@@ -557,9 +595,133 @@ export function WizardClient({
     );
   }
 
-  // ── Step 5: Subject frequency per class ────────────────────────────
+  // ── Step 5: Rooms ─────────────────────────────────────────────────
 
   if (step === 5) {
+    function RoomTypeInput({ name, onDelete }: { name: string; onDelete: () => void }) {
+      const [value, setValue] = useState(name);
+      function commit() {
+        const trimmed = value.trim();
+        if (!trimmed) onDelete();
+        else setRoomTypes((prev) => prev.map((rt) => (rt.name === name ? { name: trimmed } : rt)));
+      }
+      return (
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={commit}
+            placeholder="e.g. Science Lab, Classroom"
+            className="flex-1 border border-outline-variant rounded-lg p-2 font-body-md text-body-md bg-surface-container-lowest"
+          />
+          <button onClick={onDelete} className="text-error text-xs hover:underline shrink-0">Remove</button>
+        </div>
+      );
+    }
+
+    function RoomInput({ room, onDelete }: { room: { name: string; roomTypeName: string }; onDelete: () => void }) {
+      const [name, setName] = useState(room.name);
+      const [roomTypeName, setRoomTypeName] = useState(room.roomTypeName);
+      function commit() {
+        const trimmed = name.trim();
+        if (!trimmed) onDelete();
+        else setRooms((prev) => prev.map((r) => (r === room ? { name: trimmed, roomTypeName } : r)));
+      }
+      return (
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commit}
+            placeholder="Room name"
+            className="flex-1 border border-outline-variant rounded-lg p-2 font-body-md text-body-md bg-surface-container-lowest"
+          />
+          <select
+            value={roomTypeName}
+            onChange={(e) => setRoomTypeName(e.target.value)}
+            className="border border-outline-variant rounded-lg p-2 font-body-md text-body-md bg-surface-container-lowest"
+          >
+            {roomTypes.map((rt) => <option key={rt.name} value={rt.name}>{rt.name}</option>)}
+          </select>
+          <button onClick={onDelete} className="text-error text-xs hover:underline shrink-0">Remove</button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <h2 className="font-headline-lg text-headline-lg text-on-surface">Step 5: Rooms</h2>
+        <p className="font-body-md text-body-md text-on-surface-variant">
+          Set up your school's rooms — classrooms, labs, halls — and assign a default room to each class.
+        </p>
+
+        {/* Room Types */}
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 space-y-3">
+          <h3 className="font-label-md text-label-md text-on-surface mb-2">Room Types</h3>
+          {roomTypes.map((rt) => (
+            <RoomTypeInput key={rt.name} name={rt.name} onDelete={() => setRoomTypes((prev) => prev.filter((r) => r.name !== rt.name))} />
+          ))}
+          <button
+            onClick={() => setRoomTypes((prev) => [...prev, { name: "" }])}
+            className="border border-primary text-primary font-label-md text-label-md py-1.5 px-3 rounded-lg hover:bg-primary-container text-sm"
+          >+ Add Room Type</button>
+        </div>
+
+        {/* Rooms */}
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 space-y-3">
+          <h3 className="font-label-md text-label-md text-on-surface mb-2">Rooms</h3>
+          {rooms.map((room, i) => (
+            <RoomInput key={i} room={room} onDelete={() => setRooms((prev) => prev.filter((r) => r !== room))} />
+          ))}
+          <button
+            onClick={() => setRooms((prev) => [...prev, { name: "", roomTypeName: roomTypes[0]?.name ?? "Classroom" }])}
+            className="border border-primary text-primary font-label-md text-label-md py-1.5 px-3 rounded-lg hover:bg-primary-container text-sm"
+          >+ Add Room</button>
+        </div>
+
+        {/* Class Default Rooms */}
+        {data && data.classes.length > 0 && (
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 space-y-3">
+            <h3 className="font-label-md text-label-md text-on-surface mb-2">Default Room per Class</h3>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">Select which room each class primarily uses. The generator will default to this room, but you can change individual periods later.</p>
+            <div className="grid grid-cols-2 gap-3">
+              {data.classes.map((cls) => (
+                <div key={cls.id} className="flex items-center gap-2">
+                  <span className="font-label-sm text-label-sm text-on-surface w-28 shrink-0">
+                    {cls.level}{cls.section}{cls.department ? ` (${cls.department})` : ""}
+                  </span>
+                  <select
+                    value={classRooms[cls.id] ?? ""}
+                    onChange={(e) => setClassRooms((prev) => ({ ...prev, [cls.id]: e.target.value }))}
+                    className="flex-1 border border-outline-variant rounded-lg p-1.5 text-sm bg-surface-container-lowest"
+                  >
+                    <option value="">— No default —</option>
+                    {rooms.map((r) => (
+                      <option key={r.name} value={r.name}>{r.name} ({r.roomTypeName})</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {error && <p className="text-sm text-error bg-error-container px-3 py-2 rounded">{error}</p>}
+
+        <div className="flex gap-3">
+          <button onClick={handleSaveRooms} disabled={loading}
+            className="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded-lg hover:bg-primary/90 disabled:opacity-60"
+          >{loading ? "Saving..." : "Save & Continue"}</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 6: Subject frequency per class ────────────────────────────
+
+  if (step === 6) {
     const groupedByClass = new Map<string, SubjectFreq[]>();
     for (const f of subjectFreq) {
       const arr = groupedByClass.get(f.className) ?? [];
@@ -567,12 +729,23 @@ export function WizardClient({
       groupedByClass.set(f.className, arr);
     }
 
+    // Check if there are any SSS classes in the system (for departmental pairing note)
+    const hasSSS = data?.classes.some((c) => c.level.startsWith("SSS"));
+
     return (
       <div className="space-y-6">
-        <h2 className="font-headline-lg text-headline-lg text-on-surface">Step 5: Subject Frequency</h2>
+        <h2 className="font-headline-lg text-headline-lg text-on-surface">Step 6: Subject Frequency</h2>
         <p className="font-body-md text-body-md text-on-surface-variant">
           For each class, set how many times per week each subject should appear (minimum and maximum periods).
         </p>
+
+        {hasSSS && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <p className="text-sm text-blue-800">
+              <strong>SSS pairing rule:</strong> General subjects (Math, English) stand alone. Departmental subjects (e.g., Chemistry, Physics, Further Maths for Science) must be paired with a subject from a different department — the same department can&apos;t appear twice in one period. General subjects work with any subject.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-4 max-h-[60vh] overflow-y-auto">
           {[...groupedByClass.entries()].map(([className, freqs]) => (
@@ -608,12 +781,12 @@ export function WizardClient({
     );
   }
 
-  // ── Step 6: Teacher load limits ────────────────────────────────────
+  // ── Step 7: Teacher load limits ────────────────────────────────────
 
-  if (step === 6) {
+  if (step === 7) {
     return (
       <div className="space-y-6">
-        <h2 className="font-headline-lg text-headline-lg text-on-surface">Step 6: Teacher Load Limits</h2>
+        <h2 className="font-headline-lg text-headline-lg text-on-surface">Step 7: Teacher Load Limits</h2>
         <p className="font-body-md text-body-md text-on-surface-variant">
           Set global limits for how many periods a teacher can teach per day and per week. Override per teacher as needed.
         </p>
@@ -672,9 +845,9 @@ export function WizardClient({
     );
   }
 
-  // ── Step 7: Generate / Complete ────────────────────────────────────
+  // ── Step 8: Generate / Complete ────────────────────────────────────
 
-  if (step === 7) {
+  if (step === 8) {
     return (
       <div className="space-y-6 text-center py-12">
         <div className="text-[#2E7D32] text-6xl mb-4">✓</div>

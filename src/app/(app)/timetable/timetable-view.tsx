@@ -10,13 +10,15 @@ export function TimetableView({
   periods,
   subjects,
   staff,
+  rooms,
   entries,
 }: {
   classes: { id: string; name: string }[];
   periods: { id: string; name: string; startTime: string; endTime: string; periodType?: string }[];
   subjects: { id: string; name: string }[];
   staff: { id: string; name: string }[];
-  entries: { id: string; classId: string; className: string; periodId: string; dayOfWeek: number; subjectName: string; staffId: string; staffName: string }[];
+  rooms: { id: string; name: string }[];
+  entries: { id: string; classId: string; className: string; periodId: string; dayOfWeek: number; subjectName: string; staffId: string; staffName: string; roomId: string | null; roomName: string | null }[];
 }) {
   const [selectedClass, setSelectedClass] = useState(classes[0]?.id ?? "");
   const [showPeriodForm, setShowPeriodForm] = useState(false);
@@ -327,6 +329,10 @@ export function TimetableView({
                               <option value="">Teacher</option>
                               {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
+                            <select name="roomId" className="border border-outline-variant rounded p-1 font-body-sm text-body-sm bg-surface-container-lowest">
+                              <option value="">No Room</option>
+                              {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                            </select>
                             <div className="flex gap-1">
                               <button type="submit" disabled={entryPending} className="bg-primary text-on-primary font-label-sm text-label-sm py-1 px-2 rounded text-xs">
                                 Save
@@ -340,6 +346,9 @@ export function TimetableView({
                           <div className="group relative text-center">
                             <p className="font-label-md text-label-md font-semibold">{entry.subjectName}</p>
                             <p className="font-label-sm text-label-sm text-on-surface-variant">{entry.staffName}</p>
+                            {entry.roomName && (
+                              <p className="font-label-sm text-label-sm text-on-surface-variant/70 text-xs">{entry.roomName}</p>
+                            )}
                             {isClashing && (
                               <p className="text-[10px] text-red-600 font-semibold mt-1 flex items-center justify-center gap-0.5">
                                 <span className="material-symbols-outlined text-[12px]">warning</span>
