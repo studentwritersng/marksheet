@@ -8,6 +8,7 @@ import {
   SESSION_COOKIE,
   SESSION_MAX_AGE,
   createSessionToken,
+  verifySessionToken,
 } from "./session";
 
 export interface LoginState {
@@ -215,8 +216,28 @@ async function handleParentLogin(
 
 export async function logoutAction(): Promise<void> {
   const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  let redirectTo = "/login";
+
+  // If the user belongs to a school, redirect to that school's login page
+  if (token) {
+    const payload = verifySessionToken(token);
+    if (payload?.schoolId) {
+      try {
+        const { prisma } = await import("@/lib/prisma");
+        const school = await prisma.school.findUnique({
+          where: { id: payload.schoolId },
+          select: { shortcode: true },
+        });
+        if (school?.shortcode) {
+          redirectTo = `/login/${school.shortcode.toLowerCase()}`;
+        }
+      } catch {}
+    }
+  }
+
   store.delete(SESSION_COOKIE);
-  redirect("/login");
+  redirect(redirectTo);
 }
 
 export async function consoleLogoutAction(): Promise<void> {
