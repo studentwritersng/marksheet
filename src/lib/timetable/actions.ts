@@ -39,10 +39,20 @@ export async function setEntryAction(_prev: ActionState, formData: FormData): Pr
   const dayOfWeek = parseInt(formData.get("dayOfWeek") as string);
   const roomId = (formData.get("roomId") as string)?.trim() || null;
 
-  await prisma.timetableEntry.upsert({
-    where: { classId_periodId_dayOfWeek: { classId, periodId, dayOfWeek } },
-    update: { subjectId, staffId, ...(roomId !== undefined ? { roomId } : {}) },
-    create: { schoolId: ctx.schoolId, classId, periodId, subjectId, staffId, dayOfWeek, roomId },
+  // With pairing allowed for SSS, there may be up to 2 entries per slot.
+  // Delete existing entries for this slot and create the new one.
+  // If the class is SSS and has departmental subjects, this creates a new entry alongside.
+  const existing = await prisma.timetableEntry.findFirst({
+    where: { classId, periodId, dayOfWeek },
+    include: { subject: { select: { name: true } } },
+  });
+
+  if (existing) {
+    await prisma.timetableEntry.delete({ where: { id: existing.id } });
+  }
+
+  await prisma.timetableEntry.create({
+    data: { schoolId: ctx.schoolId, classId, periodId, subjectId, staffId, dayOfWeek, roomId },
   });
 
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];

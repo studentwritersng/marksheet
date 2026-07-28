@@ -1075,7 +1075,7 @@ model TimetableEntry {
   staff   Staff           @relation(fields: [staffId], references: [id])
   room    Room?           @relation(fields: [roomId], references: [id])
 
-  @@unique([classId, periodId, dayOfWeek])
+  // NOTE: no unique constraint — SSS classes can have two departmental subjects in the same period (paired)
   @@index([classId, dayOfWeek])
   @@index([schoolId])
   @@map("timetable_entries")
