@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState, useTransition } from "react";
-import { createLessonNoteAction, aiGenerateNoteAction, getExistingNotesAction, getCurriculumTopicsAction, type ActionState } from "./actions";
+import { createLessonNoteAction, aiGenerateNoteAction, getExistingNotesAction, getCurriculumTopicsAction, getSubjectsWithNotesAction, type ActionState } from "./actions";
 
 const init: ActionState = {};
 
@@ -45,22 +45,36 @@ export function LessonNotesForm({
   const [filteredSubjects, setFilteredSubjects] = useState<{ id: string; name: string }[]>([]);
   const [, startLoadNotes] = useTransition();
 
+  const [classSubjectsWithNotes, setClassSubjectsWithNotes] = useState<{ id: string; name: string }[]>([]);
+
   function handleTermChange(value: string) {
     setTermId(value);
     setClassId("");
     setSubjectId("");
     setOpenSubjectId("");
     setExistingNotes([]);
+    setClassSubjectsWithNotes([]);
+    setFilteredSubjects([]);
   }
+
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
 
   function handleClassChange(value: string) {
     setClassId(value);
     setSubjectId("");
     setOpenSubjectId("");
     setExistingNotes([]);
-    if (!value) { setFilteredSubjects([]); return; }
-    const linkedSubjectIds = classSubjects.filter((cs) => cs.classId === value).map((cs) => cs.subjectId);
-    setFilteredSubjects(subjects.filter((s) => linkedSubjectIds.includes(s.id)));
+    if (!value || !termId) { setFilteredSubjects([]); setClassSubjectsWithNotes([]); return; }
+    setLoadingSubjects(true);
+    // Only show subjects that have at least one existing lesson note in this class+term
+    Promise.all([
+      getSubjectsWithNotesAction(value, termId),
+    ]).then(([withNotes]) => {
+      setClassSubjectsWithNotes(withNotes);
+      const withIds = withNotes.map((s) => s.id);
+      setFilteredSubjects(subjects.filter((s) => withIds.includes(s.id)));
+      setLoadingSubjects(false);
+    }).catch(() => setLoadingSubjects(false));
   }
 
   function handleSubjectSelect(value: string) {
@@ -134,7 +148,7 @@ export function LessonNotesForm({
       </div>
 
       <form action={activeTab === "manual" ? manualAction : handleAiGenerate} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="mb-1 block font-label-md text-label-md text-on-surface">Term</label>
             <select name="termId" required value={termId}
@@ -153,16 +167,13 @@ export function LessonNotesForm({
               {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div>
-            <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
-            <select name="subjectId" required value={subjectId}
-              onChange={(e) => { setSubjectId(e.target.value); handleSubjectSelect(e.target.value); }}
-              disabled={!classId}
-              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary disabled:opacity-50">
-              <option value="">{classId ? "Select or open below…" : "Select class first…"}</option>
-            </select>
-          </div>
         </div>
+
+        {/* hidden subjectId — set by clicking a subject in the accordion below */}
+        <input type="hidden" name="subjectId" value={subjectId} />
+        {subjectId && (
+          <input type="hidden" name="subjectName" value={filteredSubjects.find((s) => s.id === subjectId)?.name ?? ""} />
+        )}
 
         {activeTab === "ai" && (
           <>

@@ -1445,10 +1445,11 @@ export async function createCompletion(
       }
 
       const json = (await res.json()) as {
-        choices?: { message?: { content?: string } }[];
+        choices?: { message?: { content?: string }; finish_reason?: string }[];
         usage?: { prompt_tokens?: number; completion_tokens?: number };
       };
 
+      const finishReason = json.choices?.[0]?.finish_reason;
       const content = json.choices?.[0]?.message?.content ?? "";
       const latencyMs = Date.now() - startedAt;
       const promptTokens = json.usage?.prompt_tokens ?? null;

@@ -295,7 +295,7 @@ Write a complete lesson note following the structure above. Ensure all content i
       },
     ],
     temperature: 0.5,
-    maxTokens: 8192,
+    maxTokens: 16384,
     });
   } catch (e: any) {
     const msg = e?.message ?? "AI generation failed.";
@@ -347,6 +347,29 @@ Write a complete lesson note following the structure above. Ensure all content i
 
   revalidatePath("/lesson-notes");
   return { success: `AI draft for "${topic}" created. Review and publish it.` };
+}
+
+/** Returns subjects for a class that have at least one existing lesson note. */
+export async function getSubjectsWithNotesAction(
+  classId: string,
+  termId: string,
+): Promise<{ id: string; name: string }[]> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return []; }
+  await guardActiveLicense(ctx.schoolId).catch(() => null);
+
+  const distinct = await prisma.lessonNote.findMany({
+    where: { classId, termId, schoolId: ctx.schoolId },
+    select: { subjectId: true },
+    distinct: ["subjectId"],
+  });
+  if (distinct.length === 0) return [];
+  const subjectIds = distinct.map((d) => d.subjectId);
+  return prisma.subject.findMany({
+    where: { id: { in: subjectIds } },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 }
 
 /** Fetch existing lesson notes for a class + subject + term combination. */
