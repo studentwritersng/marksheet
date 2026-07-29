@@ -29,7 +29,6 @@ interface FreeTeacher {
 
 interface CellSlot {
   entries: TimetableEntry[];
-  isPaired: boolean;
 }
 
 export function TimetableView({
@@ -62,45 +61,27 @@ export function TimetableView({
   const classEntries = entries.filter((e) => e.classId === selectedClass);
 
   function getCellSlot(periodId: string, dayOfWeek: number): CellSlot {
-    const cell = classEntries.filter(
+    return { entries: classEntries.filter(
       (e) => e.periodId === periodId && e.dayOfWeek === dayOfWeek,
-    );
-    return { entries: cell, isPaired: cell.length === 2 };
+    ) };
   }
 
   const isSSS = selectedClassObj?.name?.startsWith("SSS") ?? false;
 
-  // On cell click: fetch free teachers for the class+subject(s) in that slot
-  async function handleCellClick(periodId: string, dayOfWeek: number) {
+  function handleCellClick(periodId: string, dayOfWeek: number) {
     setEditCell({ periodId, dayOfWeek });
-    setLoadingTeachers(true);
-    startTransition(async () => {
-      // Get all subjects assigned to this class
-      const cellEntries = getCellSlot(periodId, dayOfWeek).entries;
-      const subjectsInSlot = [...new Set(cellEntries.map((e) => e.subjectId))];
-
-      // For each subject in the slot, get its assigned teachers
-      const allFree: FreeTeacher[] = [];
-      for (const subjId of subjectsInSlot.length > 0 ? subjectsInSlot : [""]) {
-        if (!subjId) continue;
-        const result = await getFreeTeachersAction(periodId, dayOfWeek, selectedClass, subjId);
-        allFree.push(...result);
-      }
-      setFreeTeachers(allFree);
-      setLoadingTeachers(false);
-    });
+    setFreeTeachers([]);
+    // Pre-fill values when an entry already exists; leave blank for empty slots.
   }
 
-  function handleSubjectChange(periodId: string, dayOfWeek: number, subjectId: string) {
-    // Auto-fetch teacher when subject is picked in the edit form
-    if (subjectId && editCell) {
-      setLoadingTeachers(true);
-      startTransition(async () => {
-        const result = await getFreeTeachersAction(editCell.periodId, editCell.dayOfWeek, selectedClass, subjectId);
-        setFreeTeachers(result);
-        setLoadingTeachers(false);
-      });
-    }
+  async function handleSubjectChange(subjectId: string) {
+    if (!subjectId || !editCell) { setFreeTeachers([]); return; }
+    setLoadingTeachers(true);
+    startTransition(async () => {
+      const result = await getFreeTeachersAction(editCell.periodId, editCell.dayOfWeek, selectedClass, subjectId);
+      setFreeTeachers(result);
+      setLoadingTeachers(false);
+    });
   }
 
 
@@ -186,7 +167,7 @@ export function TimetableView({
         const slot = getCellSlot(period.id, dayIndex);
         if (slot.entries.length > 0) {
           const subjectText = slot.entries.map((e) => e.subjectName).join(" / ");
-          const teacherText = slot.isPaired ? "" : slot.entries[0]?.staffName ?? "";
+          const teacherText = slot.entries[0]?.staffName ?? "";
           const roomText = slot.entries[0]?.roomName ?? "";
           row += `<td style="border:1px solid #000;padding:4px;text-align:center;">
             <div style="font-weight:600;font-size:12px;">${subjectText}</div>
@@ -367,14 +348,18 @@ export function TimetableView({
                             <input type="hidden" name="periodId" value={period.id} />
                             <input type="hidden" name="dayOfWeek" value={dayIndex} />
 
-                            {/* Free teachers indicator */}
-                            {loadingTeachers && (
-                              <p className="text-xs text-on-surface-variant">Loading...</p>
-                            )}
+                            <select name="subjectId" required defaultValue={slot.entries[0]?.subjectId ?? ""}
+                              onChange={(e) => handleSubjectChange(e.target.value)}
+                              className="border border-outline-variant rounded p-1 font-body-sm text-body-sm bg-surface-container-lowest text-xs w-full">
+                              <option value="">Subject</option>
+                              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+
+                            {/* selected subject's free teachers */}
+                            {loadingTeachers && <p className="text-xs text-on-surface-variant">Loading…</p>}
                             {!loadingTeachers && freeTeachers.length > 0 && (
                               <div className="text-xs">
-                                <p className="text-on-surface-variant mb-0.5">Available for this subject:</p>
-                                <div className="flex flex-wrap gap-0.5 mb-1">
+                                <div className="flex flex-wrap gap-0.5">
                                   {freeTeachers.map((t) => (
                                     <span key={t.id} className={`px-1.5 py-0.5 rounded text-xs font-medium ${t.isFree ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700 line-through"}`}>
                                       {t.name}
@@ -384,12 +369,7 @@ export function TimetableView({
                               </div>
                             )}
 
-                            <select name="subjectId" required
-                              onChange={(e) => handleSubjectChange(period.id, dayIndex, e.target.value)}
-                              className="border border-outline-variant rounded p-1 font-body-sm text-body-sm bg-surface-container-lowest text-xs w-full">
-                              <option value="">Subject</option>
-                              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
+                            <input type="hidden" name="staffId" value={slot.entries[0]?.staffId ?? (freeTeachers.find((t) => t.isFree)?.id ?? "")} />
                             <select name="roomId" className="border border-outline-variant rounded p-1 font-body-sm text-body-sm bg-surface-container-lowest text-xs w-full">
                               <option value="">No Room</option>
                               {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -408,14 +388,12 @@ export function TimetableView({
                         <div
                           className="group cursor-pointer text-center"
                           onClick={() => handleCellClick(period.id, dayIndex)}
-                          title={`Click to edit — ${slot.isPaired ? "paired departmental subjects" : "single subject"}`}
+                          title="Click to edit"
                         >
-                          <p className={`font-medium leading-tight text-xs ${slot.isPaired && isSSS ? "text-blue-800" : "text-on-surface"}`}>
-                            {slot.entries.map((e) => e.subjectName).join(" / ")}
+                          <p className="font-medium leading-tight text-xs text-on-surface">
+                            {slot.entries[0].subjectName}
                           </p>
-                          {!slot.isPaired && (
-                            <p className="text-on-surface-variant text-[10px] leading-tight mt-0.5">{slot.entries[0]?.staffName}</p>
-                          )}
+                          <p className="text-on-surface-variant text-[10px] leading-tight mt-0.5">{slot.entries[0]?.staffName}</p>
                           {slot.entries[0]?.roomName && (
                             <p className="text-on-surface-variant/60 text-[10px] leading-tight">{slot.entries[0]?.roomName}</p>
                           )}

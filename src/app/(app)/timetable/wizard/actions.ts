@@ -437,7 +437,7 @@ export async function completeWizardAction(): Promise<WizardState> {
 }
 
 async function generateFromWizard(schoolId: string): Promise<{ error?: string; count?: number }> {
-  const [classes, periods, subjectReqs, assignments, staffAvail, rooms, classSubjects] = await Promise.all([
+  const [classes, periods, subjectReqs, assignments, staffAvail, rooms] = await Promise.all([
     prisma.class.findMany({ where: { schoolId, archived: false }, select: { id: true, level: true, name: true, department: true, defaultRoomId: true } }),
     prisma.timetablePeriod.findMany({
       where: { schoolId, periodType: "period" },
@@ -459,11 +459,6 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
     prisma.room.findMany({
       where: { schoolId },
       select: { id: true, name: true, roomTypeId: true },
-    }),
-    // Load ClassSubject with department info for SSS pairing
-    prisma.classSubject.findMany({
-      where: { schoolId },
-      select: { classId: true, subjectId: true, department: true },
     }),
   ]);
 
@@ -494,60 +489,6 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
     classReqMap.set(r.classId, arr);
   }
 
-  // Build ClassSubject department map — subjectId → department for each class
-  // Used for SSS departmental pairing rule
-  const subjectDepartmentMap = new Map<string, string>(); // `${classId}|${subjectId}` → department
-  for (const cs of classSubjects) {
-    if (!cs.department) cs.department = "general";
-    subjectDepartmentMap.set(`${cs.classId}|${cs.subjectId}`, cs.department);
-  }
-
-  // SSS departmental pairing: map each SSS class-level to its paired class-level
-  // e.g., SSS1 pairs with SSS2, SSS2 pairs with SSS1, SSS2 pairs with SSS3, SSS3 pairs with SSS2
-  const SSS_LEVELS = ["SSS1", "SSS2", "SSS3"];
-  const getPairedLevel = (level: string): string | null => {
-    const idx = SSS_LEVELS.indexOf(level);
-    if (idx < 0 || SSS_LEVELS.length < 2) return null;
-    return SSS_LEVELS[(idx + 1) % SSS_LEVELS.length];
-  };
-
-  // Build "subject is general or departmental" helper for a class
-  function getSubjectDepartment(classId: string, subjectId: string): string {
-    return subjectDepartmentMap.get(`${classId}|${subjectId}`) ?? "general";
-  }
-
-  // Check if a subject pair is valid for departmental pairing
-  function isValidPair(classId: string, subjectA: string, subjectB: string, cls: { level: string; department: string }): boolean {
-    const isSSS = SSS_LEVELS.includes(cls.level);
-    if (!isSSS) return true; // JSS has no departmental pairing rule
-    const deptA = getSubjectDepartment(classId, subjectA);
-    const deptB = getSubjectDepartment(classId, subjectB);
-    // Rule: can't have two subjects from the same non-general department
-    if (deptA !== "general" && deptA === deptB) return false;
-    // Rule: departmental subject must be paired with a departmental subject from a DIFFERENT department
-    // OR paired with a general subject — but never two departmental subjects from the same department
-    return true;
-  }
-
-  // Check if a subject placement is valid for a given day/period slot
-  function isSlotValidForPair(
-    classId: string, day: number, periodId: string, subjectId: string, cls: { level: string; department: string },
-  ): boolean {
-    const isSSS = SSS_LEVELS.includes(cls.level);
-    if (!isSSS) return true;
-    const dept = getSubjectDepartment(classId, subjectId);
-    if (dept === "general") return true; // General subjects always OK
-
-    // Find other subjects already placed in this class on this day
-    for (const entry of entriesToCreate) {
-      if (entry.classId === classId && day === entry.dayOfWeek && entry.periodId !== periodId) {
-        const otherDept = getSubjectDepartment(entry.classId, entry.subjectId);
-        if (otherDept === dept) return false; // Same department — not allowed
-      }
-    }
-    return true;
-  }
-
   // Build availability map
   const availMap = new Map<string, Map<number, { maxPerDay: number; maxPerWeek: number }>>();
   for (const sa of staffAvail) {
@@ -560,7 +501,7 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
   const subjectClassTotalPlaced = new Map<string, number>(); // "subjectId|classId" -> total count
   const staffDayPlaced = new Map<string, Map<number, number>>(); // staffId -> day -> count
   const staffWeekPlaced = new Map<string, number>(); // staffId -> total
-  const slotEntries = new Map<string, { subjectId: string; department: string }[]>(); // "classId|day|periodId" -> entries
+  const slotEntries = new Map<string, { subjectId: string }[]>(); // "classId|day|periodId" -> entries
   const teacherOccupied = new Set<string>(); // "staffId|day|periodId" — teacher cannot be in two places at once
   const roomOccupied = new Map<string, Set<string>>(); // "day|periodId" -> Set(roomId)
 
@@ -585,37 +526,16 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
     return result;
   }
 
-  // ── SSS pairing: for SSS classes with departmental subjects, place them in
-  //    shared slots (up to 1 per department per slot). General subjects get their own slots.
-
   // Helper: place a subject into a slot with a teacher, respecting all constraints
   function tryPlace(
     classId: string, day: number, periodId: string, subjectId: string,
     cls: { level: string; department: string; defaultRoomId: string | null },
   ): boolean {
     const slotKey = `${classId}|${day}|${periodId}`;
-    const isSSS = SSS_LEVELS.includes(cls.level);
-    const subjectDept = isSSS ? getSubjectDepartment(classId, subjectId) : null;
+
+    // One subject per period (no pairing)
     const entriesInSlot = slotEntries.get(slotKey) ?? [];
-
-    if (!isSSS) {
-      // JSS: one subject per slot
-      if (entriesInSlot.length > 0) return false;
-    } else {
-      // SSS: 1 general subject alone, OR 1 departmental subject from each dept (max 2 different depts)
-      if (subjectDept === "general") {
-        // general subjects: slot must be empty
-        if (entriesInSlot.length > 0) return false;
-      } else {
-        // departmental subject: same dept already placed? skip. 2 depts max.
-        if (entriesInSlot.some((e) => e.department === subjectDept)) return false;
-        if (entriesInSlot.length >= 2) return false;
-      }
-    }
-
-    // SSS pairing constraint (same dept on same day prevented by subjectClassDayPlaced anyway,
-    // but this keeps the slot-level constraint checked)
-    if (!isSlotValidForPair(classId, day, periodId, subjectId, cls)) return false;
+    if (entriesInSlot.length > 0) return false;
 
     const scKey = `${subjectId}|${classId}`;
     if (subjectClassDayPlaced.get(scKey)?.has(day)) return false;
@@ -647,7 +567,7 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
       const cur = subjectClassTotalPlaced.get(scKey) ?? 0;
       subjectClassTotalPlaced.set(scKey, cur + 1);
       if (!slotEntries.has(slotKey)) slotEntries.set(slotKey, []);
-      slotEntries.get(slotKey)!.push({ subjectId, department: subjectDept ?? "" });
+      slotEntries.get(slotKey)!.push({ subjectId });
       teacherOccupied.add(teacherSlotKey);
       if (assignedRoomId) {
         if (!roomOccupied.has(roomKey)) roomOccupied.set(roomKey, new Set());
@@ -661,101 +581,36 @@ async function generateFromWizard(schoolId: string): Promise<{ error?: string; c
     return false;
   }
 
-  // ── SSS pairing placement (replaces the old single-entry SSS flow) ──
+  // ── One subject per slot for all classes ──
   for (const cls of classes) {
-    const reqs = classReqMap.get(cls.id) ?? [];
+    const reqs = (classReqMap.get(cls.id) ?? []).sort(
+      (a, b) => b.weeklyPeriodsRequired - a.weeklyPeriodsRequired,
+    );
     if (reqs.length === 0) continue;
-    const isSSS = SSS_LEVELS.includes(cls.level);
 
-    if (!isSSS) {
-      // ── JSS (and single-dept) classes — original algorithm, one subject per slot ──
-      const placements: { subjectId: string; day: number }[] = [];
-      for (const req of reqs.sort((a, b) => b.weeklyPeriodsRequired - a.weeklyPeriodsRequired)) {
-        for (const day of distributePeriods(req.weeklyPeriodsRequired)) {
-          placements.push({ subjectId: req.subjectId, day });
-        }
+    const placements: { subjectId: string; day: number }[] = [];
+    for (const req of reqs) {
+      for (const day of distributePeriods(req.weeklyPeriodsRequired)) {
+        placements.push({ subjectId: req.subjectId, day });
       }
-      for (const p of shuffleArray(placements)) {
+    }
+    for (const p of shuffleArray(placements)) {
+      for (const period of shuffleArray(periods)) {
+        if (tryPlace(cls.id, p.day, period.id, p.subjectId, cls)) break;
+      }
+    }
+
+    // Backfill: any subject that didn't meet quota
+    for (const req of reqs) {
+      const scKey = `${req.subjectId}|${cls.id}`;
+      let stillNeeded = req.weeklyPeriodsRequired - (subjectClassTotalPlaced.get(scKey) ?? 0);
+      if (stillNeeded <= 0) continue;
+      for (const day of shuffleArray(days)) {
+        if (stillNeeded <= 0) break;
         for (const period of shuffleArray(periods)) {
-          if (tryPlace(cls.id, p.day, period.id, p.subjectId, cls)) break;
+          if (tryPlace(cls.id, day, period.id, req.subjectId, cls)) { stillNeeded--; break; }
         }
       }
-      continue;
-    }
-
-    // ── SSS: departmental subjects pair in the same slot with a different-department subject ──
-    const generalReqs = reqs.filter((r) => getSubjectDepartment(cls.id, r.subjectId) === "general");
-    const deptReqs = reqs.filter((r) => getSubjectDepartment(cls.id, r.subjectId) !== "general");
-
-    // Place general subjects (JSS-style, one per slot)
-    for (const req of generalReqs) {
-      for (let i = 0; i < req.weeklyPeriodsRequired; i++) {
-        for (const day of shuffleArray(days)) {
-          if (tryPlace(cls.id, day, shuffleArray(periods)[0]?.id, req.subjectId, cls)) break;
-        }
-      }
-    }
-
-    if (!isSSS || deptReqs.length < 2) {
-      // Not SSS or nothing to pair — place remaining departmental subjects as singles
-      for (const req of deptReqs) {
-        for (let i = 0; i < req.weeklyPeriodsRequired; i++) {
-          for (const day of shuffleArray(days)) {
-            if (tryPlace(cls.id, day, shuffleArray(periods)[0]?.id, req.subjectId, cls)) break;
-          }
-        }
-      }
-      continue;
-    }
-
-    // SSS with 2+ departmental subjects: create as many pairings as possible.
-    // Group by department, then pair each subject with a different-department subject.
-    const deptList: { subjectId: string; weeklyPeriodsRequired: number; department: string }[] =
-      deptReqs.map((r) => ({ ...r, department: getSubjectDepartment(cls.id, r.subjectId) }));
-
-    const pairingQueue: { subjectId: string; weeklyPeriodsRequired: number; department: string; remaining: number }[] =
-      deptList.map((r) => ({ ...r, remaining: r.weeklyPeriodsRequired }));
-
-    // Round-robin: cycle departments, pick one from each per slot
-    const byDept = new Map<string, typeof pairingQueue>();
-    for (const r of pairingQueue) {
-      if (!byDept.has(r.department)) byDept.set(r.department, []);
-      byDept.get(r.department)!.push(r);
-    }
-
-    const deptNames = [...byDept.keys()].sort();
-    const perDept = new Map<string, number>(); // dept → next subject index
-    for (const d of deptNames) perDept.set(d, 0);
-
-    // Estimated total slots = max across departments
-    const maxDeptSlots = Math.max(...deptNames.map((d) =>
-      byDept.get(d)!.reduce((s, r) => s + r.weeklyPeriodsRequired, 0)
-    ));
-
-    for (let slotIdx = 0; slotIdx < maxDeptSlots; slotIdx++) {
-      const placed: boolean[] = [];
-      // Try to place one subject per department in this slot
-      for (const d of deptNames) {
-        const queue = byDept.get(d)!;
-        const idx = perDept.get(d)!;
-        if (idx >= queue.length) continue;
-        const subj = queue[idx];
-        if (subj.remaining <= 0) continue;
-
-        for (const day of shuffleArray(days)) {
-          const slotIdxVersion = idx <= slotIdx ? slotIdx : idx;
-          const period = shuffleArray(periods)[slotIdxVersion % periods.length];
-          if (!period) continue;
-          if (tryPlace(cls.id, day, period.id, subj.subjectId, cls)) {
-            subj.remaining--;
-            perDept.set(d, idx + 1);
-            placed.push(true);
-            // Only place ONE subject per department per iteration
-            break;
-          }
-        }
-      }
-      if (placed.length === 0) break;
     }
   }
 
