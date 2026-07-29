@@ -10,14 +10,21 @@ export default async function StudentsPage() {
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
   const admin = canManageSchool(perms);
+  const isTeacher = perms.classTeacherClassIds.size > 0 || perms.subjectTeacherClassIds.size > 0;
 
-  if (!admin || !user.schoolId) {
+  if (!admin && !isTeacher || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
+  const schoolId = user.schoolId;
+
+  const classIds = admin
+    ? undefined
+    : [...new Set([...perms.classTeacherClassIds, ...perms.subjectTeacherClassIds])];
+  const classFilter = classIds && classIds.length > 0 ? { in: classIds } : undefined;
 
   const [students, classes, sessions, membership] = await Promise.all([
     prisma.student.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId, ...(classFilter ? { currentClassId: classFilter } : {}) },
       include: {
         currentClass: { select: { name: true, level: true } },
         guardians: { select: { fullName: true, email: true, phone: true } },
@@ -25,17 +32,17 @@ export default async function StudentsPage() {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
     prisma.class.findMany({
-      where: { schoolId: user.schoolId, archived: false },
+      where: { schoolId, archived: false, ...(classFilter ? { id: classFilter } : {}) },
       select: { id: true, name: true, level: true, section: true, department: true },
       orderBy: [{ level: "asc" }, { section: "asc" }],
     }),
     prisma.session.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId },
       orderBy: { createdAt: "desc" },
       select: { id: true, label: true, isCurrent: true },
     }),
     prisma.groupMembership.findUnique({
-      where: { schoolId: user.schoolId },
+      where: { schoolId },
       select: { groupId: true },
     }),
   ]);

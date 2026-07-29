@@ -107,11 +107,11 @@ export function buildNav(
       items.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });
       items.push({ label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" });
     }
-    if (perms.subjectTeacherSubjectIds.size > 0 || perms.isReceptionist) {
+    if (perms.subjectTeacherSubjectIds.size > 0 || perms.isReceptionist || perms.classTeacherClassIds.size > 0) {
       items.push({ label: "Daily Attendance", href: "/attendance", icon: "fact_check" });
     }
     if (perms.classTeacherClassIds.size > 0) {
-      items.push({ label: "Students", href: "/students", icon: "group" });
+      items.push({ label: "Students", href: "/students?view=teacher", icon: "group" });
       // Class teachers get their own Results submenu scoped to their classes
       items.push({
         label: "Results", icon: "analytics", children: [

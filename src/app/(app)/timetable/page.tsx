@@ -10,11 +10,14 @@ export default async function TimetablePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
-  if (!canManageSchool(perms) || !user.schoolId) {
+  const isTeacher = perms.classTeacherClassIds.size > 0 || perms.subjectTeacherClassIds.size > 0;
+  if (!canManageSchool(perms) && !isTeacher || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
   const addonActive = await isAddonActive(user.schoolId, "Timetable Generator");
+
+  // Teachers see read-only timetable for their classes (no generator wizard)
 
   if (!addonActive) {
     return (
@@ -35,13 +38,21 @@ export default async function TimetablePage() {
     );
   }
 
+  const isAdmin = canManageSchool(perms);
+  const teacherClassIds = isAdmin
+    ? null
+    : [...new Set([...perms.classTeacherClassIds, ...perms.subjectTeacherClassIds])];
+
   const [classes, periods, subjects, staff, entries, wizard, rooms] = await Promise.all([
-    prisma.class.findMany({ where: { schoolId: user.schoolId, archived: false }, orderBy: { name: "asc" } }),
+    prisma.class.findMany({
+      where: { schoolId: user.schoolId, archived: false, ...(teacherClassIds ? { id: { in: teacherClassIds } } : {}) },
+      orderBy: { name: "asc" },
+    }),
     prisma.timetablePeriod.findMany({ where: { schoolId: user.schoolId }, orderBy: { startTime: "asc" } }),
     prisma.subject.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } }),
     prisma.staff.findMany({ where: { schoolId: user.schoolId } }),
     prisma.timetableEntry.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId: user.schoolId, ...(teacherClassIds ? { classId: { in: teacherClassIds } } : {}) },
       include: {
         period: { select: { name: true } },
         subject: { select: { id: true, name: true } },
@@ -67,18 +78,21 @@ export default async function TimetablePage() {
             Timetable
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-            Manage periods and schedule subjects per class.
+            {isAdmin ? "Manage periods and schedule subjects per class." : "Your class schedule — view only."}
           </p>
         </div>
-        <div className="flex gap-2">
-          <RegenerateButton />
-          <a href="/timetable/wizard?restart=1" className="border border-outline-variant text-on-surface font-label-md text-label-md py-2 px-4 rounded-lg hover:bg-surface-container transition-colors text-sm">
-            Re-run Setup
-          </a>
-        </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <RegenerateButton />
+            <a href="/timetable/wizard?restart=1" className="border border-outline-variant text-on-surface font-label-md text-label-md py-2 px-4 rounded-lg hover:bg-surface-container transition-colors text-sm">
+              Re-run Setup
+            </a>
+          </div>
+        )}
       </div>
 
       <TimetableView
+        readOnly={!isAdmin}
         classes={classes.map((c) => ({ id: c.id, name: c.name }))}
         periods={periods.map((p) => ({ id: p.id, name: p.name, startTime: p.startTime, endTime: p.endTime, periodType: p.periodType }))}
         subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}

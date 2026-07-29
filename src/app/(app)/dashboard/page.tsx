@@ -264,6 +264,260 @@ export default async function DashboardPage() {
 
   const initials = user.email.charAt(0).toUpperCase();
 
+  // ── Teacher dashboard ────────────────────────────────────────────────
+  if (!admin) {
+    const myStaff = user.staffId
+      ? await prisma.staff.findFirst({ where: { id: user.staffId }, select: { fullName: true, image: true } })
+      : await prisma.staff.findFirst({ where: { email: user.email, schoolId }, select: { fullName: true, image: true } });
+    const myName = myStaff?.fullName ?? user.email.split("@")[0];
+
+    // All classes this teacher is involved with
+    const myClassIds = [...new Set([...perms.classTeacherClassIds, ...perms.subjectTeacherClassIds])];
+    const isClassTeacher = perms.classTeacherClassIds.size > 0;
+
+    // Classes with student counts
+    const myClasses = myClassIds.length > 0
+      ? await prisma.class.findMany({
+          where: { schoolId, id: { in: myClassIds } },
+          select: { id: true, name: true, level: true, _count: { select: { students: { where: { status: "active" } } } } },
+        })
+      : [];
+
+    // My subjects (referenced but not currently displayed as cards — useful for count)
+    const mySubjectIds = [...new Set([...perms.subjectTeacherSubjectIds])];
+
+    // Today's day-of-week for timetable
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const timeOfDay = now.getHours();
+    const isAfterSchool = timeOfDay > 15 || (timeOfDay === 15 && now.getMinutes() > 0);
+    let jsDay = now.getDay();
+    if (isAfterSchool) jsDay = jsDay >= 5 ? 0 : jsDay + 1;
+    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1; // 0=Mon..4=Fri
+
+    const DAY_SHORT_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+    // Stats for class teachers
+    let myStudentCount = 0, signedInToday = 0, totalToday = 0;
+    let myClassResults = 0, myClassAverage = 0, pendingRemarks = 0;
+    let topStudents: { name: string; average: number }[] = [];
+    let failingStudents = 0;
+    let todayEntries: { period: string; startTime: string; endTime: string; subject: string }[] = [];
+
+    if (isClassTeacher) {
+      myStudentCount = await prisma.student.count({
+        where: { schoolId, currentClassId: { in: [...perms.classTeacherClassIds] }, status: "active" },
+      });
+
+      // Today's attendance
+      const attendanceRecords = await prisma.attendanceRecord.findMany({
+        where: { classId: { in: [...perms.classTeacherClassIds] }, date: { gte: today, lt: new Date(today.getTime() + 24*60*60*1000) } },
+        select: { status: true },
+      });
+      totalToday = attendanceRecords.length;
+      signedInToday = attendanceRecords.filter((r) => r.status === "present" || r.status === "late").length;
+
+      // Today's timetable for my classes
+      if (dayOfWeek < 5) {
+        const entries = await prisma.timetableEntry.findMany({
+          where: { classId: { in: myClassIds }, dayOfWeek },
+          include: { period: { select: { name: true, startTime: true, endTime: true } }, subject: { select: { name: true } } },
+          orderBy: { period: { startTime: "asc" } },
+        });
+        todayEntries = entries.map((e) => ({
+          period: e.period.name, startTime: e.period.startTime, endTime: e.period.endTime, subject: e.subject.name,
+        }));
+      }
+
+      // Current term results for my classes
+      const currentTerm = session?.terms[0];
+      if (currentTerm) {
+        const termResults = await prisma.termResult.findMany({
+          where: { termId: currentTerm.id, student: { currentClassId: { in: [...perms.classTeacherClassIds] } } },
+          include: { student: { select: { firstName: true, lastName: true } } },
+        });
+        myClassResults = termResults.length;
+        myClassAverage = termResults.length > 0
+          ? Math.round(termResults.reduce((s, t) => s + (t.overallAverage ?? 0), 0) / termResults.length)
+          : 0;
+        topStudents = termResults
+          .sort((a, b) => (b.overallAverage ?? 0) - (a.overallAverage ?? 0))
+          .slice(0, 3)
+          .map((t) => ({ name: `${t.student.firstName} ${t.student.lastName}`, average: Math.round(t.overallAverage ?? 0) }));
+        failingStudents = termResults.filter((t) => (t.overallAverage ?? 0) < 40).length;
+      }
+
+      // Pending remarks count
+      pendingRemarks = await prisma.termResult.count({
+        where: { term: { session: { schoolId, isCurrent: true } }, student: { currentClassId: { in: [...perms.classTeacherClassIds] } }, principalComment: "" },
+      });
+    }
+
+    return (
+      <section className="flex flex-col gap-stack-lg">
+        {/* Greeting */}
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-[#002046] flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0 overflow-hidden">
+            {myStaff?.image ? <img src={myStaff.image} alt="" className="w-full h-full object-cover" /> : myName.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
+              {greeting()}, {myName}
+            </h2>
+            <p className="font-body-md text-body-md text-on-surface-variant mt-1">
+              {school?.name ?? "Dashboard"} &middot;{" "}
+              {session ? `${session.label} · ${session.terms[0]?.name ?? ""} Term` : "No active session yet"}
+            </p>
+          </div>
+        </div>
+
+        {/* My Classes */}
+        {myClasses.length > 0 && (
+          <div>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface mb-3">
+              {isClassTeacher ? "Class Teacher — " : ""}My Classes
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {myClasses.map((cls) => (
+                <div key={cls.id} className="bg-white rounded-2xl border border-outline-variant shadow-sm p-4">
+                  <p className="font-headline-sm text-headline-sm text-on-surface">{cls.name}</p>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">{cls._count.students} student{cls._count.students !== 1 ? "s" : ""}</p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {isClassTeacher && perms.classTeacherClassIds.has(cls.id) && (
+                      <span className="text-[10px] font-semibold bg-[#002046] text-white px-2 py-0.5 rounded-full">Class Teacher</span>
+                    )}
+                    {perms.subjectTeacherClassIds.has(cls.id) && (
+                      <span className="text-[10px] font-semibold bg-primary-container text-on-primary-container px-2 py-0.5 rounded-full">Subject Teacher</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {isClassTeacher && (
+            <>
+              <StatCard label="My Students" value={myStudentCount} icon="group" gradient="from-emerald-500 to-emerald-700" />
+              {totalToday > 0
+                ? <StatCard label="Today's Attendance" value={signedInToday} icon="fact_check" gradient="from-sky-500 to-sky-700" sublabel={`of ${totalToday}`} />
+                : <StatCard label="Today's Attendance" value={0} icon="fact_check" gradient="from-neutral-400 to-neutral-600" sublabel="No records yet" />
+              }
+              <StatCard label="Term Results" value={myClassResults} icon="analytics" gradient="from-indigo-500 to-indigo-700" />
+              {pendingRemarks > 0 && <StatCard label="Pending Remarks" value={pendingRemarks} icon="rate_review" gradient="from-orange-500 to-orange-700" />}
+            </>
+          )}
+          {!isClassTeacher && (
+            <>
+              <StatCard label="Classes" value={myClassIds.length} icon="school" gradient="from-amber-500 to-amber-700" />
+              <StatCard label="Subjects" value={mySubjectIds.length} icon="book" gradient="from-rose-500 to-rose-700" />
+              <StatCard label="Lesson Notes" value={lessonNotes} icon="note" gradient="from-cyan-500 to-cyan-700" />
+              <StatCard label="Term Results" value={termResults} icon="analytics" gradient="from-indigo-500 to-indigo-700" />
+            </>
+          )}
+        </div>
+
+        {/* Today's timetable for my classes */}
+        {todayEntries.length > 0 && (
+          <div className="bg-white rounded-2xl border border-outline-variant shadow-sm p-5">
+            <h3 className="font-label-md text-label-md text-on-surface mb-3 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-primary">calendar_view_week</span>
+              Today's Schedule ({["Mon","Tue","Wed","Thu","Fri"][dayOfWeek]})
+            </h3>
+            <div className="space-y-2">
+              {todayEntries.map((e, i) => (
+                <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-outline-variant/30 last:border-0">
+                  <span className="font-body-sm text-on-surface-variant w-32 shrink-0">{e.period}</span>
+                  <span className="flex-1 font-body-sm text-on-surface">{e.subject}</span>
+                  <span className="font-body-sm text-on-surface-variant text-xs">{e.startTime}–{e.endTime}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Results at a glance + pending remarks */}
+        {isClassTeacher && myClassResults > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-outline-variant shadow-sm p-5">
+              <h3 className="font-label-md text-label-md text-on-surface mb-3">My Class Performance</h3>
+              <p className="text-3xl font-bold text-on-surface mb-1">{myClassAverage}%</p>
+              <p className="font-body-sm text-body-sm text-on-surface-variant mb-3">Class average this term</p>
+              {topStudents.length > 0 && (
+                <div className="space-y-1.5">
+                  {topStudents.map((t, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span>{t.name}</span>
+                      <span className="font-semibold">{t.average}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {failingStudents > 0 && (
+                <p className="mt-3 text-sm bg-red-50 text-red-700 px-3 py-2 rounded-lg">
+                  ⚠ {failingStudents} student{failingStudents !== 1 ? "s" : ""} below 40%
+                </p>
+              )}
+            </div>
+            {pendingRemarks > 0 && (
+              <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 flex flex-col justify-between">
+                <div>
+                  <h3 className="font-label-md text-label-md text-amber-800 mb-1">Pending Remarks</h3>
+                  <p className="text-2xl font-bold text-amber-900">{pendingRemarks}</p>
+                  <p className="font-body-sm text-amber-700 mt-1">
+                    student{pendingRemarks !== 1 ? "s" : ""} waiting for principal remarks
+                  </p>
+                </div>
+                <Link href="/results/remarks" className="mt-4 text-sm font-medium text-amber-700 hover:text-amber-900">
+                  Go to remarks →
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Scope */}
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5">
+          <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-3">Your scope</h3>
+          <div className="flex flex-wrap gap-2">
+            {perms.subjectTeacherSubjectIds.size > 0 && (
+              <Link href="/curriculum-tracker" className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary bg-primary-container/10 px-3 py-1.5 rounded-lg hover:bg-primary-container/20">
+                <span className="material-symbols-outlined text-[16px]">checklist</span>
+                Curriculum Tracker
+              </Link>
+            )}
+            {perms.subjectTeacherSubjectIds.size > 0 && (
+              <Link href="/lesson-notes" className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary bg-primary-container/10 px-3 py-1.5 rounded-lg hover:bg-primary-container/20">
+                <span className="material-symbols-outlined text-[16px]">note</span>
+                Lesson Notes
+              </Link>
+            )}
+            {isClassTeacher && (
+              <Link href="/students" className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary bg-primary-container/10 px-3 py-1.5 rounded-lg hover:bg-primary-container/20">
+                <span className="material-symbols-outlined text-[16px]">group</span>
+                My Students
+              </Link>
+            )}
+            {isClassTeacher && perms.classTeacherClassIds.size > 0 && (
+              <Link href="/attendance" className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary bg-primary-container/10 px-3 py-1.5 rounded-lg hover:bg-primary-container/20">
+                <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                Today's Attendance
+              </Link>
+            )}
+            {perms.assignments.length === 0 && (
+              <p className="font-body-sm text-body-sm text-error bg-error-container px-3 py-2 rounded">
+                You have no active assignments yet. Contact your school administrator.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // ── Admin dashboard (unchanged from before) ──────────────────────
   return (
     <section className="flex flex-col gap-stack-lg">
       {/* Greeting */}
@@ -327,41 +581,12 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
-
-      {/* Non-admin scope */}
-      {!admin && (
-        <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5">
-          <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-4">Your scope</h3>
-          <div className="space-y-2">
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              Subject-teaching in {perms.subjectTeacherClassIds.size} class(es)
-            </p>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              Class teacher for {perms.classTeacherClassIds.size} class(es)
-            </p>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              HOD for {perms.hodSubjectIds.size} subject(s)
-            </p>
-            {perms.assignments.length === 0 && (
-              <p className="font-body-sm text-body-sm text-error bg-error-container px-3 py-2 rounded mt-3">
-                You have no active assignments yet. Contact your school administrator.
-              </p>
-            )}
-          </div>
-          {perms.subjectTeacherClassIds.size > 0 && (
-            <Link href="/curriculum-tracker" className="mt-4 inline-flex items-center gap-1 font-label-sm text-label-sm text-primary hover:underline">
-              <span className="material-symbols-outlined text-[16px]">checklist</span>
-              View Curriculum Tracker
-            </Link>
-          )}
-        </div>
-      )}
     </section>
   );
 }
 
-function StatCard({ label, value, icon, gradient }: {
-  label: string; value: number; icon: string; gradient: string;
+function StatCard({ label, value, icon, gradient, sublabel }: {
+  label: string; value: number | string; icon: string; gradient: string; sublabel?: string;
 }) {
   return (
     <div className={`rounded-2xl bg-gradient-to-br ${gradient} p-5 text-white shadow-sm hover:shadow-md transition-shadow`}>
@@ -369,7 +594,8 @@ function StatCard({ label, value, icon, gradient }: {
         <span className="font-label-sm text-label-sm text-white/80">{label}</span>
         <span className="material-symbols-outlined text-[22px] text-white/60">{icon}</span>
       </div>
-      <div className="font-headline-lg text-headline-lg font-bold">{value.toLocaleString()}</div>
+      <div className="font-headline-lg text-headline-lg font-bold">{typeof value === "number" ? value.toLocaleString() : value}</div>
+      {sublabel && <div className="font-body-sm text-body-sm text-white/70 mt-1">{sublabel}</div>}
     </div>
   );
 }

@@ -38,6 +38,7 @@ export function TimetableView({
   staff,
   rooms,
   entries,
+  readOnly,
 }: {
   classes: { id: string; name: string }[];
   periods: { id: string; name: string; startTime: string; endTime: string; periodType?: string }[];
@@ -45,6 +46,7 @@ export function TimetableView({
   staff: { id: string; name: string }[];
   rooms: { id: string; name: string }[];
   entries: TimetableEntry[];
+  readOnly?: boolean;
 }) {
   const [selectedClass, setSelectedClass] = useState(classes[0]?.id ?? "");
   const [showPeriodForm, setShowPeriodForm] = useState(false);
@@ -254,13 +256,15 @@ export function TimetableView({
             ))}
           </select>
         </div>
-        <button onClick={() => setShowPeriodForm((p) => !p)}
-          className="border border-outline-variant text-on-surface-variant font-label-sm text-label-sm py-1.5 px-3 rounded-lg hover:bg-surface-container text-xs">
-          {showPeriodForm ? "Hide Period Form" : "Manage Periods"}
-        </button>
+        {!readOnly && (
+          <button onClick={() => setShowPeriodForm((p) => !p)}
+            className="border border-outline-variant text-on-surface-variant font-label-sm text-label-sm py-1.5 px-3 rounded-lg hover:bg-surface-container text-xs">
+            {showPeriodForm ? "Hide Period Form" : "Manage Periods"}
+          </button>
+        )}
       </div>
 
-      {showPeriodForm && (
+      {!readOnly && showPeriodForm && (
         <form action={periodAction} className="flex gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 items-end">
           <div className="flex-1">
             <label className="block text-xs text-on-surface-variant mb-0.5">Period Name</label>
@@ -386,9 +390,9 @@ export function TimetableView({
                         </div>
                       ) : slot.entries.length > 0 ? (
                         <div
-                          className="group cursor-pointer text-center"
-                          onClick={() => handleCellClick(period.id, dayIndex)}
-                          title="Click to edit"
+                          className={readOnly ? "cursor-default text-center" : "group cursor-pointer text-center"}
+                          onClick={readOnly ? undefined : () => handleCellClick(period.id, dayIndex)}
+                          title={readOnly ? "" : "Click to edit"}
                         >
                           <p className="font-medium leading-tight text-xs text-on-surface">
                             {slot.entries[0].subjectName}
@@ -405,9 +409,10 @@ export function TimetableView({
                         </div>
                       ) : (
                         <button
-                          onClick={() => handleCellClick(period.id, dayIndex)}
-                          className="w-full text-on-surface-variant/40 text-[11px] hover:bg-primary-container hover:text-on-primary-container rounded py-1 transition-all"
-                          title="Click to assign subject"
+                          onClick={readOnly ? undefined : () => handleCellClick(period.id, dayIndex)}
+                          disabled={readOnly}
+                          className="w-full text-on-surface-variant/40 text-[11px] hover:bg-primary-container hover:text-on-primary-container rounded py-1 transition-all disabled:opacity-20"
+                          title={readOnly ? "" : "Click to assign subject"}
                         >
                           +
                         </button>
