@@ -4,7 +4,8 @@ import { useState, useActionState, useMemo } from "react";
 import {
   createExamAction, updateExamAction, deleteExamAction,
   addQuestionsToExamAction, removeQuestionFromExamAction,
-  toggleExamStatusAction,
+  toggleExamStatusAction, submitExamForReviewAction,
+  approveExamAction, rejectExamAction,
 } from "@/lib/exams/actions";
 import type { ActionState } from "@/lib/exams/actions";
 import { ExportButtons } from "@/components/export-buttons";
@@ -14,6 +15,8 @@ interface ExamVM {
   termName: string; assessmentTypeId: string; durationMinutes: number;
   questionCount: number; attemptCount: number; submittedCount: number;
   questionIds: string[];
+  createdBy?: string | null;
+  reviewComment?: string | null;
 }
 interface SubjectVM { id: string; name: string }
 interface ClassVM { id: string; name: string; level: string; department: string }
@@ -25,12 +28,18 @@ interface WeightingVM { assessmentTypeId: string; weightPercentage: number; subj
 export function ExamsList({
   exams, subjects, classes, terms, questions, classSubjects, assessmentTypes, weightings,
   csvData, contentId,
+  isExamOfficer = false,
+  canPublish = false,
+  currentStaffId,
 }: {
   exams: ExamVM[]; subjects: SubjectVM[]; classes: ClassVM[]; terms: TermVM[];
   questions: QuestionVM[]; classSubjects?: { classId: string; subjectId: string; subjectName: string }[];
   assessmentTypes: AssessmentTypeVM[]; weightings?: WeightingVM[];
   csvData?: { headers: string[]; rows: string[][] };
   contentId?: string;
+  isExamOfficer?: boolean;
+  canPublish?: boolean;
+  currentStaffId?: string | null;
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [createState, createAction, createPending] = useActionState(createExamAction, {});
@@ -40,6 +49,8 @@ export function ExamsList({
   const [addingQuestionsTo, setAddingQuestionsTo] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectComment, setRejectComment] = useState("");
 
   const [subjectFilter, setSubjectFilter] = useState("");
   const [classFilter, setClassFilter] = useState("");
@@ -133,33 +144,94 @@ export function ExamsList({
                       <span className="font-label-sm text-label-sm text-on-surface">{exam.submittedCount}/{exam.attemptCount}</span>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className={`font-label-sm text-label-sm px-2 py-0.5 rounded ${exam.status === "published" ? "bg-success-container text-on-success-container" : "bg-surface-variant text-on-surface-variant"}`}>
-                          {exam.status}
-                        </span>
-                        <button
-                          onClick={async () => {
-                            setTogglingId(exam.id);
-                            await toggleExamStatusAction(exam.id);
-                            setTogglingId(null);
-                          }}
-                          disabled={togglingId === exam.id}
-                          className="text-primary font-label-sm text-label-sm hover:underline disabled:opacity-60"
-                        >
-                          {togglingId === exam.id ? "…" : exam.status === "draft" ? "Publish" : "Draft"}
-                        </button>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const colors: Record<string, string> = {
+                              draft: "bg-surface-variant text-on-surface-variant",
+                              pending_review: "bg-amber-100 text-amber-800",
+                              approved: "bg-blue-100 text-blue-800",
+                              rejected: "bg-red-100 text-red-800",
+                              published: "bg-success-container text-on-success-container",
+                            };
+                            return (
+                              <span className={`font-label-sm text-label-sm px-2 py-0.5 rounded ${colors[exam.status] ?? "bg-surface-variant text-on-surface-variant"}`}>
+                                {exam.status.replace("_", " ")}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        {exam.status === "rejected" && exam.reviewComment && (
+                          <p className="font-body-xs text-body-xs text-red-700 line-clamp-2 max-w-xs">{exam.reviewComment}</p>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setEditingId(exam.id)}
-                          className="text-primary font-label-sm text-label-sm hover:underline">Edit</button>
-                        <a href={`/exams/${exam.id}`}
-                          className="text-primary font-label-sm text-label-sm hover:underline">Scores</a>
-                        <button onClick={() => setAddingQuestionsTo(exam.id)}
-                          className="text-primary font-label-sm text-label-sm hover:underline">Questions</button>
-                        <button onClick={() => setShowDeleteConfirm(exam.id)}
-                          className="text-red-600 font-label-sm text-label-sm hover:underline">Delete</button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {exam.status === "draft" && currentStaffId && exam.createdBy === currentStaffId && !isExamOfficer && (
+                          <button onClick={async () => {
+                            setTogglingId(exam.id);
+                            await submitExamForReviewAction(exam.id);
+                            setTogglingId(null);
+                          }} disabled={togglingId === exam.id}
+                            className="text-primary font-label-sm text-label-sm hover:underline disabled:opacity-60">
+                            {togglingId === exam.id ? "Submitting…" : "Submit for Review"}
+                          </button>
+                        )}
+                        {exam.status === "pending_review" && isExamOfficer && (
+                          <>
+                            <button onClick={async () => {
+                              setTogglingId(exam.id);
+                              await approveExamAction(exam.id);
+                              setTogglingId(null);
+                            }} disabled={togglingId === exam.id}
+                              className="text-green-700 font-label-sm text-label-sm hover:underline disabled:opacity-60">
+                              {togglingId === exam.id ? "…" : "Approve"}
+                            </button>
+                            <button onClick={() => setRejectingId(exam.id)}
+                              className="text-red-700 font-label-sm text-label-sm hover:underline">Reject</button>
+                          </>
+                        )}
+                        {exam.status === "approved" && canPublish && (
+                          <button onClick={async () => {
+                            setTogglingId(exam.id);
+                            await toggleExamStatusAction(exam.id);
+                            setTogglingId(null);
+                          }} disabled={togglingId === exam.id}
+                            className="text-primary font-label-sm text-label-sm hover:underline disabled:opacity-60">
+                            {togglingId === exam.id ? "…" : "Publish"}
+                          </button>
+                        )}
+                        {exam.status === "rejected" && currentStaffId && exam.createdBy === currentStaffId && !isExamOfficer && (
+                          <button onClick={() => setEditingId(exam.id)}
+                            className="text-primary font-label-sm text-label-sm hover:underline">Edit & Resubmit</button>
+                        )}
+                        {canPublish && exam.status !== "pending_review" && (
+                          <button onClick={async () => {
+                            setTogglingId(exam.id);
+                            await toggleExamStatusAction(exam.id);
+                            setTogglingId(null);
+                          }} disabled={togglingId === exam.id}
+                            className="text-red-700 font-label-sm text-label-sm hover:underline disabled:opacity-60">
+                            {togglingId === exam.id ? "…" : (exam.status === "published" ? "Unpublish" : "Quick Publish")}
+                          </button>
+                        )}
+                        {canPublish && (
+                          <>
+                            <button onClick={() => setEditingId(exam.id)}
+                              className="text-primary font-label-sm text-label-sm hover:underline">Edit</button>
+                            <a href={`/exams/${exam.id}`}
+                              className="text-primary font-label-sm text-label-sm hover:underline">Scores</a>
+                            <button onClick={() => setAddingQuestionsTo(exam.id)}
+                              className="text-primary font-label-sm text-label-sm hover:underline">Questions</button>
+                            <button onClick={() => setShowDeleteConfirm(exam.id)}
+                              className="text-red-600 font-label-sm text-label-sm hover:underline">Delete</button>
+                          </>
+                        )}
+                        {isExamOfficer && !canPublish && (
+                          <a href={`/exams/${exam.id}`}
+                            className="text-primary font-label-sm text-label-sm hover:underline">View</a>
+                        )}
                       </div>
                     </td>
                   </>
@@ -189,6 +261,15 @@ export function ExamsList({
           exam={exams.find((e) => e.id === addingQuestionsTo)!}
           allQuestions={questions}
           onClose={() => setAddingQuestionsTo(null)}
+        />
+      )}
+
+      {/* Reject modal */}
+      {rejectingId && (
+        <RejectModal
+          examId={rejectingId}
+          onClose={() => { setRejectingId(null); setRejectComment(""); }}
+          onRejected={() => { setRejectingId(null); setRejectComment(""); }}
         />
       )}
     </div>
@@ -758,6 +839,45 @@ function QuestionsModal({ examId, exam, allQuestions, onClose }: {
           <button type="button" onClick={handleAdd} disabled={selectedIds.length === 0}
             className="px-4 py-2 text-sm bg-[#002046] text-white rounded hover:bg-[#003366] disabled:opacity-60"
           >Add Selected ({selectedIds.length})</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RejectModal({ examId, onClose, onRejected }: { examId: string; onClose: () => void; onRejected: () => void }) {
+  const [comment, setComment] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleReject() {
+    if (!comment.trim()) { setError("Please provide a reason."); return; }
+    setRejecting(true);
+    setError("");
+    const res = await rejectExamAction(examId, comment);
+    if (res.error) {
+      setError(res.error);
+      setRejecting(false);
+    } else {
+      onRejected();
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
+        <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-2">Reject Exam</h3>
+        <p className="font-body-sm text-body-sm text-on-surface-variant mb-4">Provide a reason for rejection. The creator will see this and can edit and resubmit.</p>
+        <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={4}
+          className="w-full border border-outline-variant rounded p-3 font-body-sm text-body-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary"
+          placeholder="e.g. Missing question for topic X, weight sum is wrong..."
+        />
+        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+        <div className="flex gap-2 justify-end mt-4">
+          <button type="button" onClick={onClose} disabled={rejecting}
+            className="px-4 py-2 text-sm border border-outline-variant rounded hover:bg-surface-container-low">Cancel</button>
+          <button type="button" onClick={handleReject} disabled={rejecting}
+            className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-60">{rejecting ? "Rejecting…" : "Reject"}</button>
         </div>
       </div>
     </div>

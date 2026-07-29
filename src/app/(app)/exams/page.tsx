@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
+import { canReviewExams, canPublishExams } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { ExamsList } from "./exams-list";
 
@@ -8,7 +9,12 @@ export default async function ExamsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
-  if (!canManageSchool(perms) || !user.schoolId) {
+  if (!user.schoolId) {
+    return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
+  }
+
+  const isAuthorized = canManageSchool(perms) || canReviewExams(perms);
+  if (!isAuthorized) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
@@ -72,7 +78,9 @@ export default async function ExamsPage() {
             Exams
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-            Create and manage exams, track submissions, and assign resits.
+            {canReviewExams(perms)
+              ? "Review, approve, and manage exams."
+              : "Create and manage exams, track submissions, and assign resits."}
           </p>
         </div>
       </div>
@@ -84,7 +92,7 @@ export default async function ExamsPage() {
           id: e.id,
           status: e.status,
           subjectName: e.subject.name,
-          className: e.classes.map((ec) => ec.class.name).join(", "),
+          className: e.class?.name ?? "",
           classNames: e.classes.map((ec) => ec.class.name).join(", "),
           termName: `${e.term.name}${e.term.session ? ` (${e.term.session.label})` : ""}`,
           assessmentTypeId: e.assessmentTypeId,
@@ -93,6 +101,8 @@ export default async function ExamsPage() {
           attemptCount: e.attempts.length,
           submittedCount: e.attempts.filter((a) => a.status === "submitted").length,
           questionIds: e.examQuestions.map((eq) => eq.question.id),
+          createdBy: e.createdBy,
+          reviewComment: e.reviewComment,
         }))}
         subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
         classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level, department: c.department }))}
@@ -134,6 +144,9 @@ export default async function ExamsPage() {
           weightPercentage: w.weightPercentage,
           subjectId: w.subjectId,
         }))}
+        isExamOfficer={perms.isExamOfficer}
+        canPublish={canPublishExams(perms)}
+        currentStaffId={user.staffId ?? null}
       />
     </div>
   );

@@ -60,11 +60,13 @@ export default async function AppLayout({
         ? "Parent"
         : perms.isSchoolAdmin
           ? "School Admin"
-          : user.role === "staff"
-            ? "Staff"
-            : user.role === "student"
-              ? "Student"
-              : user.role;
+          : perms.isExamOfficer
+            ? "Exam Officer"
+            : user.role === "staff"
+              ? "Staff"
+              : user.role === "student"
+                ? "Student"
+                : user.role;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-surface text-on-surface font-body-md antialiased">

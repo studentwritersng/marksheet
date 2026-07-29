@@ -95,6 +95,11 @@ export function buildNav(
       studentItems.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });
     }
     items.push(...studentItems);
+  } else if (perms.isExamOfficer) {
+    items.push(
+      { label: "Exam Review", href: "/exams/review", icon: "rate_review" },
+      { label: "All Exams", href: "/exams", icon: "quiz" },
+    );
   } else {
     if (
       perms.subjectTeacherClassIds.size > 0 ||

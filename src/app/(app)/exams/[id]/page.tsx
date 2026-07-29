@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
+import { canReviewExams } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { ScoreEntryTable } from "./score-entry";
 
@@ -11,7 +12,7 @@ export default async function ExamDetailPage(props: {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
-  if (!canManageSchool(perms) || !user.schoolId) {
+  if ((!canManageSchool(perms) && !canReviewExams(perms)) || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 

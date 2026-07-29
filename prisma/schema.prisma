@@ -757,6 +757,9 @@ enum ExamAttemptType {
 
 enum ExamStatus {
   draft
+  pending_review
+  approved
+  rejected
   published
 }
 
@@ -772,10 +775,17 @@ model Exam {
   status               ExamStatus      @default(draft)
   attemptType          ExamAttemptType @default(original)
   originalExamId       String?
+  // Review workflow: subject teacher creates, admin/form master submits, exam officer approves/rejects
+  createdBy            String?         // staff id of creator
+  submittedForReviewAt DateTime?
+  reviewedBy           String?         // staff id of the exam officer
+  reviewedAt           DateTime?
+  reviewComment        String?         // comment from exam officer (approve or reject reason)
   // Per-exam sub-assessment weight distribution, e.g. [{ subAssessmentTypeId: "xxx", weightPercentage: 20 }]
   // Must sum to the parent assessment type's school-level weight.
   subAssessmentWeights Json?
   createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @default(now()) @updatedAt
 
   school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   subject       Subject        @relation(fields: [subjectId], references: [id])
@@ -788,6 +798,7 @@ model Exam {
 
   @@index([schoolId])
   @@index([subjectId, classId, termId])
+  @@index([status])
   @@map("exams")
 }
 

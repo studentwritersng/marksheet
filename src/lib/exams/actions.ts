@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { requireSchoolAdmin, requireExamReviewer, canReviewExams, canPublishExams } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { notifyStudents } from "@/lib/notifications/actions";
@@ -35,7 +35,6 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
     return { error: "Missing required fields. Select at least one class." };
   }
 
-  // Create exam linked to the first class for backward compat
   const exam = await prisma.exam.create({
     data: {
       schoolId: ctx.schoolId,
@@ -46,6 +45,7 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
       durationMinutes,
       shuffleEnabled: true,
       status: "draft",
+      createdBy: ctx.user.staffId ?? undefined,
       subAssessmentWeights,
       classes: {
         create: classIds.map((cId) => ({ classId: cId })),
@@ -65,20 +65,8 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
     afterValue: { examId: exam.id, subjectId, classIds, termId, questionCount: questionIds.length } as never,
   });
 
-  // Notify students in assigned classes
-  const subjectName = (await prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } }))?.name ?? "";
-  const classes = await prisma.class.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true } });
-  await Promise.all(classes.map((c) =>
-    notifyStudents(c.id, "exam_graded", `New Exam: ${subjectName}`, `A new ${subjectName} exam has been created for ${c.name}. Complete it before the deadline.`, ctx.schoolId)
-  ));
-
-  // Fire WhatsApp/SMS notification hooks for each class
-  for (const c of classes) {
-    hookExamScheduled(ctx.schoolId, exam.id, subjectName, c.name);
-  }
-
   revalidatePath("/exams");
-  return { success: "Exam created." };
+  return { success: "Exam created. Add questions and submit for review when ready." };
 }
 
 export async function updateExamAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -144,11 +132,141 @@ export async function toggleExamStatusAction(examId: string): Promise<ActionStat
   const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
   if (!exam) return { error: "Exam not found." };
 
-  const newStatus = exam.status === "draft" ? "published" : "draft";
-  await prisma.exam.update({ where: { id: examId }, data: { status: newStatus } });
+  // Enforce state machine transitions
+  let nextStatus: string | null = null;
+  switch (exam.status) {
+    case "draft":
+      nextStatus = "pending_review";
+      break;
+    case "pending_review":
+      if (canReviewExams(ctx.perms)) {
+        nextStatus = "approved";
+      } else {
+        return { error: "Only an exam officer or admin can approve an exam from review." };
+      }
+      break;
+    case "approved":
+      if (canPublishExams(ctx.perms)) {
+        nextStatus = "published";
+      } else {
+        return { error: "Only an admin can publish an exam." };
+      }
+      break;
+    case "rejected":
+      nextStatus = "draft";
+      break;
+    case "published":
+      if (canPublishExams(ctx.perms)) {
+        nextStatus = "draft";
+      } else {
+        return { error: "Only an admin can unpublish an exam." };
+      }
+      break;
+    default:
+      return { error: `Cannot toggle exam in status: ${exam.status}` };
+  }
+
+  if (!nextStatus) return { error: "Invalid transition." };
+
+  await prisma.exam.update({
+    where: { id: examId },
+    data: {
+      status: nextStatus as any,
+      ...(nextStatus === "pending_review" ? { submittedForReviewAt: new Date() } : {}),
+      ...(nextStatus === "approved" || nextStatus === "rejected" ? { reviewedBy: ctx.user.staffId, reviewedAt: new Date() } : {}),
+      updatedAt: new Date(),
+    },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "update", entityType: "exam",
+    afterValue: { examId, status: nextStatus } as never,
+  });
 
   revalidatePath("/exams");
-  return { success: `Exam ${newStatus}.` };
+  return { success: `Exam ${nextStatus}.` };
+}
+
+export async function submitExamForReviewAction(examId: string): Promise<ActionState> {
+  const ctx = await requireSchoolAdmin();
+  await guardActiveLicense(ctx.schoolId);
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
+  if (!exam) return { error: "Exam not found." };
+  if (exam.status !== "draft" && exam.status !== "rejected") {
+    return { error: "Only draft or rejected exams can be submitted for review." };
+  }
+  if (!exam.createdBy || exam.createdBy !== ctx.user.staffId) {
+    return { error: "Only the creator can submit this exam for review." };
+  }
+
+  await prisma.exam.update({
+    where: { id: examId },
+    data: { status: "pending_review", submittedForReviewAt: new Date(), updatedAt: new Date() },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "update", entityType: "exam",
+    afterValue: { examId, status: "pending_review" } as never,
+  });
+
+  revalidatePath("/exams");
+  revalidatePath("/exams/review");
+  return { success: "Exam submitted for review." };
+}
+
+export async function approveExamAction(examId: string): Promise<ActionState> {
+  const ctx = await requireExamReviewer();
+  await guardActiveLicense(ctx.schoolId);
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
+  if (!exam) return { error: "Exam not found." };
+  if (exam.status !== "pending_review") return { error: "Only exams pending review can be approved." };
+
+  await prisma.exam.update({
+    where: { id: examId },
+    data: { status: "approved", reviewedBy: ctx.user.staffId, reviewedAt: new Date(), updatedAt: new Date() },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "approve", entityType: "exam",
+    afterValue: { examId } as never,
+  });
+
+  revalidatePath("/exams");
+  revalidatePath("/exams/review");
+  return { success: "Exam approved. An admin can now publish it." };
+}
+
+export async function rejectExamAction(examId: string, comment: string): Promise<ActionState> {
+  const ctx = await requireExamReviewer();
+  await guardActiveLicense(ctx.schoolId);
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
+  if (!exam) return { error: "Exam not found." };
+  if (exam.status !== "pending_review") return { error: "Only exams pending review can be rejected." };
+
+  if (!comment || !comment.trim()) {
+    return { error: "Please provide a reason for rejection." };
+  }
+
+  await prisma.exam.update({
+    where: { id: examId },
+    data: { status: "rejected", reviewComment: comment.trim(), reviewedBy: ctx.user.staffId, reviewedAt: new Date(), updatedAt: new Date() },
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "reject", entityType: "exam",
+    afterValue: { examId, comment: comment.trim() } as never,
+  });
+
+  revalidatePath("/exams");
+  revalidatePath("/exams/review");
+  return { success: "Exam rejected. The creator can edit and resubmit." };
 }
 
 export async function isExamPublishedAction(examId: string): Promise<boolean> {
