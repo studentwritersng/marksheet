@@ -349,6 +349,32 @@ Write a complete lesson note following the structure above. Ensure all content i
   return { success: `AI draft for "${topic}" created. Review and publish it.` };
 }
 
+/** Fetch existing lesson notes for a class + subject + term combination. */
+export async function getExistingNotesAction(
+  classId: string,
+  subjectId: string,
+  termId: string,
+): Promise<{ id: string; topic: string; duration: string | null; source: string; status: string; createdAt: string }[]> {
+  let ctx;
+  try { ctx = await requireSchoolAdmin(); } catch { return []; }
+  await guardActiveLicense(ctx.schoolId).catch(() => null);
+
+  const notes = await prisma.lessonNote.findMany({
+    where: { classId, subjectId, termId, schoolId: ctx.schoolId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, topic: true, duration: true, source: true, status: true, createdAt: true },
+  });
+
+  return notes.map((n) => ({
+    id: n.id,
+    topic: n.topic,
+    duration: n.duration,
+    source: n.source,
+    status: n.status,
+    createdAt: n.createdAt.toISOString(),
+  }));
+}
+
 /** Fetch curriculum topics (syllabus items) for a subject and class level. */
 export async function getCurriculumTopicsAction(
   subjectName: string,

@@ -1,9 +1,18 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
-import { createLessonNoteAction, aiGenerateNoteAction, getCurriculumTopicsAction, type ActionState } from "./actions";
+import { useActionState, useRef, useState, useTransition } from "react";
+import { createLessonNoteAction, aiGenerateNoteAction, getExistingNotesAction, getCurriculumTopicsAction, type ActionState } from "./actions";
 
 const init: ActionState = {};
+
+interface ExistingNote {
+  id: string;
+  topic: string;
+  duration: string | null;
+  source: string;
+  status: string;
+  createdAt: string;
+}
 
 export function LessonNotesForm({
   subjects,
@@ -21,72 +30,78 @@ export function LessonNotesForm({
   const [manualState, manualAction, manualPending] = useActionState(createLessonNoteAction, init);
   const [aiPending, startAi] = useTransition();
   const [aiResult, setAiResult] = useState<ActionState>({});
-
   const [activeTab, setActiveTab] = useState<"manual" | "ai">("manual");
 
-  // Syllabus-based AI generation state
-  const [aiTermId, setAiTermId] = useState("");
-  const [aiClassId, setAiClassId] = useState("");
-  const [aiSubjectId, setAiSubjectId] = useState("");
-  const [selectedTopic, setSelectedTopic] = useState("");
+  // AI wizard state
+  const [termId, setTermId] = useState("");
+  const [classId, setClassId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+  // class → subjects FAQ list
+  const [openSubjectId, setOpenSubjectId] = useState("");
+  const [existingNotes, setExistingNotes] = useState<ExistingNote[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
   const [curriculumTopics, setCurriculumTopics] = useState<{ id: string; topic: string; week: number; weekSuffix: string }[]>([]);
-  const [loadingTopics, setLoadingTopics] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState("");
   const [filteredSubjects, setFilteredSubjects] = useState<{ id: string; name: string }[]>([]);
+  const [, startLoadNotes] = useTransition();
 
-  // When class changes, filter subjects linked via ClassSubject
-  function handleClassChange(classId: string) {
-    setAiClassId(classId);
-    setAiSubjectId("");
-    setSelectedTopic("");
-    setCurriculumTopics([]);
-    if (!classId) {
-      setFilteredSubjects([]);
-      return;
-    }
-    const linkedSubjectIds = classSubjects
-      .filter((cs) => cs.classId === classId)
-      .map((cs) => cs.subjectId);
+  function handleTermChange(value: string) {
+    setTermId(value);
+    setClassId("");
+    setSubjectId("");
+    setOpenSubjectId("");
+    setExistingNotes([]);
+  }
+
+  function handleClassChange(value: string) {
+    setClassId(value);
+    setSubjectId("");
+    setOpenSubjectId("");
+    setExistingNotes([]);
+    if (!value) { setFilteredSubjects([]); return; }
+    const linkedSubjectIds = classSubjects.filter((cs) => cs.classId === value).map((cs) => cs.subjectId);
     setFilteredSubjects(subjects.filter((s) => linkedSubjectIds.includes(s.id)));
   }
 
-  async function loadCurriculumTopics(termId: string, classId: string, subjectId: string) {
-    if (!termId || !classId || !subjectId) {
-      setCurriculumTopics([]);
-      return;
-    }
-    setLoadingTopics(true);
-    try {
-      const subject = filteredSubjects.find((s) => s.id === subjectId) || subjects.find((s) => s.id === subjectId);
-      const cls = classes.find((c) => c.id === classId);
-      const term = terms.find((t) => t.id === termId);
-      if (!subject || !cls || !term) return;
-      const classLevel = cls.level;
-      const termName = term.name.toUpperCase();
+  function handleSubjectSelect(value: string) {
+    setSubjectId(value);
+    setSelectedTopic("");
+    if (!value || !classId || !termId) { setExistingNotes([]); return; }
+    setLoadingNotes(true);
+    startLoadNotes(async () => {
+      const notes = await getExistingNotesAction(classId, value, termId);
+      setExistingNotes(notes);
+      setLoadingNotes(false);
+    });
+  }
 
-      let topics = await getCurriculumTopicsAction(subject.name, classLevel, termName, schoolId);
-      if (topics.length === 0) {
-        const altNames: Record<string, string[]> = {
-          "English Language": ["English Studies", "English"],
-          "Basic Science": ["Basic Science and Technology", "Integrated Science"],
-          "Basic Technology": ["Introductory Technology"],
-          "Business Studies": ["Business Education"],
-          "Civic Education": ["Civics"],
-          "Physical and Health Education": ["Physical Education", "PHE"],
-          "Social Studies": ["Social Sciences"],
-          "Agricultural Science": ["Agriculture"],
-          "Computer Science": ["Information Technology", "IT", "Computer Studies"],
-          "Home Economics": ["Home Management"],
-        };
-        const alternatives = altNames[subject.name] ?? [];
-        for (const alt of alternatives) {
-          topics = await getCurriculumTopicsAction(alt, classLevel, termName, schoolId);
-          if (topics.length > 0) break;
-        }
+  async function loadCurriculumTopics(subjectIdToLoad: string) {
+    if (!classId || !subjectIdToLoad || !termId) { setCurriculumTopics([]); return; }
+    const subject = filteredSubjects.find((s) => s.id === subjectIdToLoad) || subjects.find((s) => s.id === subjectIdToLoad);
+    const cls = classes.find((c) => c.id === classId);
+    const term = terms.find((t) => t.id === termId);
+    if (!subject || !cls || !term) return;
+    let topics = await getCurriculumTopicsAction(subject.name, cls.level, term.name.toUpperCase(), schoolId);
+    if (topics.length === 0) {
+      const altNames: Record<string, string[]> = {
+        "English Language": ["English Studies", "English"],
+        "Basic Science": ["Basic Science and Technology", "Integrated Science"],
+        "Basic Technology": ["Introductory Technology"],
+        "Business Studies": ["Business Education"],
+        "Civic Education": ["Civics"],
+        "Physical and Health Education": ["Physical Education", "PHE"],
+        "Social Studies": ["Social Sciences"],
+        "Agricultural Science": ["Agriculture"],
+        "Computer Science": ["Information Technology", "IT", "Computer Studies"],
+        "Home Economics": ["Home Management"],
+      };
+      const alternatives = altNames[subject.name] ?? [];
+      for (const alt of alternatives) {
+        topics = await getCurriculumTopicsAction(alt, cls.level, term.name.toUpperCase(), schoolId);
+        if (topics.length > 0) break;
       }
-      setCurriculumTopics(topics);
-    } finally {
-      setLoadingTopics(false);
     }
+    setCurriculumTopics(topics);
   }
 
   async function handleAiGenerate(fd: FormData) {
@@ -95,7 +110,7 @@ export function LessonNotesForm({
     const customTopic = fd.get("customTopic") as string;
     const topic = topicFromSyllabus || customTopic;
     if (!topic) {
-      setAiResult({ error: "Select a syllabus topic or type a custom topic." });
+      setAiResult({ error: "Pick a syllabus topic or type a custom topic." });
       return;
     }
     fd.set("topic", topic);
@@ -122,96 +137,138 @@ export function LessonNotesForm({
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className="mb-1 block font-label-md text-label-md text-on-surface">Term</label>
-            <select name="termId" required
-              value={aiTermId}
-              onChange={(e) => {
-                const v = e.target.value;
-                setAiTermId(v);
-                if (aiClassId && aiSubjectId) loadCurriculumTopics(v, aiClassId, aiSubjectId);
-              }}
-              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
-            >
+            <select name="termId" required value={termId}
+              onChange={(e) => handleTermChange(e.target.value)}
+              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary">
               <option value="">Select term…</option>
               {terms.map((t) => <option key={t.id} value={t.id}>{t.name} Term</option>)}
             </select>
           </div>
           <div>
             <label className="mb-1 block font-label-md text-label-md text-on-surface">Class</label>
-            <select name="classId" required
-              value={aiClassId}
-              onChange={(e) => {
-                handleClassChange(e.target.value);
-                if (aiTermId) loadCurriculumTopics(aiTermId, e.target.value, "");
-              }}
-              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
-            >
-              <option value="">Select class…</option>
+            <select name="classId" required value={classId}
+              onChange={(e) => handleClassChange(e.target.value)}
+              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary">
+              <option value="">{termId ? "Select class…" : "Select term first…"}</option>
               {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
-            <select name="subjectId" required
-              value={aiSubjectId}
-              onChange={(e) => {
-                setAiSubjectId(e.target.value);
-                if (aiTermId && aiClassId) loadCurriculumTopics(aiTermId, aiClassId, e.target.value);
-              }}
-              disabled={!aiClassId}
-              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary disabled:opacity-50"
-            >
-              <option value="">{aiClassId ? "Select subject…" : "Select class first…"}</option>
-              {filteredSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <select name="subjectId" required value={subjectId}
+              onChange={(e) => { setSubjectId(e.target.value); handleSubjectSelect(e.target.value); }}
+              disabled={!classId}
+              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary disabled:opacity-50">
+              <option value="">{classId ? "Select or open below…" : "Select class first…"}</option>
             </select>
           </div>
         </div>
 
-        {/* Curriculum topic picker for AI tab */}
         {activeTab === "ai" && (
-          <div>
-            <label className="mb-1 block font-label-md text-label-md text-on-surface">Syllabus Topic</label>
-            {loadingTopics && <p className="font-body-sm text-body-sm text-on-surface-variant">Loading syllabus…</p>}
-            {!loadingTopics && curriculumTopics.length === 0 && aiSubjectId && aiClassId && (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">No syllabus topics found for this subject, class, and term.</p>
-            )}
-            {curriculumTopics.length > 0 && (
-              <div className="max-h-48 overflow-y-auto border border-outline-variant rounded-lg divide-y divide-outline-variant">
-                {curriculumTopics.map((ct) => (
-                  <label key={ct.id} className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-surface-container ${
-                    selectedTopic === ct.topic ? "bg-primary-container text-on-primary-container" : ""
-                  }`}>
-                    <input type="radio" name="syllabusTopic" value={ct.topic}
-                      checked={selectedTopic === ct.topic}
-                      onChange={() => setSelectedTopic(ct.topic)}
-                      className="text-primary"
-                    />
-                    <span className="font-body-sm text-body-sm">Week {ct.week}{ct.weekSuffix || ""}: {ct.topic}</span>
-                  </label>
-                ))}
+          <>
+            {/* ── Class → Subjects FAQ list ── */}
+            {classId && filteredSubjects.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-on-surface-variant">Subjects in {classes.find((c) => c.id === classId)?.name}</p>
+                <div className="border border-outline-variant rounded-lg divide-y divide-outline-variant">
+                  {filteredSubjects.map((s) => {
+                    const isOpen = openSubjectId === s.id;
+                    return (
+                      <div key={s.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenSubjectId(isOpen ? "" : s.id);
+                            if (!isOpen) handleSubjectSelect(s.id);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 text-left text-sm font-medium transition-colors ${isOpen ? "bg-primary-container text-on-primary-container" : "hover:bg-surface-container"}`}
+                        >
+                          <span>{s.name}</span>
+                          <span className="material-symbols-outlined text-[16px]">{isOpen ? "expand_less" : "expand_more"}</span>
+                        </button>
+                        {isOpen && subjectId === s.id && (
+                          <div className="px-3 py-3 bg-surface-container-low border-t border-outline-variant space-y-3">
+                            {/* Existing notes for this subject */}
+                            {loadingNotes && <p className="text-xs text-on-surface-variant">Loading notes…</p>}
+                            {!loadingNotes && existingNotes.length === 0 && (
+                              <p className="text-xs text-on-surface-variant">No existing notes for {s.name} in this class/term.</p>
+                            )}
+                            {!loadingNotes && existingNotes.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-on-surface-variant mb-1.5">Existing notes ({existingNotes.length})</p>
+                                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                  {existingNotes.map((n) => (
+                                    <div key={n.id} className="flex items-center justify-between border border-outline-variant rounded-lg px-3 py-2 bg-surface">
+                                      <div>
+                                        <p className="text-xs font-medium text-on-surface">{n.topic}</p>
+                                        <p className="text-[10px] text-on-surface-variant mt-0.5">
+                                          {n.duration ? `${n.duration} · ` : ""}{n.source === "ai_generated" ? "AI" : "Manual"} · {n.status}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Curricuulum topic picker */}
+                            <div className="pt-2 border-t border-outline-variant/50">
+                              <button type="button" onClick={() => loadCurriculumTopics(s.id)}
+                                className="text-xs text-primary hover:underline">
+                                Load syllabus topics
+                              </button>
+                              {curriculumTopics.length > 0 && (
+                                <div className="max-h-40 overflow-y-auto border border-outline-variant rounded-lg divide-y divide-outline-variant mt-2">
+                                  {curriculumTopics.map((ct) => (
+                                    <label key={ct.id} className={`flex items-center gap-2 px-3 py-2 cursor-pointer text-xs hover:bg-surface-container ${selectedTopic === ct.topic ? "bg-primary-container" : ""}`}>
+                                      <input type="radio" name="syllabusTopic" value={ct.topic}
+                                        checked={selectedTopic === ct.topic}
+                                        onChange={() => setSelectedTopic(ct.topic)}
+                                        className="text-primary"
+                                      />
+                                      Week {ct.week}{ct.weekSuffix || ""}: {ct.topic}
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                              {!selectedTopic && (
+                                <div className="mt-2">
+                                  <label className="text-xs text-on-surface-variant block mb-1">Or type a custom topic:</label>
+                                  <input name="customTopic" placeholder="e.g. Introduction to Cells"
+                                    className="w-full border border-outline-variant rounded px-3 py-2 text-xs bg-surface focus:outline-none focus:border-primary"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
-            {!selectedTopic && (
-              <div className="mt-2">
-                <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Or type a custom topic:</label>
+
+            {/* ── Manual topic input (if no subjects FAQ and custom topic) ── */}
+            {!classId && (
+              <div>
+                <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Custom topic (no class selected)</label>
                 <input name="customTopic" placeholder="e.g. Introduction to Cells"
-                  className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
+                  className="w-full border border-outline-variant rounded p-3 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary"
                 />
               </div>
             )}
-          </div>
-        )}
-
-        {activeTab === "manual" && (
-          <div>
-            <label className="mb-1 block font-label-md text-label-md text-on-surface">Topic</label>
-            <input name="topic" placeholder="e.g. Introduction to Cells" required
-              className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
-            />
-          </div>
+          </>
         )}
 
         {activeTab === "manual" && (
           <div className="space-y-4">
+            <div>
+              <label className="mb-1 block font-label-md text-label-md text-on-surface">Topic</label>
+              <input name="topic" placeholder="e.g. Introduction to Cells" required
+                className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
+              />
+            </div>
             <div>
               <label className="mb-1 block font-label-md text-label-md text-on-surface">Previous Knowledge</label>
               <textarea name="previousKnowledge" rows={2} placeholder="What students should already know..."
@@ -252,7 +309,7 @@ export function LessonNotesForm({
         )}
 
         <button type="submit" disabled={pending}
-          className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366] disabled:opacity-60"
+          className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[003366] disabled:opacity-60"
         >
           {pending ? (activeTab === "manual" ? "Saving…" : "Generating draft…")
             : activeTab === "manual" ? "Save note" : "AI generate note"

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { publishNoteAction, updateLessonNoteAction, deleteLessonNoteAction } from "./actions";
 import { ExportButtons } from "@/components/export-buttons";
 
@@ -219,27 +221,53 @@ function Textarea({ label, value, onChange }: { label: string; value: string; on
 }
 
 function MarkdownRender({ text }: { text: string }) {
-  const blocks = text.split(/\n\n+/);
-  return blocks.map((block, i) => {
-    if (!block.trim()) return null;
-    const heading = block.match(/^(###?)\s+(.*)/);
-    if (heading) {
-      const Tag = heading[1] === "###" ? "h3" : "h2" as any;
-      return <Tag key={i} className="font-label-md text-label-md text-on-surface font-semibold mt-3 mb-1">{renderInline(heading[2])}</Tag>;
-    }
-    return <p key={i} className="mb-1 whitespace-pre-wrap">{renderInline(block)}</p>;
-  });
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+      {text}
+    </ReactMarkdown>
+  );
 }
 
-function renderInline(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`[^`]+`)/);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) return <strong key={i}>{part.slice(2, -2)}</strong>;
-    if (part.startsWith("*") && part.endsWith("*") && !part.startsWith("**")) return <em key={i}>{part.slice(1, -1)}</em>;
-    if (part.startsWith("`") && part.endsWith("`")) return <code key={i} className="bg-surface-variant text-sm px-1 rounded">{part.slice(1, -1)}</code>;
-    return part;
-  });
-}
+// Custom Tailwind-styled components so AI-generated tables/lists/bold/headings look clean
+const mdComponents = {
+  p: ({ children }: any) => <p className="mb-2 leading-relaxed">{children}</p>,
+  strong: ({ children }: any) => <strong className="font-semibold text-on-surface">{children}</strong>,
+  em: ({ children }: any) => <em className="italic">{children}</em>,
+  h1: ({ children }: any) => <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold mt-4 mb-2">{children}</h2>,
+  h2: ({ children }: any) => <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mt-4 mb-1">{children}</h3>,
+  h3: ({ children }: any) => <h4 className="font-label-md text-label-md text-on-surface font-semibold mt-3 mb-1">{children}</h4>,
+  h4: ({ children }: any) => <h5 className="font-label-sm text-label-sm text-on-surface font-semibold mt-2 mb-1">{children}</h5>,
+  ul: ({ children }: any) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+  ol: ({ children }: any) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+  li: ({ children }: any) => <li className="text-on-surface text-sm leading-relaxed">{children}</li>,
+  blockquote: ({ children }: any) => (
+    <blockquote className="border-l-4 border-[#002046] bg-surface-container-low px-4 py-2 italic text-on-surface-variant mb-3 rounded-r-lg text-sm">
+      {children}
+    </blockquote>
+  ),
+  code: ({ children, inline }: any) => inline
+    ? <code className="bg-surface-variant px-1.5 rounded text-sm font-mono">{children}</code>
+    : <code className="block bg-surface-variant p-3 rounded-lg text-sm font-mono whitespace-pre-wrap my-2">{children}</code>,
+  pre: ({ children }: any) => <pre className="bg-surface-variant rounded-lg overflow-x-auto">{children}</pre>,
+  table: ({ children }: any) => (
+    <div className="overflow-x-auto my-3 border border-outline-variant rounded-lg">
+      <table className="w-full border-collapse text-sm">{children}</table>
+    </div>
+  ),
+  thead: ({ children }: any) => <thead className="bg-surface-container-low">{children}</thead>,
+  tbody: ({ children }: any) => <tbody className="divide-y divide-outline-variant">{children}</tbody>,
+  tr: ({ children }: any) => <tr className="hover:bg-surface-container-low/50 transition-colors">{children}</tr>,
+  th: ({ children }: any) => (
+    <th className="border border-outline-variant px-3 py-2 text-left font-semibold text-on-surface text-xs uppercase tracking-wide whitespace-nowrap bg-surface-container-low">
+      {children}
+    </th>
+  ),
+  td: ({ children }: any) => (
+    <td className="border border-outline-variant px-3 py-2 text-on-surface text-sm align-top">{children}</td>
+  ),
+  hr: () => <hr className="my-4 border-outline-variant" />,
+  br: () => <br className="mb-1" />,
+} as const;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
