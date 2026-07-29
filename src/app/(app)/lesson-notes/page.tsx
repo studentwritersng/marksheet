@@ -2,9 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
-import { LessonNotesForm } from "./lesson-notes-form";
-import { LessonNotesList } from "./lesson-notes-list";
-
+import { LessonNotesWrapper } from "./wrapper";
 
 export default async function LessonNotesPage() {
   const user = await getCurrentUser();
@@ -48,6 +46,24 @@ export default async function LessonNotesPage() {
     }),
   ]);
 
+  const notesData = notes.map((n) => ({
+    id: n.id,
+    topic: n.topic,
+    subject: n.subject.name,
+    class: n.class.name,
+    term: n.term.name,
+    source: n.source,
+    status: n.status,
+    createdAt: n.createdAt.toISOString(),
+    previousKnowledge: n.previousKnowledge,
+    introduction: n.introduction,
+    content: n.content,
+    evaluation: n.evaluation,
+    summary: n.summary,
+    assignment: n.assignment,
+    behaviouralObjectives: n.behaviouralObjectives as string[] | null,
+  }));
+
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -60,37 +76,14 @@ export default async function LessonNotesPage() {
         </div>
       </div>
 
-      <div className="mt-6">
-        <LessonNotesForm
-          subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
-          classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level }))}
-          terms={terms.map((t) => ({ id: t.id, name: t.name }))}
-          schoolId={user.schoolId!}
-          classSubjects={classSubjects}
-        />
-      </div>
-
-      <div className="mt-8">
-        <LessonNotesList
-          notes={notes.map((n) => ({
-            id: n.id,
-            topic: n.topic,
-            subject: n.subject.name,
-            class: n.class.name,
-            term: n.term.name,
-            source: n.source,
-            status: n.status,
-            createdAt: n.createdAt.toISOString(),
-            previousKnowledge: n.previousKnowledge,
-            introduction: n.introduction,
-            content: n.content,
-            evaluation: n.evaluation,
-            summary: n.summary,
-            assignment: n.assignment,
-            behaviouralObjectives: n.behaviouralObjectives as string[] | null,
-          }))}
-        />
-      </div>
+      <LessonNotesWrapper
+        subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
+        classes={classes.map((c) => ({ id: c.id, name: c.name, level: c.level }))}
+        terms={terms.map((t) => ({ id: t.id, name: t.name }))}
+        schoolId={user.schoolId!}
+        classSubjects={classSubjects}
+        notes={notesData}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState, useTransition } from "react";
-import { createLessonNoteAction, aiGenerateNoteAction, getExistingNotesAction, getCurriculumTopicsAction, getSubjectsWithNotesAction, type ActionState } from "./actions";
+import { createLessonNoteAction, aiGenerateNoteAction, getExistingNotesAction, getCurriculumTopicsAction, type ActionState } from "./actions";
 
 const init: ActionState = {};
 
@@ -20,12 +20,14 @@ export function LessonNotesForm({
   terms,
   schoolId,
   classSubjects,
+  onSelectionChange,
 }: {
   subjects: { id: string; name: string }[];
   classes: { id: string; name: string; level: string }[];
   terms: { id: string; name: string }[];
   schoolId: string;
   classSubjects: { classId: string; subjectId: string }[];
+  onSelectionChange?: (sel: { classId?: string; className?: string; subjectId?: string; subjectName?: string }) => void;
 }) {
   const [manualState, manualAction, manualPending] = useActionState(createLessonNoteAction, init);
   const [aiPending, startAi] = useTransition();
@@ -45,41 +47,39 @@ export function LessonNotesForm({
   const [filteredSubjects, setFilteredSubjects] = useState<{ id: string; name: string }[]>([]);
   const [, startLoadNotes] = useTransition();
 
-  const [classSubjectsWithNotes, setClassSubjectsWithNotes] = useState<{ id: string; name: string }[]>([]);
-
   function handleTermChange(value: string) {
     setTermId(value);
     setClassId("");
     setSubjectId("");
     setOpenSubjectId("");
     setExistingNotes([]);
-    setClassSubjectsWithNotes([]);
     setFilteredSubjects([]);
+    if (value && classId) handleClassChange(classId);
   }
-
-  const [loadingSubjects, setLoadingSubjects] = useState(false);
 
   function handleClassChange(value: string) {
     setClassId(value);
     setSubjectId("");
     setOpenSubjectId("");
     setExistingNotes([]);
-    if (!value || !termId) { setFilteredSubjects([]); setClassSubjectsWithNotes([]); return; }
-    setLoadingSubjects(true);
-    // Only show subjects that have at least one existing lesson note in this class+term
-    Promise.all([
-      getSubjectsWithNotesAction(value, termId),
-    ]).then(([withNotes]) => {
-      setClassSubjectsWithNotes(withNotes);
-      const withIds = withNotes.map((s) => s.id);
-      setFilteredSubjects(subjects.filter((s) => withIds.includes(s.id)));
-      setLoadingSubjects(false);
-    }).catch(() => setLoadingSubjects(false));
+    if (onSelectionChange) {
+      const cls = classes.find((c) => c.id === value);
+      onSelectionChange(value ? { classId: value, className: cls?.name } : {});
+    }
+    if (!value) { setFilteredSubjects([]); return; }
+    // Show ALL subjects linked to the class — notes filter happens in the list below
+    const linkedSubjectIds = classSubjects.filter((cs) => cs.classId === value).map((cs) => cs.subjectId);
+    setFilteredSubjects(subjects.filter((s) => linkedSubjectIds.includes(s.id)));
   }
 
   function handleSubjectSelect(value: string) {
     setSubjectId(value);
     setSelectedTopic("");
+    if (onSelectionChange && value) {
+      const cls = classes.find((c) => c.id === classId);
+      const subj = filteredSubjects.find((s) => s.id === value) || subjects.find((s) => s.id === value);
+      onSelectionChange({ classId, className: cls?.name, subjectId: value, subjectName: subj?.name });
+    }
     if (!value || !classId || !termId) { setExistingNotes([]); return; }
     setLoadingNotes(true);
     startLoadNotes(async () => {
