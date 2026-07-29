@@ -323,7 +323,7 @@ export async function aiGenerateQuestionsMultiAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  let ctx;
+  let ctx: Awaited<ReturnType<typeof requireSchoolAdmin>>;
   try {
     ctx = await requireSchoolAdmin();
   } catch {
@@ -337,7 +337,7 @@ export async function aiGenerateQuestionsMultiAction(
 
   const topic = String(formData.get("topic") ?? "").trim() || "Untitled";
   const questionType = String(formData.get("questionType") ?? "essay"); // mcq | essay
-  const questionCount = Math.max(1, Math.min(50, Number(formData.get("questionCount") ?? 3)));
+  const questionCount = Math.max(1, Math.min(100, Number(formData.get("questionCount") ?? 3)));
   const classLevel = String(formData.get("classLevel") ?? "SSS1");
   const marksPerQuestion = Math.max(1, Number(formData.get("marksPerQuestion") ?? 5));
   const groundingPercentage = Math.max(0, Math.min(100, Number(formData.get("groundingPercentage") ?? 75)));
@@ -535,107 +535,167 @@ Output valid JSON only, with this exact shape and no additional text before or a
 }`;
 
   // Replace {{placeholders}} in system prompt with actual values
-  const difficultyDistribution = `${easyCount} Easy, ${mediumCount} Medium, ${hardCount} Hard`;
-  const filledSystemContent = systemContent
-    .replace(/\{\{subject\}\}/g, subjectNames || "the subject")
-    .replace(/\{\{class_level\}\}/g, classLevel)
-    .replace(/\{\{question_count\}\}/g, String(questionCount))
-    .replace(/\{\{marks_per_question\}\}/g, String(marksPerQuestion))
-    .replace(/\{\{grounding_percentage\}\}/g, String(groundingPercentage))
-    .replace(/\{\{difficulty_distribution\}\}/g, difficultyDistribution)
-    .replace(/\{\{lesson_note_content\}\}/g, combinedContent.slice(0, 4000))
-    .replace(/\{\{topic\}\}/g, topic)
-    .replace(/\{\{theme_or_aspect\}\}/g, notes[0]?.class?.name ?? classLevel);
+  const buildSystemContent = (count: number, eC: number, mC: number, hC: number): string =>
+    systemContent
+      .replace(/\{\{subject\}\}/g, subjectNames || "the subject")
+      .replace(/\{\{class_level\}\}/g, classLevel)
+      .replace(/\{\{question_count\}\}/g, String(count))
+      .replace(/\{\{marks_per_question\}\}/g, String(marksPerQuestion))
+      .replace(/\{\{grounding_percentage\}\}/g, String(groundingPercentage))
+      .replace(/\{\{difficulty_distribution\}\}/g, `${eC} Easy, ${mC} Medium, ${hC} Hard`)
+      .replace(/\{\{lesson_note_content\}\}/g, combinedContent.slice(0, 4000))
+      .replace(/\{\{topic\}\}/g, topic)
+      .replace(/\{\{theme_or_aspect\}\}/g, notes[0]?.class?.name ?? classLevel);
 
-  const result = await createCompletion({
-    taskType: "question_generation",
-    schoolId: ctx.schoolId,
-    messages: [
-      { role: "system", content: filledSystemContent },
-      {
-        role: "user",
-        content: `Generate exactly ${questionCount} ${isMcq ? "MCQ" : "essay"} question${questionCount !== 1 ? "s" : ""} now.
+  /** Call the AI for a single chunk and return parsed questions. */
+  async function generateChunk(chunkCount: number, eC: number, mC: number, hC: number) {
+    const systemContent = buildSystemContent(chunkCount, eC, mC, hC);
+    const result = await createCompletion({
+      taskType: "question_generation",
+      schoolId: ctx.schoolId,
+      messages: [
+        { role: "system", content: systemContent },
+        {
+          role: "user",
+          content: `Generate exactly ${chunkCount} ${isMcq ? "MCQ" : "essay"} question${chunkCount !== 1 ? "s" : ""} now.
 
 Subject: ${subjectNames || "the subject"}
 Class: ${classLevel}
-Number of questions: ${questionCount}
+Number of questions: ${chunkCount}
 Marks per question: ${marksPerQuestion}
 Grounding percentage: ${groundingPercentage}
-Difficulty distribution: ${easyCount} Easy, ${mediumCount} Medium, ${hardCount} Hard
+Difficulty distribution: ${eC} Easy, ${mC} Medium, ${hC} Hard
 
 ${isMcq ? "" : `Lesson note content:\n${combinedContent.slice(0, 6000)}`}
 
-Remember: the "questions" array must have exactly ${questionCount} item${questionCount !== 1 ? "s" : ""}. Output JSON only.`,
-      },
-    ],
-    temperature: 0.6,
-    // MCQ: each question ~300 tokens (stem + 4 options + rationale + fields) × count + JSON overhead
-    // Essay: each question ~800 tokens (stem + model answer + rubric) × count + JSON overhead
-    maxTokens: isMcq ? Math.max(4096, questionCount * 400 + 500) : Math.max(8192, questionCount * 900 + 500),
-  });
-
-  // Parse the AI JSON response — strip markdown fences first
-  let cleanContent = result.content.trim();
-  cleanContent = cleanContent.replace(/^```(?:json)?\s*([\s\S]*?)```$/i, "$1").trim();
-  const jsonStart = cleanContent.search(/[{[]/);
-  if (jsonStart > 0) cleanContent = cleanContent.slice(jsonStart);
-
-  // Fix common JSON issues: trailing commas, missing brackets, unterminated strings
-  cleanContent = fixJson(cleanContent);
-
-  // One more pass: try to locate the outermost { … } block and extract only that
-  const outermostObj = (() => {
-    const start = cleanContent.indexOf("{");
-    if (start < 0) return cleanContent;
-    let depth = 0;
-    let inStr = false;
-    let esc = false;
-    for (let i = start; i < cleanContent.length; i++) {
-      const ch = cleanContent[i];
-      if (esc) { esc = false; continue; }
-      if (ch === "\\") { esc = true; continue; }
-      if (ch === '"') { inStr = !inStr; continue; }
-      if (inStr) continue;
-      if (ch === "{") depth++;
-      if (ch === "}") { depth--; if (depth === 0) { return cleanContent.slice(start, i + 1); } }
-    }
-    return cleanContent;
-  })();
-
-  if (outermostObj && outermostObj !== cleanContent) {
-    // Re-run fixJson on the extracted block in case braces inside strings confused it
-    cleanContent = outermostObj;
+Remember: the "questions" array must have exactly ${chunkCount} item${chunkCount !== 1 ? "s" : ""}. Output JSON only.`,
+        },
+      ],
+      temperature: 0.6,
+      maxTokens: isMcq
+        ? Math.min(Math.max(4096, chunkCount * 800 + 1000), 32768)
+        : Math.min(Math.max(8192, chunkCount * 1200 + 1000), 32768),
+    });
+    return result;
   }
 
-  let parsed: { questions?: unknown[] } = {};
-  let parseError = "";
-  try {
-    parsed = JSON.parse(cleanContent);
-  } catch (e) {
-    // Try again with more aggressive fixes
-    const moreFixed = cleanContent
-      .replace(/,\s*([}\]])/g, "$1")       // remove trailing commas
-      .replace(/\/\/.*/g, "")               // remove // comments
-      .replace(/\/\*[\s\S]*?\*\//g, "");    // remove /* */ comments
+  /** Parse AI response into question objects, with truncation salvage. */
+  function parseAIResponse(rawContent: string): { questions: unknown[]; parseError: string } {
+    let clean = rawContent.trim();
+    clean = clean.replace(/^```(?:json)?\s*([\s\S]*?)```$/i, "$1").trim();
+    const jsonStart = clean.search(/[{[]/);
+    if (jsonStart > 0) clean = clean.slice(jsonStart);
+    clean = fixJson(clean);
+
+    // locate outermost { … } block
+    const outermostObj = (() => {
+      const start = clean.indexOf("{");
+      if (start < 0) return clean;
+      let depth = 0, inStr = false, esc = false;
+      for (let i = start; i < clean.length; i++) {
+        const ch = clean[i];
+        if (esc) { esc = false; continue; }
+        if (ch === "\\") { esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (ch === "{") depth++;
+        if (ch === "}") { depth--; if (depth === 0) return clean.slice(start, i + 1); }
+      }
+      return clean;
+    })();
+    if (outermostObj && outermostObj !== clean) clean = outermostObj;
+
+    // Salvage: extract complete question objects from truncated array
+    function salvage(raw: string): { questions?: unknown[] } {
+      const items: unknown[] = [];
+      let i = 0, inStr = false, esc = false, depth = 0, objStart = -1;
+      while (i < raw.length) {
+        const ch = raw[i];
+        if (esc) { esc = false; i++; continue; }
+        if (ch === "\\") { esc = true; i++; continue; }
+        if (ch === '"') { inStr = !inStr; i++; continue; }
+        if (inStr) { i++; continue; }
+        if (ch === "{") {
+          if (depth === 0) objStart = i;
+          depth++;
+        } else if (ch === "}") {
+          depth--;
+          if (depth === 0 && objStart >= 0) {
+            try {
+              const obj = JSON.parse(raw.slice(objStart, i + 1)) as Record<string, unknown>;
+              if (typeof obj.question_text === "string" && Array.isArray(obj.options)) items.push(obj);
+            } catch { /* skip */ }
+            objStart = -1;
+          }
+        }
+      }
+      return items.length > 0 ? { questions: items } : {};
+    }
+
     try {
-      parsed = JSON.parse(moreFixed);
-    } catch (e2) {
-      parseError = String(e2);
+      const parsed = JSON.parse(clean);
+      return { questions: Array.isArray(parsed.questions) ? parsed.questions : [], parseError: "" };
+    } catch (e) {
+      const salvaged = salvage(clean);
+      if ((salvaged.questions?.length ?? 0) > 0) {
+        return { questions: salvaged.questions ?? [], parseError: "" };
+      }
+      // aggressive cleanup fallback
+      const moreFixed = clean
+        .replace(/,\s*([}\]])/g, "$1")
+        .replace(/\/\/.*/g, "")
+        .replace(/\/\*[\s\S]*?\*\//g, "");
+      try {
+        const parsed = JSON.parse(moreFixed);
+        return { questions: Array.isArray(parsed.questions) ? parsed.questions : [], parseError: "" };
+      } catch (e2) {
+        return { questions: [], parseError: String(e2) };
+      }
     }
   }
 
-  const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
+  // ── Chunked generation: for large batches (>15), generate 10 at a time ──
+  const CHUNK_THRESHOLD = 15;
+  const CHUNK_SIZE = 10;
+  const allQuestions: unknown[] = [];
 
-  if (questions.length === 0) {
-    console.error("===== AI JSON PARSE FAILED =====");
-    console.error("Parse error:", parseError);
-    console.error("Raw AI response length:", result.content.length);
-    console.error("Clean content length:", cleanContent.length);
-    console.error("Clean content (first 500):", cleanContent.slice(0, 500));
-    console.error("Clean content (last 2000):", cleanContent.slice(-2000));
-    console.error("===== END AI OUTPUT =====");
-    return { error: `AI returned invalid JSON. The provider may be overloaded or the model may not support structured output. ${parseError ? `Parse error: ${parseError.slice(0, 100)}` : "No questions found in response."}` };
+  if (questionCount <= CHUNK_THRESHOLD) {
+    const result = await generateChunk(questionCount, easyCount, mediumCount, hardCount);
+    const parsed = parseAIResponse(result.content);
+    if (parsed.questions.length > 0) allQuestions.push(...parsed.questions);
+    if (parsed.questions.length === 0 && parsed.parseError) {
+      console.error("===== AI JSON PARSE FAILED =====");
+      console.error("Parse error:", parsed.parseError);
+      console.error("Raw length:", result.content.length);
+      console.error("Clean (first 500):", result.content.slice(0, 500));
+      console.error("Clean (last 2000):", result.content.slice(-2000));
+      return { error: `AI returned invalid JSON. The provider may be overloaded or the model may not support structured output. ${parsed.parseError ? `Parse error: ${parsed.parseError.slice(0, 100)}` : "No questions found."}` };
+    }
   } else {
+    let remaining = questionCount;
+    let attempts = 0;
+    const maxAttempts = Math.ceil(questionCount / CHUNK_SIZE) * 2;
+
+    while (remaining > 0 && attempts < maxAttempts) {
+      const chunkCount = Math.min(CHUNK_SIZE, remaining);
+      const eC = Math.round(chunkCount * 0.4);
+      const mC = Math.round(chunkCount * 0.4);
+      const hC = chunkCount - eC - mC;
+      attempts++;
+
+      const result = await generateChunk(chunkCount, eC, mC, hC);
+      const parsed = parseAIResponse(result.content);
+      const newQuestions = Array.isArray(parsed.questions) ? parsed.questions : [];
+      allQuestions.push(...newQuestions);
+      remaining -= newQuestions.length;
+
+      if (newQuestions.length === 0) {
+        console.error(`Chunk ${attempts} produced 0 questions (${remaining} remaining)`);
+      }
+    }
+  }
+
+  const questions = allQuestions;
     for (const q of questions) {
       const qm = q as Record<string, unknown>;
       const qText = String(qm.question_text ?? "");
@@ -691,7 +751,6 @@ Remember: the "questions" array must have exactly ${questionCount} item${questio
         });
       }
     }
-  }
 
   await recordAudit({
     schoolId: ctx.schoolId,

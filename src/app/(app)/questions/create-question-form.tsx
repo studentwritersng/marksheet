@@ -359,7 +359,7 @@ export function CreateQuestionForm({
               </select>
             </div>
             <div>
-              <label className="mb-1 block font-label-md text-label-md text-on-surface">Topic *</label>
+              <label className="mb-1 block font-label-md text-label-md text-on-surface">Question topic *</label>
               <input
                 type="text"
                 name="topic"

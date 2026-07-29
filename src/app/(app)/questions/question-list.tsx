@@ -4,7 +4,9 @@ import { useState, useTransition, useMemo } from "react";
 import {
   approveQuestionAction, rejectQuestionAction, deleteQuestionAction,
   bulkApproveQuestionsAction, bulkDeleteQuestionsAction, bulkEditTopicAction,
+  type ActionState,
 } from "./actions";
+import { ExportButtons } from "@/components/export-buttons";
 
 interface QuestionVM {
   id: string;
@@ -312,32 +314,41 @@ export function QuestionList({
                           {/* Expanded question details */}
                           {qExpanded && (
                             <div className="border-t border-outline-variant bg-surface-container-low px-4 py-3">
-                              <p className="font-body-md text-body-md text-on-surface whitespace-pre-wrap mb-3">{q.text}</p>
-                              {q.mcqOptions.length > 0 && (
-                                <div className="mb-3 space-y-1">
-                                  <p className="font-label-sm text-label-sm text-on-surface mb-1">Options:</p>
-                                  {q.mcqOptions.map((o) => (
-                                    <div
-                                      key={o.id}
-                                      className={`rounded px-2 py-1 font-label-sm text-label-sm ${
-                                        o.isCorrect
-                                          ? "bg-secondary-container font-medium text-on-secondary-container"
-                                          : "text-on-surface-variant"
-                                      }`}
-                                    >
-                                      {o.isCorrect ? "✓ " : ""}{o.text}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              {q.modelAnswer && (
-                                <div>
-                                  <p className="mb-1 font-label-sm text-label-sm text-on-surface">Model answer:</p>
-                                  <p className="rounded bg-surface-container-lowest px-2 py-1 font-label-sm text-label-sm text-on-surface whitespace-pre-wrap">
-                                    {q.modelAnswer}
-                                  </p>
-                                </div>
-                              )}
+                              <div id={`question-print-${q.id}`} className="space-y-3">
+                                <p className="font-body-md text-body-md text-on-surface whitespace-pre-wrap mb-1">{q.text}</p>
+                                {q.mcqOptions.length > 0 && (
+                                  <div className="space-y-1">
+                                    <p className="font-label-sm text-label-sm text-on-surface mb-1">Options:</p>
+                                    {q.mcqOptions.map((o) => (
+                                      <div
+                                        key={o.id}
+                                        className={`rounded px-2 py-1 font-label-sm text-label-sm ${
+                                          o.isCorrect
+                                            ? "bg-secondary-container font-medium text-on-secondary-container"
+                                            : "text-on-surface-variant"
+                                        }`}
+                                      >
+                                        {o.isCorrect ? "✓ " : ""}{o.text}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {q.modelAnswer && (
+                                  <div>
+                                    <p className="mb-1 font-label-sm text-label-sm text-on-surface">Model answer:</p>
+                                    <p className="rounded bg-surface-container-lowest px-2 py-1 font-label-sm text-label-sm text-on-surface whitespace-pre-wrap">
+                                      {q.modelAnswer}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-3">
+                                <ExportButtons
+                                  contentId={`question-print-${q.id}`}
+                                  filename={`Question_${q.id}`}
+                                  pdfTitle={q.text.slice(0, 60)}
+                                />
+                              </div>
                             </div>
                           )}
                         </div>
