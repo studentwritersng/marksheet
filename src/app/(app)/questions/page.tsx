@@ -52,24 +52,25 @@ export default async function QuestionsPage() {
       </div>
 
       <div className="mt-8">
-        <QuestionList
-          questions={questions.map((q) => ({
-            id: q.id,
-            topic: q.topic,
-            text: q.text,
-            type: q.type,
-            marks: q.marks,
-            subject: q.subject.name,
-            classLevel: q.classLevel,
-            status: q.status,
-            source: q.source,
-            difficulty: q.difficulty,
-            mcqOptions: q.mcqOptions.map((o) => ({ id: o.id, text: o.optionText, isCorrect: o.isCorrect })),
-            modelAnswer: q.essaySpec?.modelAnswer ?? null,
-          }))}
-          classLevels={uniqueClassLevels}
-          subjects={subjects.map((s) => s.name)}
-        />
+      <QuestionList
+        questions={questions.map((q) => ({
+          id: q.id,
+          topic: q.topic,
+          text: q.text,
+          type: q.type,
+          marks: q.marks,
+          subject: q.subject.name,
+          subjectId: q.subjectId,
+          classLevel: q.classLevel,
+          status: q.status,
+          source: q.source,
+          difficulty: q.difficulty,
+          mcqOptions: q.mcqOptions.map((o) => ({ id: o.id, text: o.optionText, isCorrect: o.isCorrect })),
+          modelAnswer: q.essaySpec?.modelAnswer ?? null,
+        }))}
+        classLevels={uniqueClassLevels}
+        subjects={subjects.map((s) => s.name)}
+      />
       </div>
     </div>
   );

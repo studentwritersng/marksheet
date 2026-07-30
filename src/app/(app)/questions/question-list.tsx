@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useRef, useActionState } from "react";
 import {
   approveQuestionAction, rejectQuestionAction, deleteQuestionAction,
   bulkApproveQuestionsAction, bulkDeleteQuestionsAction, bulkEditTopicAction,
+  updateQuestionAction,
   type ActionState,
 } from "./actions";
 import { ExportButtons } from "@/components/export-buttons";
+import { exportToDOC } from "@/lib/export/doc";
 
 interface QuestionVM {
   id: string;
@@ -15,6 +17,7 @@ interface QuestionVM {
   type: string;
   marks: number;
   subject: string;
+  subjectId: string;
   classLevel: string | null;
   status: string;
   source: string;
@@ -50,6 +53,7 @@ export function QuestionList({
   const [filterStatus, setFilterStatus] = useState("all");
   const [editingTopic, setEditingTopic] = useState<string | null>(null);
   const [editTopicValue, setEditTopicValue] = useState("");
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return questions.filter((q) => {
@@ -130,6 +134,47 @@ export function QuestionList({
     });
   }
 
+  function handleBulkExportDOC() {
+    if (filtered.length === 0) { alert("No questions to export."); return; }
+    const html = filtered.map((q, i) => `
+      <h2>${i + 1}. ${q.text.replace(/</g, "&lt;")}</h2>
+      <p><strong>Type:</strong> ${q.type.toUpperCase()} · <strong>Marks:</strong> ${q.marks} · <strong>Difficulty:</strong> ${q.difficulty ?? "N/A"} · <strong>Source:</strong> ${q.source}</p>
+      ${q.classLevel ? `<p><strong>Class Level:</strong> ${q.classLevel}</p>` : ""}
+      ${q.topic ? `<p><strong>Topic:</strong> ${q.topic}</p>` : ""}
+      ${q.mcqOptions.length > 0 ? `<h4>Options:</h4>` + q.mcqOptions.map((o, oi) =>
+        `<p>${String.fromCharCode(65 + oi)}. ${o.isCorrect ? "<strong>✓ </strong>" : ""}${o.text.replace(/</g, "&lt;")}</p>`
+      ).join("") : ""}
+      ${q.modelAnswer ? `<h4>Model Answer:</h4><p>${q.modelAnswer.replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>` : ""}
+      <hr/>
+    `).join("");
+    exportToDOC(html, `Questions_${new Date().toISOString().slice(0, 10)}`, "Question Bank Export");
+  }
+
+  function handleBulkPrint() {
+    if (filtered.length === 0) { alert("No questions to print."); return; }
+    const printWin = window.open("", "_blank", "width=800,height=600");
+    if (!printWin) return;
+    const html = filtered.map((q, i) => `
+      <div style="margin-bottom: 24pt; page-break-inside: avoid;">
+        <p style="font-weight: bold; font-size: 12pt;">${i + 1}. ${q.text.replace(/</g, "&lt;")}</p>
+        <p style="font-size: 11pt; color: #555;">${q.type.toUpperCase()} | ${q.marks} mark(s) | ${q.difficulty ?? "N/A"} | ${q.source}</p>
+        ${q.classLevel ? `<p style="font-size: 11pt;">Class: ${q.classLevel}</p>` : ""}
+        ${q.topic ? `<p style="font-size: 11pt;">Topic: ${q.topic}</p>` : ""}
+        ${q.mcqOptions.length > 0 ? `<p style="font-weight: bold; margin-top: 6pt;">Options:</p>` + q.mcqOptions.map((o, oi) =>
+          `<p style="margin-left: 12pt; font-size: 11pt;">${String.fromCharCode(65 + oi)}. ${o.isCorrect ? "<strong>✓ </strong>" : ""}${o.text.replace(/</g, "&lt;")}</p>`
+        ).join("") : ""}
+        ${q.modelAnswer ? `<p style="font-weight: bold; margin-top: 6pt;">Model Answer:</p><p style="margin-left: 12pt; font-size: 11pt;">${q.modelAnswer.replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>` : ""}
+        <hr/>
+      </div>
+    `).join("");
+    printWin.document.write(`<!DOCTYPE html><html><head><title>Print Questions</title>
+      <style>body{font-family:"Times New Roman",serif;margin:2cm;}hr{border:none;border-top:1pt solid #ccc;margin:12pt 0;}</style>
+    </head><body>${html}</body></html>`);
+    printWin.document.close();
+    printWin.focus();
+    printWin.print();
+  }
+
   return (
     <div className="space-y-4">
       {/* Filter bar */}
@@ -180,6 +225,29 @@ export function QuestionList({
           ))}
         </div>
       </div>
+
+      {/* Bulk export toolbar */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between bg-surface-container-lowest border border-outline-variant rounded-lg p-3">
+          <p className="font-label-sm text-label-sm text-on-surface-variant">
+            Showing {filtered.length} question{filtered.length !== 1 ? "s" : ""}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBulkExportDOC}
+              className="rounded bg-primary px-3 py-1.5 font-label-sm text-label-sm text-on-primary hover:bg-primary-container"
+            >
+              Export All to DOC
+            </button>
+            <button
+              onClick={handleBulkPrint}
+              className="rounded border border-outline-variant px-3 py-1.5 font-label-sm text-label-sm text-on-surface hover:bg-surface-container"
+            >
+              Print All
+            </button>
+          </div>
+        </div>
+      )}
 
       {groups.length === 0 && (
         <p className="font-body-sm text-body-sm text-on-surface-variant py-8 text-center">
@@ -308,11 +376,27 @@ export function QuestionList({
                               >
                                 Delete
                               </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEditingQuestionId(q.id); }}
+                                disabled={pending}
+                                className="font-label-sm text-label-sm text-primary hover:underline disabled:opacity-60"
+                              >
+                                Edit
+                              </button>
                             </div>
                           </div>
 
+                          {/* Inline edit form */}
+                          {editingQuestionId === q.id && (
+                            <EditQuestionForm
+                              question={q}
+                              onSaved={() => setEditingQuestionId(null)}
+                              onCancel={() => setEditingQuestionId(null)}
+                            />
+                          )}
+
                           {/* Expanded question details */}
-                          {qExpanded && (
+                          {qExpanded && !editingQuestionId && (
                             <div className="border-t border-outline-variant bg-surface-container-low px-4 py-3">
                               <div id={`question-print-${q.id}`} className="space-y-3">
                                 <p className="font-body-md text-body-md text-on-surface whitespace-pre-wrap mb-1">{q.text}</p>
@@ -362,6 +446,118 @@ export function QuestionList({
         })}
       </div>
     </div>
+  );
+}
+
+function EditQuestionForm({ question, onSaved, onCancel }: { question: QuestionVM; onSaved: () => void; onCancel: () => void }) {
+  const [state, formAction] = useActionState(updateQuestionAction, {});
+  const [type, setType] = useState(question.type);
+  const [optA, setOptA] = useState(question.mcqOptions[0]?.text ?? "");
+  const [optB, setOptB] = useState(question.mcqOptions[1]?.text ?? "");
+  const [optC, setOptC] = useState(question.mcqOptions[2]?.text ?? "");
+  const [optD, setOptD] = useState(question.mcqOptions[3]?.text ?? "");
+  const [correct, setCorrect] = useState(() => {
+    const idx = question.mcqOptions.findIndex((o) => o.isCorrect);
+    return idx >= 0 ? String.fromCharCode(65 + idx) : "A";
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSaving(true);
+    const fd = new FormData(e.currentTarget);
+    fd.append("questionId", question.id);
+    const res = await updateQuestionAction({}, fd);
+    setSaving(false);
+    if (res.error) alert(res.error);
+    else onSaved();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="border-t border-outline-variant bg-surface-container-low px-4 py-4 space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Question Text</label>
+          <textarea name="text" required defaultValue={question.text} rows={3}
+            className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm" />
+        </div>
+        <div>
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Type</label>
+          <select name="type" value={type} onChange={(e) => setType(e.target.value)}
+            className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm">
+            <option value="mcq">MCQ</option>
+            <option value="essay">Essay</option>
+          </select>
+        </div>
+        <div>
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Marks</label>
+          <input type="number" name="marks" min={1} step={0.5} defaultValue={question.marks}
+            className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm" />
+        </div>
+        <div>
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Topic</label>
+          <input type="text" name="topic" defaultValue={question.topic ?? ""}
+            className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm" />
+        </div>
+        <div>
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Class Level</label>
+          <input type="text" name="classLevel" defaultValue={question.classLevel ?? ""}
+            className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm" />
+        </div>
+        <div>
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Difficulty</label>
+          <select name="difficulty" defaultValue={question.difficulty ?? ""}
+            className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm">
+            <option value="">—</option>
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+        </div>
+      </div>
+
+      {type === "mcq" && (
+        <div className="space-y-2">
+          <p className="font-label-sm text-label-sm text-on-surface-variant font-medium">Options</p>
+          {[
+            { label: "A", value: optA, set: setOptA },
+            { label: "B", value: optB, set: setOptB },
+            { label: "C", value: optC, set: setOptC },
+            { label: "D", value: optD, set: setOptD },
+          ].map(({ label, value, set }) => (
+            <div key={label} className="flex items-center gap-2">
+              <input type="radio" name="correctAnswer" value={label} checked={correct === label}
+                onChange={() => setCorrect(label)} className="text-[#002046]" />
+              <input type="text" value={value} onChange={(e) => set(e.target.value)} name={`option${label}`}
+                className="flex-1 border border-outline-variant rounded p-1.5 font-body-sm text-body-sm" required />
+            </div>
+          ))}
+          <input type="hidden" name="correctAnswer" value={correct} />
+        </div>
+      )}
+
+      {type === "essay" && (
+        <div className="space-y-2">
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Model Answer</label>
+          <textarea name="modelAnswer" required defaultValue={question.modelAnswer ?? ""} rows={4}
+            className="w-full border border-outline-variant rounded p-2 font-body-sm text-body-sm" />
+        </div>
+      )}
+
+      <input type="hidden" name="subjectId" value={question.subjectId} />
+      <input type="hidden" name="rubricPoints" value={JSON.stringify([])} />
+
+      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state.success && <p className="text-sm text-green-600">{state.success}</p>}
+      <div className="flex gap-2">
+        <button type="submit" disabled={saving}
+          className="bg-[#002046] text-white text-sm px-3 py-1.5 rounded hover:bg-[#003366] disabled:opacity-60">
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="text-sm text-on-surface-variant px-3 py-1.5 border border-outline-variant rounded">Cancel</button>
+      </div>
+    </form>
   );
 }
 

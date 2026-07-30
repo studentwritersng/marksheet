@@ -77,8 +77,14 @@ export function buildNav(
       { label: "Addons", href: "/addons", icon: "extension" },
       { label: "Support Tickets", href: "/tickets", icon: "support" },
     );
+  } else if (perms.isExamOfficer) {
+    items.push(
+      { label: "Exam Review", href: "/exams/review", icon: "rate_review" },
+      { label: "All Exams", href: "/exams", icon: "quiz" },
+    );
   } else if (user.role === "parent") {
     items.push(
+      { label: "Messages", href: "/messages", icon: "chat" },
       { label: "My Wards", href: "/parent", icon: "family_history" },
       { label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" },
       { label: "Notification Prefs", href: "/parent/settings", icon: "notifications" },
@@ -95,12 +101,8 @@ export function buildNav(
       studentItems.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });
     }
     items.push(...studentItems);
-  } else if (perms.isExamOfficer) {
-    items.push(
-      { label: "Exam Review", href: "/exams/review", icon: "rate_review" },
-      { label: "All Exams", href: "/exams", icon: "quiz" },
-    );
   } else {
+    // Generic staff (teachers, HODs, receptionists, etc.)
     if (
       perms.subjectTeacherClassIds.size > 0 ||
       perms.classTeacherClassIds.size > 0
@@ -117,7 +119,6 @@ export function buildNav(
     }
     if (perms.classTeacherClassIds.size > 0) {
       items.push({ label: "Students", href: "/students?view=teacher", icon: "group" });
-      // Class teachers get their own Results submenu scoped to their classes
       items.push({
         label: "Results", icon: "analytics", children: [
           { label: "Result", href: "/results", icon: "analytics" },
@@ -130,10 +131,8 @@ export function buildNav(
     if (perms.isFeeStatusManager) {
       items.push({ label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" });
     }
+    items.push({ label: "Messages", href: "/messages", icon: "chat" });
   }
-
-  // Announcements link for all school users
-  items.push({ label: "Announcements", href: "/announcements", icon: "campaign" });
 
   // Profile link for all school users
   items.push({ label: "My Profile", href: "/settings/profile", icon: "person" });

@@ -129,6 +129,97 @@ export async function createQuestionAction(
   return { success: `Question created (${type}). Needs review before approval.` };
 }
 
+/** Update an existing question (text, marks, topic, classLevel, options, etc). */
+export async function updateQuestionAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let ctx;
+  try {
+    ctx = await requireSchoolAdmin();
+  } catch {
+    return { error: "Not authorised." };
+  }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const questionId = String(formData.get("questionId") ?? "");
+  const subjectId = String(formData.get("subjectId") ?? "");
+  const type = String(formData.get("type") ?? "");
+  const text = String(formData.get("text") ?? "").trim();
+  const marks = Number(formData.get("marks") ?? 1);
+  const difficulty = String(formData.get("difficulty") ?? "").trim() || null;
+  const topic = String(formData.get("topic") ?? "").trim() || null;
+  const classLevel = String(formData.get("classLevel") ?? "").trim() || null;
+  const modelAnswer = String(formData.get("modelAnswer") ?? "").trim();
+  const rubricJson = String(formData.get("rubricPoints") ?? "");
+  const optionA = String(formData.get("optionA") ?? "").trim();
+  const optionB = String(formData.get("optionB") ?? "").trim();
+  const optionC = String(formData.get("optionC") ?? "").trim();
+  const optionD = String(formData.get("optionD") ?? "").trim();
+  const correctAnswer = String(formData.get("correctAnswer") ?? "").trim();
+
+  if (!questionId) return { error: "Missing question ID." };
+  if (!subjectId || !text) return { error: "Subject and question text are required." };
+  if (type === "mcq" && !correctAnswer) return { error: "Select the correct answer for MCQ." };
+  if (type === "essay" && !modelAnswer) return { error: "Model answer is required for essay questions." };
+
+  const existing = await prisma.question.findUnique({ where: { id: questionId } });
+  if (!existing || existing.schoolId !== ctx.schoolId) return { error: "Question not found." };
+
+  let rubricPoints = [];
+  if (rubricJson) {
+    try { rubricPoints = JSON.parse(rubricJson); } catch { return { error: "Invalid rubric JSON." }; }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.question.update({
+      where: { id: questionId },
+      data: {
+        subjectId,
+        topic,
+        classLevel,
+        type: type === "mcq" ? "mcq" : "essay",
+        text,
+        marks,
+        difficulty,
+        ...(type === "essay"
+          ? {
+              essaySpec: {
+                upsert: {
+                  create: { modelAnswer, rubricPoints: rubricPoints.length > 0 ? rubricPoints : [{ description: "General correctness", mark: marks }] },
+                  update: { modelAnswer, rubricPoints: rubricPoints.length > 0 ? rubricPoints : [{ description: "General correctness", mark: marks }] },
+                },
+              },
+            }
+          : {}),
+      },
+    });
+
+    if (type === "mcq") {
+      await tx.mcqOption.deleteMany({ where: { questionId } });
+      const options = [
+        { optionText: optionA, isCorrect: correctAnswer === "A" },
+        { optionText: optionB, isCorrect: correctAnswer === "B" },
+        { optionText: optionC, isCorrect: correctAnswer === "C" },
+        { optionText: optionD, isCorrect: correctAnswer === "D" },
+      ].filter((o) => o.optionText);
+      for (const opt of options) {
+        await tx.mcqOption.create({ data: { questionId, optionText: opt.optionText, isCorrect: opt.isCorrect } });
+      }
+    }
+  });
+
+  await recordAudit({
+    schoolId: ctx.schoolId, actorId: ctx.user.userId,
+    action: "update", entityType: "question",
+    entityId: questionId,
+    afterValue: { subjectId, type, text, marks } as never,
+  });
+
+  revalidatePath("/questions");
+  return { success: "Question updated." };
+}
+
 /** AI-generate questions from lesson notes. */
 export async function aiGenerateQuestionsAction(
   lessonNoteId: string,
