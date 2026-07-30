@@ -168,15 +168,26 @@ export function ExamsList({
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        {exam.status === "draft" && currentStaffId && exam.createdBy === currentStaffId && !isExamOfficer && (
-                          <button onClick={async () => {
-                            setTogglingId(exam.id);
-                            await submitExamForReviewAction(exam.id);
-                            setTogglingId(null);
-                          }} disabled={togglingId === exam.id}
-                            className="text-primary font-label-sm text-label-sm hover:underline disabled:opacity-60">
-                            {togglingId === exam.id ? "Submitting…" : "Submit for Review"}
-                          </button>
+                        {exam.status === "draft" && !isExamOfficer && (
+                          currentStaffId && exam.createdBy === currentStaffId ? (
+                            <button onClick={async () => {
+                              setTogglingId(exam.id);
+                              await submitExamForReviewAction(exam.id);
+                              setTogglingId(null);
+                            }} disabled={togglingId === exam.id}
+                              className="text-primary font-label-sm text-label-sm hover:underline disabled:opacity-60">
+                              {togglingId === exam.id ? "Submitting…" : "Submit for Review"}
+                            </button>
+                          ) : canPublish ? (
+                            <button onClick={async () => {
+                              setTogglingId(exam.id);
+                              await submitExamForReviewAction(exam.id);
+                              setTogglingId(null);
+                            }} disabled={togglingId === exam.id}
+                              className="text-primary font-label-sm text-label-sm hover:underline disabled:opacity-60">
+                              {togglingId === exam.id ? "Submitting…" : "Submit for Review"}
+                            </button>
+                          ) : null
                         )}
                         {exam.status === "pending_review" && isExamOfficer && (
                           <>

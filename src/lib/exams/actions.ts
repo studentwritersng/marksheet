@@ -197,8 +197,10 @@ export async function submitExamForReviewAction(examId: string): Promise<ActionS
   if (exam.status !== "draft" && exam.status !== "rejected") {
     return { error: "Only draft or rejected exams can be submitted for review." };
   }
-  if (!exam.createdBy || exam.createdBy !== ctx.user.staffId) {
-    return { error: "Only the creator can submit this exam for review." };
+  const isCreator = exam.createdBy && exam.createdBy === ctx.user.staffId;
+  const isAdmin = canPublishExams(ctx.perms);
+  if (!isCreator && !isAdmin) {
+    return { error: "Only the creator or an admin can submit this exam for review." };
   }
 
   await prisma.exam.update({
