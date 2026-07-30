@@ -23,6 +23,7 @@ export function AssignmentForm({
   const [assignmentType, setAssignmentType] = useState("subject_teacher");
 
   const showSubject = assignmentType === "subject_teacher" || assignmentType === "hod";
+  const showClass = !["exam_officer", "school_admin", "fee_status_manager", "receptionist"].includes(assignmentType);
 
   // Group classes by level for the dropdown
   const groupedClasses = useMemo(() => {
@@ -83,17 +84,19 @@ export function AssignmentForm({
         </select>
       </div>
 
-      <div>
-        <label htmlFor="classId" className="mb-1 block font-label-md text-label-md text-on-surface">Class</label>
-        <select id="classId" name="classId" value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} className="border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
-          <option value="">— Select class —</option>
-          {groupedClasses.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.level}{g.count > 1 ? ` (×${g.count})` : ""}
-            </option>
-          ))}
-        </select>
-      </div>
+      {showClass && (
+        <div>
+          <label htmlFor="classId" className="mb-1 block font-label-md text-label-md text-on-surface">Class</label>
+          <select id="classId" name="classId" value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} className="border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
+            <option value="">— Select class —</option>
+            {groupedClasses.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.level}{g.count > 1 ? ` (×${g.count})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {showSubject && (
         <div>
