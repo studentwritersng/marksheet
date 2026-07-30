@@ -72,14 +72,16 @@ export function ExamsList({
       {/* Filters & Create */}
       <div className="flex flex-wrap items-center gap-4">
         <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}
-          className="border border-outline-variant rounded px-3 py-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary"
+          className="border border-outline-variant rounded px-3 py-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
         ><option value="">All subjects</option>{subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
         <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}
-          className="border border-outline-variant rounded px-3 py-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary"
+          className="border border-outline-variant rounded px-3 py-2 font-body-sm text-body-sm text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
         ><option value="">All classes</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <button onClick={() => setShowCreate(!showCreate)}
-          className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366]"
-        >{showCreate ? "Cancel" : "Create Exam"}</button>
+        {!isExamOfficer && (
+          <button onClick={() => setShowCreate(!showCreate)}
+            className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366]"
+          >{showCreate ? "Cancel" : "Create Exam"}</button>
+        )}
       </div>
 
       {/* Create form */}

@@ -85,6 +85,22 @@ export default async function ExamDetailPage(props: {
   const termLabel = `${exam.term.name} (${exam.term.session.label})`;
   const totalParentMarks = subWeights.reduce((s, sw) => s + sw.weightPercentage, 0);
 
+  // For exam officers: fetch full question data for review
+  const isOfficer = canReviewExams(perms);
+  const examQuestionsFull = isOfficer
+    ? await prisma.examQuestion.findMany({
+        where: { examId: id },
+        include: {
+          question: {
+            include: {
+              mcqOptions: true,
+              group: { select: { id: true } },
+            },
+          },
+        },
+      })
+    : [];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -138,19 +154,83 @@ export default async function ExamDetailPage(props: {
         </div>
       )}
 
-      {/* Score entry */}
-      <ScoreEntryTable
-        examId={id}
-        components={components}
-        hasQuestionBank={exam.examQuestions.length > 0}
-        students={students.map((s) => ({
-          id: s.id,
-          admissionNumber: s.admissionNumber,
-          fullName: `${s.lastName}, ${s.firstName}`,
-          hasSubmitted: attemptMap.has(s.id),
-        }))}
-        existingManualScores={manualScores}
-      />
+      {/* Score entry or question review */}
+      {isOfficer ? (
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5">
+          <h2 className="font-label-lg text-label-lg text-on-surface font-semibold mb-4">
+            Exam Questions ({examQuestionsFull.length})
+          </h2>
+          {examQuestionsFull.length === 0 ? (
+            <p className="font-body-sm text-body-sm text-on-surface-variant">No questions added to this exam yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {examQuestionsFull.map((eq, idx) => {
+                const q = eq.question;
+                return (
+                  <div key={eq.id} className="bg-surface-container-low rounded-lg p-4 border border-outline-variant">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="font-body-md text-body-md text-on-surface">
+                          <span className="font-semibold mr-2">{idx + 1}.</span>
+                          {q.text}
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                            q.type === "mcq" ? "bg-blue-100 text-blue-700"
+                            : q.type === "essay" ? "bg-amber-100 text-amber-700"
+                            : "bg-surface-variant text-on-surface-variant"
+                          }`}>
+                            {q.type.toUpperCase()}
+                          </span>
+                          <span className="text-xs px-2 py-0.5 rounded font-medium bg-surface-variant text-on-surface-variant">
+                            {q.marks} marks
+                          </span>
+                          {q.classLevel && (
+                            <span className="text-xs px-2 py-0.5 rounded font-medium bg-surface-variant text-on-surface-variant">
+                              {q.classLevel}
+                            </span>
+                          )}
+                          {q.topic && (
+                            <span className="text-xs px-2 py-0.5 rounded font-medium bg-surface-variant text-on-surface-variant">
+                              {q.topic}
+                            </span>
+                          )}
+                        </div>
+                        {q.type === "mcq" && q.mcqOptions.length > 0 && (
+                          <div className="mt-3 ml-6 space-y-1">
+                            {q.mcqOptions.map((opt, oi) => (
+                              <div key={opt.id} className="flex items-center gap-2 text-sm">
+                                <span className="font-label-sm text-label-sm text-on-surface-variant w-6">{String.fromCharCode(65 + oi)}.</span>
+                                <span className="font-body-sm text-body-sm text-on-surface">{opt.optionText}</span>
+                                {opt.isCorrect && (
+                                  <span className="text-xs text-green-700 font-medium">(correct)</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <ScoreEntryTable
+          examId={id}
+          components={components}
+          hasQuestionBank={exam.examQuestions.length > 0}
+          students={students.map((s) => ({
+            id: s.id,
+            admissionNumber: s.admissionNumber,
+            fullName: `${s.lastName}, ${s.firstName}`,
+            hasSubmitted: attemptMap.has(s.id),
+          }))}
+          existingManualScores={manualScores}
+        />
+      )}
     </div>
   );
 }
