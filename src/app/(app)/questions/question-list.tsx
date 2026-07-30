@@ -7,7 +7,6 @@ import {
   updateQuestionAction,
   type ActionState,
 } from "./actions";
-import { ExportButtons } from "@/components/export-buttons";
 import { exportToDOC } from "@/lib/export/doc";
 
 interface QuestionVM {
@@ -134,40 +133,32 @@ export function QuestionList({
     });
   }
 
-  function handleBulkExportDOC() {
-    if (filtered.length === 0) { alert("No questions to export."); return; }
-    const html = filtered.map((q, i) => `
+  function handleTopicExportDOC(topic: string, questions: QuestionVM[]) {
+    const html = questions.map((q, i) => `
       <h2>${i + 1}. ${q.text.replace(/</g, "&lt;")}</h2>
-      <p><strong>Type:</strong> ${q.type.toUpperCase()} · <strong>Marks:</strong> ${q.marks} · <strong>Difficulty:</strong> ${q.difficulty ?? "N/A"} · <strong>Source:</strong> ${q.source}</p>
-      ${q.classLevel ? `<p><strong>Class Level:</strong> ${q.classLevel}</p>` : ""}
-      ${q.topic ? `<p><strong>Topic:</strong> ${q.topic}</p>` : ""}
       ${q.mcqOptions.length > 0 ? `<h4>Options:</h4>` + q.mcqOptions.map((o, oi) =>
         `<p>${String.fromCharCode(65 + oi)}. ${o.isCorrect ? "<strong>✓ </strong>" : ""}${o.text.replace(/</g, "&lt;")}</p>`
       ).join("") : ""}
-      ${q.modelAnswer ? `<h4>Model Answer:</h4><p>${q.modelAnswer.replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>` : ""}
+      ${q.modelAnswer ? `<h4>Answer Key:</h4><p>${q.modelAnswer.replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>` : ""}
       <hr/>
     `).join("");
-    exportToDOC(html, `Questions_${new Date().toISOString().slice(0, 10)}`, "Question Bank Export");
+    exportToDOC(html, `Questions_${topic.replace(/\s+/g, "_")}`, topic);
   }
 
-  function handleBulkPrint() {
-    if (filtered.length === 0) { alert("No questions to print."); return; }
+  function handleTopicPrint(topic: string, questions: QuestionVM[]) {
     const printWin = window.open("", "_blank", "width=800,height=600");
     if (!printWin) return;
-    const html = filtered.map((q, i) => `
+    const html = questions.map((q, i) => `
       <div style="margin-bottom: 24pt; page-break-inside: avoid;">
         <p style="font-weight: bold; font-size: 12pt;">${i + 1}. ${q.text.replace(/</g, "&lt;")}</p>
-        <p style="font-size: 11pt; color: #555;">${q.type.toUpperCase()} | ${q.marks} mark(s) | ${q.difficulty ?? "N/A"} | ${q.source}</p>
-        ${q.classLevel ? `<p style="font-size: 11pt;">Class: ${q.classLevel}</p>` : ""}
-        ${q.topic ? `<p style="font-size: 11pt;">Topic: ${q.topic}</p>` : ""}
         ${q.mcqOptions.length > 0 ? `<p style="font-weight: bold; margin-top: 6pt;">Options:</p>` + q.mcqOptions.map((o, oi) =>
           `<p style="margin-left: 12pt; font-size: 11pt;">${String.fromCharCode(65 + oi)}. ${o.isCorrect ? "<strong>✓ </strong>" : ""}${o.text.replace(/</g, "&lt;")}</p>`
         ).join("") : ""}
-        ${q.modelAnswer ? `<p style="font-weight: bold; margin-top: 6pt;">Model Answer:</p><p style="margin-left: 12pt; font-size: 11pt;">${q.modelAnswer.replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>` : ""}
+        ${q.modelAnswer ? `<p style="font-weight: bold; margin-top: 6pt;">Answer Key:</p><p style="margin-left: 12pt; font-size: 11pt;">${q.modelAnswer.replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>` : ""}
         <hr/>
       </div>
     `).join("");
-    printWin.document.write(`<!DOCTYPE html><html><head><title>Print Questions</title>
+    printWin.document.write(`<!DOCTYPE html><html><head><title>${topic}</title>
       <style>body{font-family:"Times New Roman",serif;margin:2cm;}hr{border:none;border-top:1pt solid #ccc;margin:12pt 0;}</style>
     </head><body>${html}</body></html>`);
     printWin.document.close();
@@ -226,29 +217,6 @@ export function QuestionList({
         </div>
       </div>
 
-      {/* Bulk export toolbar */}
-      {filtered.length > 0 && (
-        <div className="flex items-center justify-between bg-surface-container-lowest border border-outline-variant rounded-lg p-3">
-          <p className="font-label-sm text-label-sm text-on-surface-variant">
-            Showing {filtered.length} question{filtered.length !== 1 ? "s" : ""}
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleBulkExportDOC}
-              className="rounded bg-primary px-3 py-1.5 font-label-sm text-label-sm text-on-primary hover:bg-primary-container"
-            >
-              Export All to DOC
-            </button>
-            <button
-              onClick={handleBulkPrint}
-              className="rounded border border-outline-variant px-3 py-1.5 font-label-sm text-label-sm text-on-surface hover:bg-surface-container"
-            >
-              Print All
-            </button>
-          </div>
-        </div>
-      )}
-
       {groups.length === 0 && (
         <p className="font-body-sm text-body-sm text-on-surface-variant py-8 text-center">
           No questions match the selected filters.
@@ -290,6 +258,20 @@ export function QuestionList({
                   <span className="rounded-full bg-primary-container text-on-primary-container px-2 py-0.5 font-label-sm text-label-sm">
                     {g.questions.length} question{g.questions.length !== 1 ? "s" : ""}
                   </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleTopicExportDOC(g.topic, g.questions); }}
+                    disabled={pending}
+                    className="rounded bg-primary px-2 py-1 font-label-sm text-label-sm text-on-primary hover:bg-primary-container disabled:opacity-60"
+                  >
+                    Export DOC
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleTopicPrint(g.topic, g.questions); }}
+                    disabled={pending}
+                    className="rounded border border-outline-variant px-2 py-1 font-label-sm text-label-sm text-on-surface hover:bg-surface-container disabled:opacity-60"
+                  >
+                    Print
+                  </button>
                   <span className="text-on-surface-variant">{isExpanded ? "▲" : "▼"}</span>
                 </div>
               </button>
@@ -424,30 +406,23 @@ export function QuestionList({
                                       {q.modelAnswer}
                                     </p>
                                   </div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 mt-3">
-                                <ExportButtons
-                                  contentId={`question-print-${q.id}`}
-                                  filename={`Question_${q.id}`}
-                                  pdfTitle={q.text.slice(0, 60)}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+                                 )}
+                               </div>
+                             </div>
+                           )}
+                         </div>
+                       );
+                     })}
+                   </div>
+                 </>
+               )}
+             </div>
+           );
+         })}
+       </div>
+     </div>
+   );
+ }
 
 function EditQuestionForm({ question, onSaved, onCancel }: { question: QuestionVM; onSaved: () => void; onCancel: () => void }) {
   const [state, formAction] = useActionState(updateQuestionAction, {});
