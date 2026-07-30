@@ -220,6 +220,53 @@ export async function createConversationAction(recipientId: string, subject: str
   return { conversationId: conversation.id };
 }
 
+/** Search eligible recipients for messaging based on current user role. */
+export async function searchRecipientsAction(query: string) {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) return { recipients: [] };
+
+  const q = query.toLowerCase();
+  let results: { userId: string; label: string; type: string }[] = [];
+
+  if (user.role === "staff") {
+    const staff = await prisma.user.findMany({
+      where: {
+        schoolId: user.schoolId,
+        role: "staff",
+        id: { not: user.userId },
+        OR: [
+          { email: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, email: true, staffId: true },
+      take: 20,
+    });
+    results = staff.map((u) => ({ userId: u.id, label: u.email, type: "staff" as const }));
+  } else if (user.role === "parent") {
+    const guardian = await prisma.guardian.findFirst({
+      where: { parentUserId: user.userId },
+      include: { student: { select: { schoolId: true } } },
+    });
+    const schoolId = guardian?.student?.schoolId;
+    if (!schoolId) return { recipients: [] };
+
+    const staff = await prisma.user.findMany({
+      where: {
+        schoolId,
+        role: "staff",
+        OR: [
+          { email: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, email: true, staffId: true },
+      take: 20,
+    });
+    results = staff.map((u) => ({ userId: u.id, label: u.email, type: "staff" as const }));
+  }
+
+  return { recipients: results };
+}
+
 /** Get eligible recipients for messaging based on current user role. */
 export async function getMessageRecipientsAction() {
   const user = await getCurrentUser();

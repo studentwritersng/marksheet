@@ -76,6 +76,7 @@ export function buildNav(
       ]},
       { label: "Addons", href: "/addons", icon: "extension" },
       { label: "Support Tickets", href: "/tickets", icon: "support" },
+      { label: "Messages", href: "/messages", icon: "chat" },
     );
   } else if (perms.isExamOfficer) {
     items.push(
