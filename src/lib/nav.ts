@@ -54,6 +54,7 @@ export function buildNav(
       ]},
       { label: "Attendance & Notifications", icon: "notifications", children: [
         { label: "Daily Attendance", href: "/attendance", icon: "fact_check" },
+        { label: "Attendance Spreadsheet", href: "/attendance/spreadsheet", icon: "grid_view" },
         { label: "Notifications", href: "/notifications", icon: "notifications" },
       ]},
       { label: "Results", icon: "analytics", children: [

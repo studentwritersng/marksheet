@@ -545,3 +545,104 @@ export async function scanStudentSignOutAction(
     return { error: e instanceof Error ? e.message : "Unknown error" };
   }
 }
+
+/** Fetch student attendance for a date range (spreadsheet view). */
+export async function getStudentAttendanceSpreadsheet(
+  schoolId: string, classId: string, fromDate: string, toDate: string,
+): Promise<{ rows: { studentId: string; admissionNumber: string; fullName: string; dates: { date: string; status: AttendanceStatus | null }[] }[] }> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) throw new Error("Not authenticated.");
+
+  const from = new Date(fromDate + "T00:00:00");
+  const to = new Date(toDate + "T00:00:00");
+
+  const [students, records] = await Promise.all([
+    prisma.student.findMany({
+      where: { schoolId, currentClassId: classId, status: "active" },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      select: { id: true, admissionNumber: true, firstName: true, lastName: true },
+    }),
+    prisma.attendanceRecord.findMany({
+      where: { schoolId, classId, date: { gte: from, lte: to } },
+      select: { studentId: true, date: true, status: true },
+    }),
+  ]);
+
+  const recordMap = new Map<string, { date: string; status: AttendanceStatus | null }[]>();
+  for (const r of records) {
+    const dateStr = r.date.toISOString().split("T")[0];
+    const key = r.studentId;
+    if (!recordMap.has(key)) recordMap.set(key, []);
+    recordMap.get(key)!.push({ date: dateStr, status: r.status as AttendanceStatus | null });
+  }
+
+  return {
+    rows: students.map((s) => {
+      const dateRecords = recordMap.get(s.id) || [];
+      const dateMap = new Map(dateRecords.map((d) => [d.date, d.status]));
+      const dates: { date: string; status: AttendanceStatus | null }[] = [];
+      const cursor = new Date(from);
+      while (cursor <= to) {
+        const ds = cursor.toISOString().split("T")[0];
+        dates.push({ date: ds, status: dateMap.get(ds) ?? null });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return {
+        studentId: s.id,
+        admissionNumber: s.admissionNumber,
+        fullName: `${s.firstName} ${s.lastName}`,
+        dates,
+      };
+    }),
+  };
+}
+
+/** Fetch staff attendance for a date range (spreadsheet view). */
+export async function getStaffAttendanceSpreadsheet(
+  schoolId: string, fromDate: string, toDate: string,
+): Promise<{ rows: { staffId: string; fullName: string; dates: { date: string; status: AttendanceStatus | null }[] }[] }> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) throw new Error("Not authenticated.");
+
+  const from = new Date(fromDate + "T00:00:00");
+  const to = new Date(toDate + "T00:00:00");
+
+  const [staff, records] = await Promise.all([
+    prisma.staff.findMany({
+      where: { schoolId, accountStatus: "active" },
+      orderBy: { fullName: "asc" },
+      select: { id: true, fullName: true },
+    }),
+    prisma.staffAttendanceRecord.findMany({
+      where: { schoolId, date: { gte: from, lte: to } },
+      select: { staffId: true, date: true, status: true },
+    }),
+  ]);
+
+  const recordMap = new Map<string, { date: string; status: AttendanceStatus | null }[]>();
+  for (const r of records) {
+    const dateStr = r.date.toISOString().split("T")[0];
+    const key = r.staffId;
+    if (!recordMap.has(key)) recordMap.set(key, []);
+    recordMap.get(key)!.push({ date: dateStr, status: r.status as AttendanceStatus | null });
+  }
+
+  return {
+    rows: staff.map((s) => {
+      const dateRecords = recordMap.get(s.id) || [];
+      const dateMap = new Map(dateRecords.map((d) => [d.date, d.status]));
+      const dates: { date: string; status: AttendanceStatus | null }[] = [];
+      const cursor = new Date(from);
+      while (cursor <= to) {
+        const ds = cursor.toISOString().split("T")[0];
+        dates.push({ date: ds, status: dateMap.get(ds) ?? null });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return {
+        staffId: s.id,
+        fullName: s.fullName,
+        dates,
+      };
+    }),
+  };
+}
