@@ -109,17 +109,17 @@ export function ConsoleThemeWrapper({
         >
           {/* Brand logo */}
           <div className="h-16 flex items-center gap-3 px-6 border-b border-white/5 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <span className="material-symbols-outlined text-[18px] text-white font-bold animate-pulse">
-                admin_panel_settings
-              </span>
-            </div>
+            <img
+              src="/marksheet_logo.png"
+              alt="Marksheet"
+              className="h-8 w-auto brightness-0 invert"
+            />
             <div className="flex flex-col">
               <span className="text-sm font-bold text-white tracking-wide uppercase">
-                Marksheet
+                Platform Console
               </span>
               <span className="text-[10px] text-indigo-400 font-semibold uppercase tracking-widest">
-                Platform Console
+                Owner access
               </span>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions } from "@/lib/auth/permissions";
 import { buildNav } from "@/lib/nav";
@@ -9,6 +10,17 @@ import { AnnouncementBanner } from "@/components/announcement-banner";
 import { MobileSidebar } from "./mobile-sidebar";
 import { SidebarNav } from "./sidebar-nav";
 import { UserDropdown } from "./user-dropdown";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const user = await getCurrentUser();
+  if (!user?.schoolId) return {};
+  const school = await prisma.school.findUnique({
+    where: { id: user.schoolId },
+    select: { logo: true },
+  });
+  if (!school?.logo) return {};
+  return { icons: { icon: school.logo, apple: school.logo } };
+}
 
 export default async function AppLayout({
   children,
