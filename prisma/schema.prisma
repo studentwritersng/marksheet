@@ -1990,3 +1990,37 @@ model Message {
   @@index([senderId])
   @@map("messages")
 }
+
+// ---------------------------------------------------------------------------
+// PRD 20: Marketing Homepage — lead capture + CMS-lite content
+// ---------------------------------------------------------------------------
+
+model DemoRequest {
+  id                 String   @id @default(cuid())
+  contactName        String
+  schoolName         String
+  phone              String?
+  email              String
+  studentCountRange  String? // informational, e.g. "100-300"
+  message            String?
+  status             String   @default("new") // new | contacted | qualified | converted | closed
+  source             String   @default("homepage") // which page/section the form was submitted from
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([status])
+  @@index([email])
+  @@map("demo_requests")
+}
+
+model HomepageContentBlock {
+  id           String   @id @default(cuid())
+  sectionKey   String   @unique // e.g. hero_headline, hero_subheadline, pricing_monthly, faq_item_1
+  content      String // text/rich text
+  displayOrder Int      @default(0)
+  isVisible    Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+
+  @@index([sectionKey])
+  @@map("homepage_content_blocks")
+}

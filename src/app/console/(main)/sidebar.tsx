@@ -21,6 +21,8 @@ const navItems: NavItem[] = [
   { label: "Payment Methods", href: "/console/payment-methods", icon: "account_balance" },
   { label: "Notifications", href: "/console/notifications", icon: "notifications" },
   { label: "Addons", href: "/console/addons", icon: "extension" },
+  { label: "Demo Requests", href: "/console/demo-requests", icon: "contact_phone" },
+  { label: "Homepage Content", href: "/console/homepage-content", icon: "edit_note" },
   { label: "AI Config", href: "/console/ai", icon: "settings" },
   { label: "AI Usage", href: "/console/ai/call-log", icon: "monitoring" },
   { label: "Tickets", href: "/console/tickets", icon: "support" },
