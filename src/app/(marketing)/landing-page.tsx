@@ -153,9 +153,8 @@ export function MarketingLandingPage() {
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-mk-border bg-mk-bg/85 backdrop-blur-xl">
         <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 lg:flex lg:justify-between">
-          <a href="#top" className="flex min-w-0 items-baseline gap-1.5">
-            <span className="font-mk-display text-xl font-bold tracking-tight">marksheet</span>
-            <span className="h-2 w-2 rounded-full bg-mk-coral" />
+          <a href="#top" className="flex min-w-0 items-center gap-1.5">
+            <img src="/marksheet_logo.png" alt="Marksheet" className="h-8 w-auto" />
           </a>
 
           <nav className="hidden items-center gap-1 rounded-full border border-mk-border bg-mk-card p-1 lg:flex">
@@ -727,9 +726,12 @@ export function MarketingLandingPage() {
 
       <footer className="bg-mk-ink pb-10 text-mk-ink-fg">
         <div className="mx-auto grid max-w-6xl gap-6 border-t border-white/10 px-5 pt-10 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <div className="flex min-w-0 items-baseline gap-1.5">
-            <span className="font-mk-display text-lg font-bold">marksheet</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-mk-coral" />
+          <div className="flex min-w-0 items-center gap-1.5">
+            <img
+              src="/marksheet_logo.png"
+              alt="Marksheet"
+              className="h-6 w-auto brightness-0 invert"
+            />
           </div>
           <div className="flex items-center gap-6 text-xs text-mk-ink-fg/50">
             <a href="/verify" className="inline-flex items-center gap-1.5 transition-colors hover:text-mk-ink-fg">

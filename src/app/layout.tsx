@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   title: "Marksheet",
   description:
     "Syllabus, lesson note, examination & result portal for Nigerian secondary schools",
+  icons: {
+    icon: "/marksheet_favicon.png",
+    apple: "/marksheet_favicon.png",
+  },
 };
 
 export default function RootLayout({
