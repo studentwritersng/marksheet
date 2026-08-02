@@ -14,7 +14,6 @@ import {
   X,
 } from "lucide-react";
 import { submitDemoRequestAction, type DemoRequestResult } from "./actions";
-import "./marketing.css";
 
 const nav = [
   { label: "The term", href: "#term" },
