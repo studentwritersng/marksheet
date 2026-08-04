@@ -226,15 +226,15 @@ export function MarketingLandingPage() {
             Built for Nigerian secondary schools
           </p>
           <h1 className="mt-6 max-w-3xl font-mk-display text-[2.6rem] font-bold leading-[0.98] text-mk-ink-fg sm:text-6xl lg:text-7xl">
-            Run the whole
+            From syllabus to
             <br />
-            school term in
+            verified report card
             <br />
-            <span className="text-mk-amber">one place.</span>
+            <span className="text-mk-amber">in one place.</span>
           </h1>
           <p className="mt-7 max-w-lg text-base leading-relaxed text-mk-ink-fg/75">
-            Syllabus, lesson notes, continuous assessment, exams and results — computed, published
-            and verifiable. No more notebooks, no more shared spreadsheets.
+            Syllabus upload, lesson notes, continuous assessment, exams and results — computed,
+            published and verified. No more lost notebooks, no more re-typed scores.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -245,13 +245,13 @@ export function MarketingLandingPage() {
               Book a demo
               <ArrowUpRight className="h-4 w-4" />
             </a>
-            <a
-              href="#verify"
+            <Link
+              href="/register"
               className="inline-flex items-center justify-center gap-2 rounded-full glass px-7 py-3.5 text-sm font-semibold text-mk-ink-fg"
             >
               <BadgeCheck className="h-4 w-4 text-mk-amber" />
-              Verify a result
-            </a>
+              Register
+            </Link>
           </div>
 
           <dl className="mt-14 grid max-w-2xl grid-cols-2 gap-px overflow-hidden rounded-2xl glass sm:grid-cols-4">
@@ -274,8 +274,13 @@ export function MarketingLandingPage() {
       <section className="mx-auto max-w-6xl px-5 py-20 lg:py-28">
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
           <h2 className="font-mk-display text-3xl font-bold leading-tight sm:text-4xl">
-            Paper trails lose results. Spreadsheets{" "}
-            <span className="text-mk-primary">quietly corrupt them.</span>
+            Paper files go missing.
+            <br />
+            Spreadsheets drift out of sync.
+            <br />
+            <span className="text-mk-primary">
+              Neither leaves a trace you can trust.
+            </span>
           </h2>
           <div className="min-w-0 space-y-6 text-base leading-relaxed text-mk-muted-fg">
             <p>
@@ -562,7 +567,7 @@ export function MarketingLandingPage() {
             },
             {
               plan: "Termly",
-              price: "₦60,000",
+              price: "₦75,000",
               unit: "per school, per term",
               note: "Best value. Covers a full term including result publication.",
               dark: true,
@@ -734,10 +739,10 @@ export function MarketingLandingPage() {
             />
           </div>
           <div className="flex items-center gap-6 text-xs text-mk-ink-fg/50">
-            <a href="/verify" className="inline-flex items-center gap-1.5 transition-colors hover:text-mk-ink-fg">
+            <Link href="/register" className="inline-flex items-center gap-1.5 transition-colors hover:text-mk-ink-fg">
               <BadgeCheck className="h-3.5 w-3.5" />
-              Verify a result
-            </a>
+              Register
+            </Link>
             <Link href="/login" className="transition-colors hover:text-mk-ink-fg">
               School login
             </Link>
