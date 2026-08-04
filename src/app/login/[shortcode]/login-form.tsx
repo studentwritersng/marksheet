@@ -105,17 +105,36 @@ export function SchoolLoginForm({
             />
           </div>
           <div>
-            <label htmlFor="dateOfBirth" className="font-label-sm text-label-sm text-on-surface-variant block mb-1">
-              Date of Birth
+            <label htmlFor="studentPassword" className="font-label-sm text-label-sm text-on-surface-variant block mb-1">
+              Password
             </label>
             <input
-              id="dateOfBirth"
-              name="dateOfBirth"
-              type="date"
-              required
+              id="studentPassword"
+              name="password"
+              type="password"
+              autoComplete="current-password"
               className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+              placeholder="Enter your password"
             />
           </div>
+          <details className="rounded border border-outline-variant px-3 py-2 text-xs text-on-surface-variant">
+            <summary className="cursor-pointer font-semibold">First time logging in?</summary>
+            <p className="mt-1 leading-relaxed">
+              Leave the password blank and enter your date of birth instead. You will be asked to
+              set a password before continuing.
+            </p>
+            <div className="mt-2">
+              <label htmlFor="dateOfBirth" className="font-label-sm text-label-sm text-on-surface-variant block mb-1">
+                Date of Birth
+              </label>
+              <input
+                id="dateOfBirth"
+                name="dateOfBirth"
+                type="date"
+                className="w-full border border-outline-variant rounded p-2 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+              />
+            </div>
+          </details>
         </>
       ) : (
         <>

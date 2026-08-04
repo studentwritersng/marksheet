@@ -14,6 +14,14 @@ export async function updateParentNotificationPrefsAction(
     const user = await getCurrentUser();
     if (!user || user.role !== "parent") return { error: "Not authorised." };
 
+    // Verify the account belongs to the current user — prevents a parent from
+    // modifying another parent's notification preferences.
+    const owned = await prisma.parentAccount.findFirst({
+      where: { id: parentAccountId, email: user.email },
+      select: { id: true },
+    });
+    if (!owned) return { error: "Not authorised." };
+
     await prisma.parentAccount.update({
       where: { id: parentAccountId },
       data: { notificationPreferences: prefs },

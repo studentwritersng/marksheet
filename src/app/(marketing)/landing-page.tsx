@@ -567,7 +567,7 @@ export function MarketingLandingPage() {
             },
             {
               plan: "Termly",
-              price: "₦75,000",
+              price: "₦70,000",
               unit: "per school, per term",
               note: "Best value. Covers a full term including result publication.",
               dark: true,

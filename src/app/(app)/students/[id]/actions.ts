@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
+import { validatePasswordStrength } from "@/lib/auth/password";
 
 export interface ActionState {
   error?: string;
@@ -19,6 +20,9 @@ export async function resetStudentPasswordAction(
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const strengthError = validatePasswordStrength(newPassword);
+  if (strengthError) return { error: strengthError };
 
   const student = await prisma.student.findFirst({
     where: { id: studentId, schoolId: ctx.schoolId },
@@ -48,13 +52,13 @@ export async function resetStudentPasswordAction(
 }
 
 export async function withdrawStudentAction(studentId: string): Promise<ActionState> {
-  let ctx;
+let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const student = await prisma.student.findFirst({
     where: { id: studentId, schoolId: ctx.schoolId },
-    include: { user: { select: { id: true, isActive: true } } },
+    include: { user: { select: { id: true } } },
   });
   if (!student) return { error: "Student not found." };
 

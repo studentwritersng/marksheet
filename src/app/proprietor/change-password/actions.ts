@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { SESSION_COOKIE, createSessionToken } from "@/lib/auth/session";
+import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/auth/session";
 
 export interface PropChangePasswordState { error?: string; success?: string }
 
@@ -54,11 +54,7 @@ export async function proprietorChangePasswordAction(
   });
 
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true, sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/", maxAge: 60 * 60 * 8,
-  });
+  store.set(SESSION_COOKIE, token, sessionCookieOptions());
 
   redirect("/proprietor");
 }

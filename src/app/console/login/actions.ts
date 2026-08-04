@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { createSessionToken, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/auth/session";
+import { checkLoginRateLimit } from "@/lib/auth/route-security";
+import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth/session";
 
 export interface ConsoleLoginState {
   error?: string;
@@ -19,6 +20,11 @@ export async function consoleLoginAction(
 
   if (!email || !password) {
     return { error: "Email and password are required." };
+  }
+
+  const rateError = checkLoginRateLimit(email);
+  if (rateError) {
+    return { error: rateError };
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
@@ -45,13 +51,7 @@ export async function consoleLoginAction(
   });
 
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE,
-  });
+  store.set(SESSION_COOKIE, token, sessionCookieOptions());
 
   if (user.mustChangePassword) {
     redirect("/change-password");

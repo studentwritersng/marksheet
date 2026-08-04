@@ -3,27 +3,29 @@
 import { useActionState } from "react";
 import { changePasswordAction } from "./actions";
 
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ forceChange = false }: { forceChange?: boolean }) {
   const [state, action, pending] = useActionState(changePasswordAction, {});
 
   return (
     <form action={action} className="space-y-4">
-      <div>
-        <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Current Password</label>
-        <input
-          name="currentPassword"
-          type="password"
-          required
-          className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary"
-        />
-      </div>
+      {!forceChange && (
+        <div>
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Current Password</label>
+          <input
+            name="currentPassword"
+            type="password"
+            required
+            className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      )}
       <div>
         <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">New Password</label>
         <input
           name="newPassword"
           type="password"
           required
-          minLength={6}
+          minLength={8}
           className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary"
         />
       </div>
@@ -33,7 +35,7 @@ export function ChangePasswordForm() {
           name="confirmPassword"
           type="password"
           required
-          minLength={6}
+          minLength={8}
           className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary"
         />
       </div>

@@ -8,7 +8,17 @@ export async function GET(
   const { examId } = await params;
   const user = await getCurrentUser();
   if (!user?.schoolId) {
-    return Response.json({ answers: [] });
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Verify the exam belongs to the caller's school — prevents cross-school
+  // data disclosure via arbitrary exam IDs.
+  const exam = await prisma.exam.findFirst({
+    where: { id: examId, schoolId: user.schoolId },
+    select: { id: true },
+  });
+  if (!exam) {
+    return Response.json({ error: "Not found" }, { status: 404 });
   }
 
   const answers = await prisma.studentAnswer.findMany({

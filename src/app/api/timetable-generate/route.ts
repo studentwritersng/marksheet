@@ -3,10 +3,16 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { isAddonActive } from "@/lib/addons/check";
+import { isOriginAllowed } from "@/lib/auth/route-security";
 import { runSolver } from "@/lib/timetable/solver";
 import type { SolverInput } from "@/lib/timetable/solver";
 
 export async function POST(request: Request) {
+  // Cross-site request forgery defence-in-depth: reject state-changing requests
+  // that do not originate from this host.
+  if (!(await isOriginAllowed(request))) {
+    return NextResponse.json({ success: false, violations: ["Forbidden"] }, { status: 403 });
+  }
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, violations: ["Not authenticated."] }, { status: 401 });
   const perms = await resolvePermissions(user);

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
+import { validatePasswordStrength } from "@/lib/auth/password";
 
 export interface ActionState {
   error?: string;
@@ -19,6 +20,9 @@ export async function resetParentPasswordAction(
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const strengthError = validatePasswordStrength(newPassword);
+  if (strengthError) return { error: strengthError };
 
   const guardian = await prisma.guardian.findFirst({
     where: { id: guardianId, student: { schoolId: ctx.schoolId } },

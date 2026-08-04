@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
+import { validatePasswordStrength } from "@/lib/auth/password";
 import { AssignmentType } from "@prisma/client";
 
 export interface ActionState {
@@ -181,6 +182,9 @@ export async function resetStaffPasswordAction(
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
+  const strengthError = validatePasswordStrength(newPassword);
+  if (strengthError) return { error: strengthError };
+
   const staff = await prisma.staff.findFirst({
     where: { id: staffId, schoolId: ctx.schoolId },
     include: { user: { select: { id: true } } },
@@ -212,13 +216,13 @@ export async function toggleSuspendStaffAction(
   staffId: string,
   suspended: boolean,
 ): Promise<ActionState> {
-  let ctx;
+let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const staff = await prisma.staff.findFirst({
     where: { id: staffId, schoolId: ctx.schoolId },
-    include: { user: { select: { id: true, isActive: true } } },
+    include: { user: { select: { id: true } } },
   });
   if (!staff) return { error: "Staff not found." };
 

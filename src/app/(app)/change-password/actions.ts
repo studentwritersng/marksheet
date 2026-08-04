@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { SESSION_COOKIE, createSessionToken } from "@/lib/auth/session";
+import { validatePasswordStrength } from "@/lib/auth/password";
+import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/auth/session";
 
 export interface ChangePasswordState { error?: string; success?: string }
 
@@ -20,12 +21,11 @@ export async function changePasswordAction(
   const newPassword = String(formData.get("newPassword") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    return { error: "All fields are required." };
+  if (!newPassword || !confirmPassword) {
+    return { error: "New password fields are required." };
   }
-  if (newPassword.length < 6) {
-    return { error: "New password must be at least 6 characters." };
-  }
+  const strengthError = validatePasswordStrength(newPassword);
+  if (strengthError) return { error: strengthError };
   if (newPassword !== confirmPassword) {
     return { error: "Passwords do not match." };
   }
@@ -33,8 +33,16 @@ export async function changePasswordAction(
   const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
   if (!dbUser) return { error: "User not found." };
 
-  const ok = await bcrypt.compare(currentPassword, dbUser.passwordHash);
-  if (!ok) return { error: "Current password is incorrect." };
+  // When a password change is being forced, identity was already proven at
+  // login (e.g. student first login via date of birth), so the current
+  // password is not known/required.
+  if (!dbUser.mustChangePassword) {
+    if (!currentPassword) {
+      return { error: "Current password is required." };
+    }
+    const ok = await bcrypt.compare(currentPassword, dbUser.passwordHash);
+    if (!ok) return { error: "Current password is incorrect." };
+  }
 
   const newHash = await bcrypt.hash(newPassword, 10);
   await prisma.user.update({
@@ -50,14 +58,12 @@ export async function changePasswordAction(
     staffId: user.staffId,
     email: user.email,
     mustChangePassword: false,
+    proprietorGroupId: user.proprietorGroupId ?? null,
+    proprietorPermissionLevel: user.proprietorPermissionLevel ?? null,
   });
 
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true, sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/", maxAge: 60 * 60 * 8,
-  });
+  store.set(SESSION_COOKIE, token, sessionCookieOptions());
 
   redirect("/dashboard");
 }

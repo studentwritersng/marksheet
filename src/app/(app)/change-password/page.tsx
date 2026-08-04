@@ -16,10 +16,12 @@ export default async function ChangePasswordPage() {
             </div>
             <h1 className="font-headline-md text-headline-md text-on-surface">Change Your Password</h1>
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
-              You must change your password before continuing.
+              {user.mustChangePassword
+                ? "Set a new password to secure your account."
+                : "You must change your password before continuing."}
             </p>
           </div>
-          <ChangePasswordForm />
+          <ChangePasswordForm forceChange={user.mustChangePassword} />
         </div>
       </div>
     </div>

@@ -55,6 +55,23 @@ export default async function ReportCardPage(props: {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // ── Role-based access control ──────────────────────────────────────────────
+  // Prevents a student or parent from reading another student's report card.
+  // Staff/proprietors are scoped to their own school below.
+  if (user.role === "student") {
+    const own = await prisma.student.findFirst({
+      where: { id: studentId, userId: user.userId, schoolId: user.schoolId ?? undefined },
+      select: { id: true },
+    });
+    if (!own) notFound();
+  } else if (user.role === "parent") {
+    const linked = await prisma.guardian.findFirst({
+      where: { parentUserId: user.userId, studentId },
+      select: { id: true },
+    });
+    if (!linked) notFound();
+  }
+
   const [student, term, school] = await Promise.all([
     prisma.student.findFirst({
       where: { id: studentId, schoolId: user.schoolId ?? undefined },
