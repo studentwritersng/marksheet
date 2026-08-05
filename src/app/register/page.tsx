@@ -5,9 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { SchoolRegistrationForm } from "./school-registration-form";
 
 export const metadata: Metadata = {
-  title: "Register your school — Marksheet",
+  title: "Register your school | Marksheet",
   description:
-    "Apply to bring your school's term — syllabus, lesson notes, exams and verified report cards — into one place. Sales-led onboarding, no online checkout.",
+    "Apply to bring your school's term, syllabus, lesson notes, exams and verified report cards into one place. Sales-led onboarding, no online checkout.",
 };
 
 const marquee = [
@@ -30,7 +30,7 @@ const steps = [
   {
     n: "02",
     title: "We book your onboarding demo",
-    body: "A live 25-minute walkthrough — we set up your session, run a mock exam and publish a verified report card.",
+    body: "A live 25-minute walkthrough. We set up your session, run a mock exam and publish a verified report card.",
   },
   {
     n: "03",
@@ -148,7 +148,7 @@ export default async function RegisterPage({
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-mk-ink-fg/75 sm:text-lg">
             Tell us about your school and we&apos;ll personally walk you through setup, exams and
-            result publication — before you pay a naira.
+            result publication before you pay a naira.
           </p>
 
           <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -234,7 +234,7 @@ export default async function RegisterPage({
             <figure className="mt-12 rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft">
               <Quote className="h-8 w-8 text-mk-coral" />
               <blockquote className="mt-4 font-mk-display text-lg font-bold leading-snug">
-                &quot;The demo was with our real class list — we published first term results four
+                &quot;The demo was with our real class list. We published first term results four
                 days after the last paper.&quot;
               </blockquote>
               <figcaption className="mt-4 text-sm">
@@ -261,13 +261,25 @@ export default async function RegisterPage({
           <div className="flex min-w-0 items-center gap-1.5">
             <img src="/marksheet_logo.png" alt="Marksheet" className="h-6 w-auto brightness-0 invert" />
           </div>
-          <div className="flex items-center gap-6 text-xs text-mk-ink-fg/50">
+          <div className="flex flex-wrap items-center gap-6 text-xs text-mk-ink-fg/50">
             <Link href="/login" className="inline-flex items-center gap-1.5 transition-colors hover:text-mk-ink-fg">
               <BadgeCheck className="h-3.5 w-3.5" />
               School login
             </Link>
             <Link href="/verify" className="transition-colors hover:text-mk-ink-fg">
               Verify a result
+            </Link>
+            <Link href="/legal/privacy" className="transition-colors hover:text-mk-ink-fg">
+              Privacy
+            </Link>
+            <Link href="/legal/terms" className="transition-colors hover:text-mk-ink-fg">
+              Terms
+            </Link>
+            <Link href="/legal/cookies" className="transition-colors hover:text-mk-ink-fg">
+              Cookies
+            </Link>
+            <Link href="/legal/refund" className="transition-colors hover:text-mk-ink-fg">
+              Refund Policy
             </Link>
           </div>
           <p className="text-xs text-mk-ink-fg/50">

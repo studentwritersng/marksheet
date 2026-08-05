@@ -38,7 +38,7 @@ const timeline = [
   {
     week: "Weeks 1–2",
     title: "Set up the session",
-    body: "Create the session and its three terms, load classes and arms, and import students from a validated CSV — nothing touches live records until the staging report is clean.",
+    body: "Create the session and its three terms, load classes and arms, and import students from a validated CSV. Nothing touches live records until the staging report is clean.",
   },
   {
     week: "Weeks 3–9",
@@ -76,7 +76,7 @@ const faqs = [
   },
   {
     q: "What happens if our license lapses?",
-    a: "Nothing is deleted. The platform soft-locks — you keep reading historical records — while renewal is arranged with our team.",
+    a: "Nothing is deleted. The platform soft-locks so you keep reading historical records, while renewal is arranged with our team.",
   },
   {
     q: "How is student data protected?",
@@ -210,7 +210,7 @@ export function MarketingLandingPage() {
         )}
       </header>
 
-      {/* Hero — full-bleed photograph */}
+      {/* Hero: full-bleed photograph */}
       <section id="top" className="relative isolate overflow-hidden">
         <img
           src="/marketing/classroom.jpg"
@@ -219,7 +219,7 @@ export function MarketingLandingPage() {
           height={1008}
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-mk-ink/90 via-mk-ink/75 to-mk-ink/95 sm:bg-gradient-to-r sm:from-mk-ink/95 sm:via-mk-ink/80 sm:to-mk-ink/40" />
+        <div className="absolute inset-0 bg-mk-ink/85" />
 
         <div className="relative mx-auto max-w-6xl px-5 pb-14 pt-20 sm:pt-28 lg:pb-20 lg:pt-36">
           <p className="text-[0.7rem] font-bold uppercase tracking-[0.28em] text-mk-amber">
@@ -233,7 +233,7 @@ export function MarketingLandingPage() {
             <span className="text-mk-amber">in one place.</span>
           </h1>
           <p className="mt-7 max-w-lg text-base leading-relaxed text-mk-ink-fg/75">
-            Syllabus upload, lesson notes, continuous assessment, exams and results — computed,
+            Syllabus upload, lesson notes, continuous assessment, exams and results. Computed,
             published and verified. No more lost notebooks, no more re-typed scores.
           </p>
 
@@ -245,13 +245,15 @@ export function MarketingLandingPage() {
               Book a demo
               <ArrowUpRight className="h-4 w-4" />
             </a>
-            <Link
+            <a
               href="/register"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-full glass px-7 py-3.5 text-sm font-semibold text-mk-ink-fg"
             >
-              <BadgeCheck className="h-4 w-4 text-mk-amber" />
+              <ArrowUpRight className="h-4 w-4 text-mk-amber" />
               Register
-            </Link>
+            </a>
           </div>
 
           <dl className="mt-14 grid max-w-2xl grid-cols-2 gap-px overflow-hidden rounded-2xl glass sm:grid-cols-4">
@@ -270,7 +272,7 @@ export function MarketingLandingPage() {
         </div>
       </section>
 
-      {/* Problem — editorial two column with rule */}
+      {/* Problem: editorial two column with rule */}
       <section className="mx-auto max-w-6xl px-5 py-20 lg:py-28">
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
           <h2 className="font-mk-display text-3xl font-bold leading-tight sm:text-4xl">
@@ -291,14 +293,14 @@ export function MarketingLandingPage() {
             </p>
             <div className="h-px rule-line" />
             <p>
-              Marksheet gives the whole academic cycle one structured home — built around the
+              Marksheet gives the whole academic cycle one structured home. Built around the
               Nigerian school calendar rather than bent into a generic school app.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Timeline — the term, week by week */}
+      {/* Timeline: the term, week by week */}
       <section id="term" className="border-y border-mk-border bg-mk-secondary/40 py-20 lg:py-28">
         <div className="mx-auto max-w-6xl px-5">
           <div className="grid gap-12 lg:grid-cols-[1fr_1fr] lg:gap-16">
@@ -310,7 +312,7 @@ export function MarketingLandingPage() {
                 Twelve weeks, four moves
               </h2>
               <p className="mt-4 max-w-md text-mk-muted-fg">
-                Marksheet follows the shape of the term you already run — it doesn&apos;t ask your staff
+                Marksheet follows the shape of the term you already run. It doesn&apos;t ask your staff
                 to invent a new workflow.
               </p>
               <img
@@ -410,7 +412,7 @@ export function MarketingLandingPage() {
         </div>
       </section>
 
-      {/* Verify strip — wired to the real public verification API */}
+      {/* Verify strip: wired to the real public verification API */}
       <section id="verify" className="bg-mk-hero py-20 text-mk-ink-fg lg:py-24">
         <div className="mx-auto grid max-w-6xl gap-10 px-5 lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-16">
           <div className="min-w-0">
@@ -504,7 +506,7 @@ export function MarketingLandingPage() {
             <Quote className="h-9 w-9 text-mk-coral" />
             <blockquote className="mt-5 font-mk-display text-2xl font-bold leading-snug sm:text-3xl">
               &quot;Broadsheet week used to swallow the whole holiday. Last term we published every
-              result four days after the last paper — and not one parent called to query a total.&quot;
+              result four days after the last paper. Not one parent called to query a total.&quot;
             </blockquote>
             <figcaption className="mt-6 text-sm">
               <span className="font-bold">Mrs. Ngozi Eze</span>
@@ -526,7 +528,7 @@ export function MarketingLandingPage() {
                 Turn on only what your school needs
               </h2>
               <p className="mt-4 text-mk-muted-fg">
-                Every addon is available on request and activated per school — no code changes, no
+                Every addon is available on request and activated per school. No code changes, no
                 new logins.
               </p>
             </div>
@@ -562,7 +564,7 @@ export function MarketingLandingPage() {
               plan: "Monthly",
               price: "₦25,000",
               unit: "per school, per month",
-              note: "Rolling — good for a school trying a first term.",
+              note: "Rolling. Good for a school trying a first term.",
               dark: false,
             },
             {
@@ -663,7 +665,7 @@ export function MarketingLandingPage() {
             action={demoAction}
             className="min-w-0 rounded-3xl bg-mk-card p-6 text-mk-card-fg sm:p-8"
           >
-            {/* Honeypot — bots fill this hidden field; it must stay empty */}
+            {/* Honeypot: bots fill this hidden field; it must stay empty */}
             <div className="sr-only" aria-hidden="true">
               <label>
                 Leave this field empty
@@ -723,7 +725,7 @@ export function MarketingLandingPage() {
               {demoPending ? "Submitting…" : "Request my demo"}
             </button>
             <p className="mt-3 text-center text-xs text-mk-muted-fg">
-              No account is created — this is purely a contact request.
+              No account is created. This is purely a contact request.
             </p>
           </form>
         </div>
@@ -738,13 +740,25 @@ export function MarketingLandingPage() {
               className="h-6 w-auto brightness-0 invert"
             />
           </div>
-          <div className="flex items-center gap-6 text-xs text-mk-ink-fg/50">
-            <Link href="/register" className="inline-flex items-center gap-1.5 transition-colors hover:text-mk-ink-fg">
-              <BadgeCheck className="h-3.5 w-3.5" />
+          <div className="flex flex-wrap items-center gap-6 text-xs text-mk-ink-fg/50">
+            <Link href="/register" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition-colors hover:text-mk-ink-fg">
+              <ArrowUpRight className="h-3.5 w-3.5" />
               Register
             </Link>
             <Link href="/login" className="transition-colors hover:text-mk-ink-fg">
               School login
+            </Link>
+            <Link href="/legal/privacy" className="transition-colors hover:text-mk-ink-fg">
+              Privacy
+            </Link>
+            <Link href="/legal/terms" className="transition-colors hover:text-mk-ink-fg">
+              Terms
+            </Link>
+            <Link href="/legal/cookies" className="transition-colors hover:text-mk-ink-fg">
+              Cookies
+            </Link>
+            <Link href="/legal/refund" className="transition-colors hover:text-mk-ink-fg">
+              Refund Policy
             </Link>
           </div>
           <p className="text-xs text-mk-ink-fg/50">

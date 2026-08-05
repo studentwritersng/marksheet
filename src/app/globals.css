@@ -149,13 +149,6 @@
   --color-mk-coral: oklch(0.66 0.2 32);
   --color-mk-lime: oklch(0.8 0.19 130);
 
-  --gradient-mk-hero: linear-gradient(
-    160deg,
-    oklch(0.24 0.06 165) 0%,
-    oklch(0.2 0.05 175) 60%,
-    oklch(0.18 0.04 190) 100%
-  );
-  --gradient-mk-warm: linear-gradient(115deg, var(--color-mk-amber), var(--color-mk-coral));
   --shadow-mk-soft: 0 12px 40px -18px oklch(0.25 0.06 165 / 0.35);
   --shadow-mk-lift: 0 30px 80px -34px oklch(0.22 0.06 165 / 0.6);
 
@@ -179,11 +172,11 @@
 }
 
 @utility bg-mk-hero {
-  background-image: var(--gradient-mk-hero);
+  background-color: var(--color-mk-ink);
 }
 
 @utility bg-mk-warm {
-  background-image: var(--gradient-mk-warm);
+  background-color: var(--color-mk-amber);
 }
 
 @utility shadow-mk-soft {

@@ -155,7 +155,7 @@ export function SchoolRegistrationForm({
             <div>
               <p className="text-sm text-mk-muted-fg">Registration fee</p>
               <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-mk-muted-fg">
-                Not charged now — used to reconcile your payment once you&apos;re approved.
+                Not charged now. Used to reconcile your payment once you&apos;re approved.
               </p>
             </div>
             <p className="font-mk-display text-3xl font-bold">₦{registrationFee.toLocaleString()}</p>
@@ -255,7 +255,7 @@ export function SchoolRegistrationForm({
             </button>
           </div>
           <p className="text-center text-xs text-mk-muted-fg">
-            Applying creates no payment obligation — our team confirms everything with you first.
+            Applying creates no payment obligation. Our team confirms everything with you first.
           </p>
         </div>
       )}
