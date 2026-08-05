@@ -1,127 +1,232 @@
 "use client";
 
 import { useActionState } from "react";
+import {
+  ArrowUpRight,
+  Check,
+  Copy,
+  Landmark,
+  ShieldCheck,
+  UserRound,
+  Wallet,
+} from "lucide-react";
+import Link from "next/link";
 import { registerReferralAction, type ReferralActionResult } from "./actions";
 
 const init: ReferralActionResult = {};
 
-export function ReferralForm() {
+export function ReferralForm({
+  commissionAmount,
+  commissionPercent,
+}: {
+  commissionAmount: number;
+  commissionPercent: number;
+}) {
   const [state, action, pending] = useActionState(registerReferralAction, init);
 
   if (state.success && state.referralCode) {
     const referralLink = `${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${state.referralCode}`;
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-8 text-center max-w-lg mx-auto">
-        <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="material-symbols-outlined text-3xl text-emerald-600" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+      <div className="rounded-3xl border border-mk-border bg-mk-card p-8 text-mk-card-fg shadow-mk-lift sm:p-10">
+        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-mk-secondary text-mk-secondary-fg">
+          <Check className="h-8 w-8" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Account Created!</h2>
-        <p className="text-sm text-gray-500 mb-6">You can now log in at <a href="/referral/login" className="text-blue-600 font-medium hover:underline">/referral/login</a> with your email and password.</p>
+        <h2 className="mt-6 text-center font-mk-display text-2xl font-bold">You&apos;re in!</h2>
+        <p className="mx-auto mt-3 max-w-sm text-center text-sm leading-relaxed text-mk-muted-fg">
+          Your agent account is ready. Log in anytime to track your referrals and commissions.
+        </p>
 
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Your Referral Code</p>
-          <p className="text-2xl font-mono font-bold text-gray-900 tracking-widest">{state.referralCode}</p>
+        <div className="mt-8 space-y-4">
+          <div className="rounded-2xl bg-mk-muted p-5 text-center">
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.2em] text-mk-muted-fg">
+              Your referral code
+            </p>
+            <p className="mt-2 font-mk-display text-2xl font-bold tracking-widest text-mk-ink">
+              {state.referralCode}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-mk-border bg-mk-bg p-5">
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.2em] text-mk-muted-fg">
+              Your referral link
+            </p>
+            <p className="mt-2 break-all font-mono text-xs leading-relaxed text-mk-muted-fg">
+              {referralLink}
+            </p>
+            <button
+              onClick={() => navigator.clipboard.writeText(referralLink)}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-mk-ink px-5 py-2.5 text-sm font-bold text-mk-ink-fg transition-colors hover:bg-mk-primary"
+            >
+              <Copy className="h-4 w-4" />
+              Copy link
+            </button>
+          </div>
+
+          <div className="rounded-2xl bg-mk-secondary p-5">
+            <p className="flex items-center gap-2 text-sm font-bold text-mk-primary">
+              <ShieldCheck className="h-4 w-4" />
+              What happens next
+            </p>
+            <ol className="mt-3 space-y-2 text-sm text-mk-muted-fg">
+              <li>1. Share your code with schools you know.</li>
+              <li>
+                2. Earn {commissionPercent}% (₦{commissionAmount.toLocaleString()}) per paid
+                registration.
+              </li>
+              <li>3. Track payouts in your agent dashboard.</li>
+            </ol>
+          </div>
         </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-          <p className="text-xs text-blue-500 uppercase tracking-wide mb-1">Your Referral Link</p>
-          <p className="text-sm text-blue-700 font-mono break-all">{referralLink}</p>
+        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+          <Link
+            href="/referral/login"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-mk-ink px-6 py-3.5 text-sm font-bold text-mk-ink-fg transition-colors hover:bg-mk-primary"
+          >
+            Log in to your dashboard
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-mk-border bg-mk-bg px-6 py-3.5 text-sm font-semibold text-mk-muted-fg transition-colors hover:border-mk-primary/40 hover:text-mk-fg"
+          >
+            Back to home
+          </Link>
         </div>
-
-        <button
-          onClick={() => navigator.clipboard.writeText(referralLink)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-sm"
-        >
-          Copy Link
-        </button>
       </div>
     );
   }
 
   return (
-    <form action={action} className="bg-white border border-gray-200 rounded-2xl shadow-lg p-8 max-w-lg mx-auto">
-      <h2 className="text-xl font-bold text-gray-900 mb-1">Become a Referral Agent</h2>
-      <p className="text-sm text-gray-500 mb-6">Register to get your unique referral code and start earning.</p>
+    <form
+      action={action}
+      className="rounded-3xl border border-mk-border bg-mk-card p-6 text-mk-card-fg shadow-mk-lift sm:p-8"
+    >
+      <h2 className="font-mk-display text-2xl font-bold">Become a referral agent</h2>
+      <p className="mt-1 text-sm text-mk-muted-fg">
+        Free to join. Earn ₦{commissionAmount.toLocaleString()} ({commissionPercent}%) on every
+        paid school registration.
+      </p>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-          <input name="fullName" required placeholder="John Doe" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
-          <input name="address" required placeholder="123 Street, Lagos" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
-            <input name="dateOfBirth" type="date" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+      <div className="mt-8 space-y-7">
+        <SectionTitle icon={<UserRound className="h-4 w-4" />} title="Your details" />
+        <div className="space-y-4">
+          <Field label="Full name" name="fullName" required placeholder="John Doe" />
+          <Field label="Address" name="address" required placeholder="123 Street, Lagos" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Date of birth" name="dateOfBirth" type="date" required placeholder="" />
+            <Field label="Phone number" name="phoneNumber" required placeholder="08012345678" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-            <input name="phoneNumber" required placeholder="08012345678" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-          </div>
+          <Field label="Email" name="email" type="email" required placeholder="john@example.com" />
+          <Field
+            label="WhatsApp number"
+            name="whatsappNumber"
+            required
+            placeholder="08012345678"
+          />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-          <input name="email" type="email" required placeholder="john@example.com" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        </div>
+        <div className="h-px rule-line" />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number *</label>
-          <input name="whatsappNumber" required placeholder="08012345678" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        </div>
-
-        <hr className="border-gray-200" />
-        <p className="text-xs text-gray-400 uppercase tracking-wide">Bank Details</p>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name *</label>
-          <input name="bankName" required placeholder="e.g. GTBank, First Bank" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Account Number *</label>
-            <input name="bankAccountNumber" required placeholder="1234567890" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Account Name *</label>
-            <input name="bankAccountName" required placeholder="John Doe" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        <SectionTitle icon={<Landmark className="h-4 w-4" />} title="Bank details" />
+        <div className="space-y-4">
+          <Field label="Bank name" name="bankName" required placeholder="e.g. GTBank, First Bank" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Account number"
+              name="bankAccountNumber"
+              required
+              placeholder="1234567890"
+            />
+            <Field label="Account name" name="bankAccountName" required placeholder="John Doe" />
           </div>
         </div>
 
-        <hr className="border-gray-200" />
-        <p className="text-xs text-gray-400 uppercase tracking-wide">Account Password</p>
+        <div className="h-px rule-line" />
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-            <input name="password" type="password" required minLength={6} placeholder="Min 6 characters" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
-            <input name="confirmPassword" type="password" required minLength={6} placeholder="Re-enter password" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        <SectionTitle icon={<Wallet className="h-4 w-4" />} title="Account password" />
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Password"
+              name="password"
+              type="password"
+              required
+              placeholder="Min 6 characters"
+            />
+            <Field
+              label="Confirm password"
+              name="confirmPassword"
+              type="password"
+              required
+              placeholder="Re-enter password"
+            />
           </div>
         </div>
+
+        {state.error && <ErrorBanner message={state.error} />}
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-mk-warm px-6 py-3.5 text-sm font-bold text-mk-ink transition-colors disabled:opacity-60"
+        >
+          {pending ? "Creating account…" : "Create my agent account"}
+          <ArrowUpRight className="h-4 w-4" />
+        </button>
+        <p className="text-center text-xs text-mk-muted-fg">
+          Already registered?{" "}
+          <Link href="/referral/login" className="font-semibold text-mk-primary hover:underline">
+            Log in
+          </Link>
+        </p>
       </div>
-
-      {state.error && (
-        <div className="mt-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">
-          {state.error}
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={pending}
-        className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 text-sm"
-      >
-        {pending ? "Creating Account..." : "Create Account"}
-      </button>
     </form>
+  );
+}
+
+function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-mk-primary">
+      <span className="grid h-6 w-6 place-items-center rounded-full bg-mk-secondary text-mk-secondary-fg">
+        {icon}
+      </span>
+      {title}
+    </h3>
+  );
+}
+
+function Field({
+  label,
+  name,
+  placeholder,
+  type = "text",
+  required = false,
+}: {
+  label: string;
+  name: string;
+  placeholder: string;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block min-w-0 text-sm font-semibold">
+      {label}
+      <input
+        type={type}
+        name={name}
+        required={required}
+        placeholder={placeholder}
+        className="mt-1.5 w-full rounded-xl border border-mk-input bg-mk-bg px-4 py-3 text-sm font-normal outline-none transition-colors focus:border-mk-primary"
+      />
+    </label>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <p className="rounded-xl bg-red-100 px-4 py-2.5 text-sm font-medium text-red-700">
+      {message}
+    </p>
   );
 }

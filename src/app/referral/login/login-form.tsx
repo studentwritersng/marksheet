@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { referralLoginAction, type ReferralLoginResult } from "./actions";
 
 const init: ReferralLoginResult = {};
@@ -10,40 +11,54 @@ export function ReferralLoginForm() {
 
   return (
     <form action={action} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="your@email.com"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-        <input
-          name="password"
-          type="password"
-          required
-          placeholder="Your password"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
+      <Field label="Email" name="email" type="email" placeholder="your@email.com" required />
+      <Field label="Password" name="password" type="password" placeholder="Your password" required />
 
-      {state.error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">
-          {state.error}
-        </div>
-      )}
+      {state.error && <ErrorBanner message={state.error} />}
 
       <button
         type="submit"
         disabled={pending}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 text-sm"
+        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-full bg-mk-ink px-6 py-3.5 text-sm font-bold text-mk-ink-fg transition-colors hover:bg-mk-primary disabled:opacity-60"
       >
-        {pending ? "Signing in..." : "Sign In"}
+        {pending ? "Signing in…" : "Sign in"}
+        <ArrowUpRight className="h-4 w-4" />
       </button>
     </form>
+  );
+}
+
+function Field({
+  label,
+  name,
+  placeholder,
+  type = "text",
+  required = false,
+}: {
+  label: string;
+  name: string;
+  placeholder: string;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block min-w-0 text-sm font-semibold">
+      {label}
+      <input
+        type={type}
+        name={name}
+        required={required}
+        placeholder={placeholder}
+        className="mt-1.5 w-full rounded-xl border border-mk-input bg-mk-bg px-4 py-3 text-sm font-normal outline-none transition-colors focus:border-mk-primary"
+      />
+    </label>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <p className="rounded-xl bg-red-100 px-4 py-2.5 text-sm font-medium text-red-700">
+      {message}
+    </p>
   );
 }

@@ -1,6 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import {
+  ArrowUpRight,
+  BadgeCheck,
+  Copy,
+  LogOut,
+  Share2,
+} from "lucide-react";
+import Link from "next/link";
 
 type ReferralInfo = {
   id: string;
@@ -26,6 +34,15 @@ type School = { id: string; name: string; createdAt: string };
 type Registration = { id: string; schoolName: string; status: string; createdAt: string; paymentStatus: string };
 type Commission = { id: string; amount: number; status: string; createdAt: string; paidAt: string | null; registrationId: string | null };
 
+const tabs = [
+  { id: "overview", label: "Overview" },
+  { id: "registrations", label: "Registrations" },
+  { id: "commissions", label: "Commissions" },
+  { id: "profile", label: "Profile" },
+] as const;
+
+type Tab = (typeof tabs)[number]["id"];
+
 export function ReferralDashboardClient({
   referral,
   stats,
@@ -39,201 +56,313 @@ export function ReferralDashboardClient({
   registrations: Registration[];
   commissions: Commission[];
 }) {
-  const [tab, setTab] = useState<"overview" | "registrations" | "commissions" | "profile">("overview");
+  const [tab, setTab] = useState<Tab>("overview");
+  const [copied, setCopied] = useState(false);
 
   const referralLink = `${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${referral.referralCode}`;
 
+  async function copyLink() {
+    await navigator.clipboard.writeText(referralLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="marketing-root min-h-screen bg-mk-bg text-mk-fg">
       {/* Header */}
-      <div className="bg-blue-600 text-white">
-        <div className="max-w-5xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold">Welcome, {referral.fullName}</h1>
-              <p className="text-blue-200 text-sm">Referral Code: <span className="font-mono font-bold text-white">{referral.referralCode}</span></p>
+      <header className="bg-mk-ink text-mk-ink-fg">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-6">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-mk-warm text-mk-ink">
+              <Share2 className="h-5 w-5" />
             </div>
-            <a href="/referral/logout" className="text-sm text-blue-200 hover:text-white px-3 py-1.5 rounded-lg border border-blue-400/30 hover:border-white/50 transition-colors">
-              Sign Out
-            </a>
+            <div className="min-w-0">
+              <h1 className="truncate font-mk-display text-xl font-bold">
+                Welcome, {referral.fullName}
+              </h1>
+              <p className="text-sm text-mk-ink-fg/70">
+                Referral code:{" "}
+                <span className="font-mono font-bold text-mk-amber">{referral.referralCode}</span>
+              </p>
+            </div>
           </div>
+          <Link
+            href="/referral/logout"
+            className="inline-flex items-center gap-2 rounded-full border border-mk-ink-fg/25 px-4 py-2 text-sm font-semibold text-mk-ink-fg/85 transition-colors hover:border-mk-ink-fg/60 hover:text-mk-ink-fg"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </Link>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <main className="mx-auto max-w-6xl px-5 py-8">
         {/* Tabs */}
-        <div className="flex gap-1 bg-gray-200 p-1 rounded-lg w-fit mb-6">
-          {(["overview", "registrations", "commissions", "profile"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors capitalize ${
-                tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex gap-1 rounded-full border border-mk-border bg-mk-card p-1">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  tab === t.id
+                    ? "bg-mk-ink text-mk-ink-fg"
+                    : "text-mk-muted-fg hover:text-mk-fg"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <a
+            href="/referral"
+            className="hidden items-center gap-1.5 rounded-full border border-mk-border px-4 py-2 text-sm font-semibold text-mk-muted-fg transition-colors hover:border-mk-primary/40 hover:text-mk-fg sm:inline-flex"
+          >
+            Referral program
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </a>
         </div>
 
-        {tab === "overview" && (
-          <div className="space-y-6">
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard label="Total Referrals" value={stats.totalReferrals} icon="group" />
-              <StatCard label="Pending Registrations" value={stats.pendingRegistrations} icon="pending" />
-              <StatCard label="Total Earned" value={`₦${stats.totalCommissions.toLocaleString()}`} icon="payments" />
-              <StatCard label="Paid Out" value={`₦${stats.paidCommissions.toLocaleString()}`} icon="check_circle" />
-            </div>
+        <div className="mt-8">
+          {tab === "overview" && (
+            <div className="space-y-6">
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatCard label="Schools referred" value={stats.totalReferrals} tone="teal" />
+                <StatCard label="Pending registrations" value={stats.pendingRegistrations} tone="amber" />
+                <StatCard label="Total earned" value={`₦${stats.totalCommissions.toLocaleString()}`} tone="primary" />
+                <StatCard label="Paid out" value={`₦${stats.paidCommissions.toLocaleString()}`} tone="ink" />
+              </div>
 
-            {/* Referral Link */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Your Referral Link</h3>
-              <div className="flex items-center gap-3">
-                <input
-                  readOnly
-                  value={referralLink}
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700"
-                />
-                <button
-                  onClick={() => navigator.clipboard.writeText(referralLink)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
-                >
-                  Copy
-                </button>
+              {/* Referral link */}
+              <div className="rounded-3xl border border-mk-border bg-mk-card p-6 shadow-mk-soft sm:p-7">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="font-mk-display text-lg font-bold">Your referral link</h3>
+                  <p className="flex items-center gap-1.5 text-xs text-mk-muted-fg">
+                    <BadgeCheck className="h-4 w-4 text-mk-teal" />
+                    Schools that register through this link are credited to you
+                  </p>
+                </div>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <input
+                    readOnly
+                    value={referralLink}
+                    className="min-w-0 flex-1 rounded-xl border border-mk-input bg-mk-bg px-4 py-3 font-mono text-sm text-mk-muted-fg outline-none"
+                  />
+                  <button
+                    onClick={copyLink}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-mk-ink px-5 py-3 text-sm font-bold text-mk-ink-fg transition-colors hover:bg-mk-primary"
+                  >
+                    <Copy className="h-4 w-4" />
+                    {copied ? "Copied!" : "Copy link"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Recent registrations */}
+              <div className="rounded-3xl border border-mk-border bg-mk-card p-6 shadow-mk-soft sm:p-7">
+                <h3 className="font-mk-display text-lg font-bold">Recent registrations</h3>
+                {registrations.length === 0 ? (
+                  <EmptyState
+                    title="No registrations yet"
+                    body="Share your link to get started. Every paid registration earns you a commission."
+                  />
+                ) : (
+                  <ul className="mt-4 space-y-2">
+                    {registrations.slice(0, 5).map((r) => (
+                      <li
+                        key={r.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-mk-border px-4 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold">{r.schoolName}</p>
+                          <p className="text-xs text-mk-muted-fg">
+                            {new Date(r.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <StatusBadge status={r.status} />
+                          <StatusBadge status={r.paymentStatus} />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
+          )}
 
-            {/* Recent Registrations */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Registrations</h3>
+          {tab === "registrations" && (
+            <div className="rounded-3xl border border-mk-border bg-mk-card p-6 shadow-mk-soft sm:p-7">
+              <h3 className="font-mk-display text-lg font-bold">All registrations</h3>
               {registrations.length === 0 ? (
-                <p className="text-sm text-gray-400">No registrations yet. Share your link to get started!</p>
+                <EmptyState
+                  title="No registrations yet"
+                  body="When a school registers through your link, it appears here with its status."
+                />
               ) : (
-                <div className="space-y-2">
-                  {registrations.slice(0, 5).map((r) => (
-                    <div key={r.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{r.schoolName}</p>
-                        <p className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleDateString()}</p>
+                <ul className="mt-4 space-y-2">
+                  {registrations.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-mk-border px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold">{r.schoolName}</p>
+                        <p className="text-xs text-mk-muted-fg">
+                          {new Date(r.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
                       <div className="flex gap-2">
                         <StatusBadge status={r.status} />
                         <StatusBadge status={r.paymentStatus} />
                       </div>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {tab === "registrations" && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">All Registrations</h3>
-            {registrations.length === 0 ? (
-              <p className="text-sm text-gray-400">No registrations yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {registrations.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{r.schoolName}</p>
-                      <p className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleDateString()}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <StatusBadge status={r.status} />
-                      <StatusBadge status={r.paymentStatus} />
-                    </div>
-                  </div>
-                ))}
+          {tab === "commissions" && (
+            <div className="rounded-3xl border border-mk-border bg-mk-card p-6 shadow-mk-soft sm:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="font-mk-display text-lg font-bold">Commission history</h3>
+                <p className="text-sm text-mk-muted-fg">
+                  Pending:{" "}
+                  <span className="font-bold text-mk-amber">
+                    ₦{stats.pendingCommissions.toLocaleString()}
+                  </span>
+                </p>
               </div>
-            )}
-          </div>
-        )}
-
-        {tab === "commissions" && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Commission History</h3>
-            {commissions.length === 0 ? (
-              <p className="text-sm text-gray-400">No commissions earned yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {commissions.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">₦{c.amount.toLocaleString()}</p>
-                      <p className="text-xs text-gray-400">{new Date(c.createdAt).toLocaleDateString()}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
+              {commissions.length === 0 ? (
+                <EmptyState
+                  title="No commissions yet"
+                  body="Earn your first commission when a school registers and pays through your link."
+                />
+              ) : (
+                <ul className="mt-4 space-y-2">
+                  {commissions.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-mk-border px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-mk-display text-lg font-bold text-mk-ink">
+                          ₦{c.amount.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-mk-muted-fg">
+                          {new Date(c.createdAt).toLocaleDateString()}
+                          {c.paidAt && ` · Paid ${new Date(c.paidAt).toLocaleDateString()}`}
+                        </p>
+                      </div>
                       <StatusBadge status={c.status} />
-                      {c.paidAt && (
-                        <span className="text-xs text-gray-400">Paid {new Date(c.paidAt).toLocaleDateString()}</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between text-sm">
-              <span className="text-gray-500">Pending:</span>
-              <span className="font-medium text-amber-600">₦{stats.pendingCommissions.toLocaleString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {tab === "profile" && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Your Profile</h3>
-            <InfoRow label="Full Name" value={referral.fullName} />
-            <InfoRow label="Email" value={referral.email} />
-            <InfoRow label="Phone" value={referral.phoneNumber} />
-            <InfoRow label="WhatsApp" value={referral.whatsappNumber} />
-            <InfoRow label="Bank" value={referral.bankName} />
-            <InfoRow label="Account Number" value={referral.bankAccountNumber} />
-            <InfoRow label="Account Name" value={referral.bankAccountName} />
-            <InfoRow label="Referral Code" value={referral.referralCode} />
-          </div>
-        )}
-      </div>
+          {tab === "profile" && (
+            <div className="rounded-3xl border border-mk-border bg-mk-card p-6 shadow-mk-soft sm:p-7">
+              <h3 className="font-mk-display text-lg font-bold">Your profile</h3>
+              <div className="mt-5 grid gap-x-10 gap-y-1 sm:grid-cols-2">
+                <InfoRow label="Full name" value={referral.fullName} />
+                <InfoRow label="Referral code" value={referral.referralCode} mono />
+                <InfoRow label="Email" value={referral.email} />
+                <InfoRow label="Phone" value={referral.phoneNumber} />
+                <InfoRow label="WhatsApp" value={referral.whatsappNumber} />
+                <InfoRow label="Bank" value={referral.bankName} />
+                <InfoRow label="Account number" value={referral.bankAccountNumber} />
+                <InfoRow label="Account name" value={referral.bankAccountName} />
+              </div>
+              <div className="mt-8 border-t border-mk-border pt-6">
+                <p className="text-xs text-mk-muted-fg">
+                  Referred schools: <span className="font-bold text-mk-fg">{schools.length}</span>
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
 
-function StatCard({ label, value, icon }: { label: string; value: string | number; icon: string }) {
+function StatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  tone: "teal" | "amber" | "primary" | "ink";
+}) {
+  const tones: Record<string, { value: string; chip: string }> = {
+    teal: { value: "text-mk-teal", chip: "bg-mk-secondary" },
+    amber: { value: "text-mk-amber", chip: "bg-mk-secondary" },
+    primary: { value: "text-mk-primary", chip: "bg-mk-secondary" },
+    ink: { value: "text-mk-ink", chip: "bg-mk-secondary" },
+  };
+  const t = tones[tone];
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4">
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
+    <div className="rounded-3xl border border-mk-border bg-mk-card p-5 shadow-mk-soft">
+      <div className="flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full ${t.chip}`} />
+        <p className="text-xs text-mk-muted-fg">{label}</p>
+      </div>
+      <p className={`mt-3 font-mk-display text-2xl font-bold ${t.value}`}>{value}</p>
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    pending: "bg-amber-100 text-amber-700",
-    active: "bg-emerald-100 text-emerald-700",
-    verified: "bg-emerald-100 text-emerald-700",
-    paid: "bg-emerald-100 text-emerald-700",
-    approved: "bg-emerald-100 text-emerald-700",
+    pending: "bg-mk-secondary text-mk-secondary-fg",
+    active: "bg-mk-secondary text-mk-secondary-fg",
+    verified: "bg-mk-secondary text-mk-secondary-fg",
+    paid: "bg-mk-secondary text-mk-secondary-fg",
+    approved: "bg-mk-secondary text-mk-secondary-fg",
+    reviewed: "bg-mk-secondary text-mk-secondary-fg",
     rejected: "bg-red-100 text-red-700",
-    inactive: "bg-gray-100 text-gray-500",
-    unpaid: "bg-gray-100 text-gray-500",
-    reviewed: "bg-blue-100 text-blue-700",
+    inactive: "bg-mk-muted text-mk-muted-fg",
+    unpaid: "bg-mk-muted text-mk-muted-fg",
   };
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] || "bg-gray-100 text-gray-500"}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+        colors[status] || "bg-mk-muted text-mk-muted-fg"
+      }`}
+    >
+      {status === "paid" || status === "verified" || status === "approved" ? (
+        <BadgeCheck className="h-3 w-3" />
+      ) : null}
       {status}
     </span>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex justify-between py-2 border-b border-gray-100">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-medium text-gray-900">{value}</span>
+    <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-baseline gap-4 border-b border-mk-border py-2.5 last:border-0">
+      <span className="text-sm text-mk-muted-fg">{label}</span>
+      <span
+        className={`truncate text-right text-sm font-bold text-mk-fg ${
+          mono ? "font-mono" : ""
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-dashed border-mk-border bg-mk-muted px-6 py-10 text-center">
+      <p className="font-mk-display text-base font-bold">{title}</p>
+      <p className="mx-auto mt-2 max-w-sm text-sm text-mk-muted-fg">{body}</p>
     </div>
   );
 }

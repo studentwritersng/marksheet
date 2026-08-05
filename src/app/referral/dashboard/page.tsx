@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { ReferralDashboardClient } from "./dashboard-client";
+
+export const metadata: Metadata = {
+  title: "Agent dashboard | Marksheet",
+  description:
+    "Your Marksheet referral dashboard: referred schools, commissions and payout history.",
+};
 
 export default async function ReferralDashboardPage() {
   const user = await getCurrentUser();

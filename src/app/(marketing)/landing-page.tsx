@@ -633,6 +633,80 @@ export function MarketingLandingPage() {
         </div>
       </section>
 
+      {/* Referral program */}
+      <section id="referral" className="border-t border-mk-border bg-mk-secondary/40 py-20 lg:py-28">
+        <div className="mx-auto grid max-w-6xl gap-12 px-5 lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-16">
+          <div className="min-w-0">
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.28em] text-mk-primary">
+              Referral program
+            </p>
+            <h2 className="mt-5 font-mk-display text-3xl font-bold sm:text-4xl">
+              Refer a school.
+              <br />
+              Earn on every registration.
+            </h2>
+            <p className="mt-4 max-w-md text-mk-muted-fg">
+              Know a school that needs a calmer, more structured term? Share your unique code and
+              earn a commission each time a school registers through you.
+            </p>
+            <ul className="mt-8 space-y-4">
+              {[
+                "Your own referral link, shareable anywhere",
+                "Commission on every paid school registration",
+                "Track your referrals and commissions in your own dashboard",
+              ].map((t) => (
+                <li key={t} className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 text-sm">
+                  <BadgeCheck className="h-5 w-5 shrink-0 text-mk-teal" />
+                  <span className="min-w-0">{t}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <a
+                href="/referral"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-mk-ink px-6 py-3 text-sm font-bold text-mk-ink-fg transition-colors hover:bg-mk-primary"
+              >
+                Join the program
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+              <a
+                href="/referral/login"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-mk-border bg-mk-card px-6 py-3 text-sm font-semibold text-mk-fg transition-colors hover:border-mk-primary/40"
+              >
+                Agent login
+              </a>
+            </div>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="rounded-3xl bg-mk-ink p-7 text-mk-ink-fg">
+              <p className="font-mk-display text-4xl font-bold text-mk-amber">₦1,000</p>
+              <p className="mt-2 text-sm leading-relaxed text-mk-ink-fg/70">
+                commission on a ₦10,000 school registration fee
+              </p>
+            </div>
+            <div className="rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft">
+              <p className="font-mk-display text-4xl font-bold text-mk-teal">10%</p>
+              <p className="mt-2 text-sm leading-relaxed text-mk-muted-fg">
+                of the registration fee paid to you per referred school
+              </p>
+            </div>
+            <div className="rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft">
+              <p className="font-mk-display text-4xl font-bold text-mk-coral">1</p>
+              <p className="mt-2 text-sm leading-relaxed text-mk-muted-fg">
+                unique code, yours for every school you refer
+              </p>
+            </div>
+            <div className="rounded-3xl bg-mk-hero p-7 text-mk-ink-fg">
+              <p className="font-mk-display text-4xl font-bold text-mk-warm">0</p>
+              <p className="mt-2 text-sm leading-relaxed text-mk-ink-fg/70">
+                cost to join, no quota to hit
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Demo */}
       <section id="demo" className="bg-mk-ink py-20 text-mk-ink-fg lg:py-28">
         <div className="mx-auto grid max-w-6xl gap-12 px-5 lg:grid-cols-[1fr_1fr] lg:gap-16">
@@ -759,6 +833,10 @@ export function MarketingLandingPage() {
             </Link>
             <Link href="/legal/refund" className="transition-colors hover:text-mk-ink-fg">
               Refund Policy
+            </Link>
+            <Link href="/referral" className="inline-flex items-center gap-1.5 transition-colors hover:text-mk-ink-fg">
+              <ArrowUpRight className="h-3.5 w-3.5" />
+              Referral program
             </Link>
           </div>
           <p className="text-xs text-mk-ink-fg/50">
