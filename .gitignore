@@ -42,3 +42,6 @@ scripts/
 *.tsbuildinfo
 next-env.d.ts
 public/uploads/
+
+# Sentry Config File
+.env.sentry-build-plugin
