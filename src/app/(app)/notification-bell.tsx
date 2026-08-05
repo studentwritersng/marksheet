@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { markNotificationReadAction, markAllReadAction, getMyNotifications, getUnreadCount } from "@/lib/notifications/actions";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { markNotificationReadAction, markAllReadAction, getMyNotifications } from "@/lib/notifications/actions";
 import type { NotificationVM } from "@/lib/notifications/actions";
+
+const POLL_INTERVAL_MS = 30_000;
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -11,15 +13,33 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    getUnreadCount().then(setUnread);
+  // Poll the lightweight unread endpoint (cached server-side), not the DB.
+  const refreshUnread = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications/unread", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setUnread(typeof data.unread === "number" ? data.unread : 0);
+      }
+    } catch {
+      // Silent — keep the last known count when the network blips.
+    }
   }, []);
 
   useEffect(() => {
-    if (open) {
-      setLoading(true);
-      getMyNotifications(10).then((n) => { setNotifications(n); setLoading(false); });
-    }
+    const initial = setTimeout(refreshUnread, 0);
+    const id = setInterval(refreshUnread, POLL_INTERVAL_MS);
+    return () => { clearTimeout(initial); clearInterval(id); };
+  }, [refreshUnread]);
+
+  useEffect(() => {
+    if (!open) return;
+    const showLoader = setTimeout(() => setLoading(true), 0);
+    getMyNotifications(10).then((n) => {
+      setNotifications(n);
+      setLoading(false);
+    });
+    return () => clearTimeout(showLoader);
   }, [open]);
 
   useEffect(() => {
@@ -39,7 +59,7 @@ export function NotificationBell() {
   };
 
   const handleMarkAll = async () => {
-    const { count } = await markAllReadAction();
+    await markAllReadAction();
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     setUnread(0);
   };
