@@ -59,22 +59,22 @@ async function main() {
 
   // --- School Admin user + staff ---------------------------------------
   const adminStaff = await prisma.staff.upsert({
-    where: { schoolId_email: { schoolId: school.id, email: "admin@ums.edu.ng" } },
+    where: { schoolId_email: { schoolId: school.id, email: "admin@marksheet.sch.ng" } },
     update: {},
     create: {
       schoolId: school.id,
       fullName: "Adaeze Okonkwo",
-      email: "admin@ums.edu.ng",
+      email: "admin@marksheet.sch.ng",
       phone: "08030000001",
     },
   });
 
   const adminPassword = await bcrypt.hash("admin123", 10);
   await prisma.user.upsert({
-    where: { email: "admin@ums.edu.ng" },
+    where: { email: "admin@marksheet.sch.ng" },
     update: {},
     create: {
-      email: "admin@ums.edu.ng",
+      email: "admin@marksheet.sch.ng",
       passwordHash: adminPassword,
       role: "staff",
       schoolId: school.id,
@@ -161,21 +161,21 @@ async function main() {
 
   // --- A subject teacher with scoped assignments -----------------------
   const teacher = await prisma.staff.upsert({
-    where: { schoolId_email: { schoolId: school.id, email: "j.bello@ums.edu.ng" } },
+    where: { schoolId_email: { schoolId: school.id, email: "j.bello@marksheet.sch.ng" } },
     update: {},
     create: {
       schoolId: school.id,
       fullName: "James Bello",
-      email: "j.bello@ums.edu.ng",
+      email: "j.bello@marksheet.sch.ng",
       phone: "08030000002",
     },
   });
   const teacherPassword = await bcrypt.hash("teacher123", 10);
   await prisma.user.upsert({
-    where: { email: "j.bello@ums.edu.ng" },
+    where: { email: "j.bello@marksheet.sch.ng" },
     update: {},
     create: {
-      email: "j.bello@ums.edu.ng",
+      email: "j.bello@marksheet.sch.ng",
       passwordHash: teacherPassword,
       role: "staff",
       schoolId: school.id,
@@ -422,14 +422,14 @@ async function main() {
 
   // --- Staff (teachers) ------------------------------------------
   const teacherDefs = [
-    { email: "f.okeke@ums.edu.ng", name: "Frances Okeke" },
-    { email: "t.ade@ums.edu.ng", name: "Tunde Adebayo" },
-    { email: "n.chiamaka@ums.edu.ng", name: "Nwosu Chiamaka" },
-    { email: "i.samuel@ums.edu.ng", name: "Ibrahim Samuel" },
-    { email: "a.oluchi@ums.edu.ng", name: "Amara Oluchi" },
-    { email: "d.aminu@ums.edu.ng", name: "Danjuma Aminu" },
-    { email: "g.ekpo@ums.edu.ng", name: "Grace Ekpo" },
-    { email: "k.obinna@ums.edu.ng", name: "Kehinde Obinna" },
+    { email: "f.okeke@marksheet.sch.ng", name: "Frances Okeke" },
+    { email: "t.ade@marksheet.sch.ng", name: "Tunde Adebayo" },
+    { email: "n.chiamaka@marksheet.sch.ng", name: "Nwosu Chiamaka" },
+    { email: "i.samuel@marksheet.sch.ng", name: "Ibrahim Samuel" },
+    { email: "a.oluchi@marksheet.sch.ng", name: "Amara Oluchi" },
+    { email: "d.aminu@marksheet.sch.ng", name: "Danjuma Aminu" },
+    { email: "g.ekpo@marksheet.sch.ng", name: "Grace Ekpo" },
+    { email: "k.obinna@marksheet.sch.ng", name: "Kehinde Obinna" },
   ];
   const staffById: Record<string, string> = {};
   for (const t of teacherDefs) {
@@ -448,48 +448,48 @@ async function main() {
 
   // --- Subject-Teacher assignments ---------------------------------
   const subjAssignments: { teacherEmail: string; subjectName: string; classLevel: string }[] = [
-    { teacherEmail: "j.bello@ums.edu.ng", subjectName: "Mathematics", classLevel: "SSS1" },
-    { teacherEmail: "j.bello@ums.edu.ng", subjectName: "Mathematics", classLevel: "SSS2" },
-    { teacherEmail: "f.okeke@ums.edu.ng", subjectName: "Mathematics", classLevel: "SSS3" },
-    { teacherEmail: "f.okeke@ums.edu.ng", subjectName: "Further Mathematics", classLevel: "SSS1" },
-    { teacherEmail: "f.okeke@ums.edu.ng", subjectName: "Further Mathematics", classLevel: "SSS2" },
-    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "English Language", classLevel: "SSS1" },
-    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "English Language", classLevel: "SSS2" },
-    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "Literature in English", classLevel: "SSS1" },
-    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "Literature in English", classLevel: "SSS2" },
-    { teacherEmail: "n.chiamaka@ums.edu.ng", subjectName: "Biology", classLevel: "SSS1" },
-    { teacherEmail: "n.chiamaka@ums.edu.ng", subjectName: "Biology", classLevel: "SSS2" },
-    { teacherEmail: "n.chiamaka@ums.edu.ng", subjectName: "Biology", classLevel: "SSS3" },
-    { teacherEmail: "n.chiamaka@ums.edu.ng", subjectName: "Health Education", classLevel: "SSS1" },
-    { teacherEmail: "i.samuel@ums.edu.ng", subjectName: "Physics", classLevel: "SSS1" },
-    { teacherEmail: "i.samuel@ums.edu.ng", subjectName: "Physics", classLevel: "SSS2" },
-    { teacherEmail: "i.samuel@ums.edu.ng", subjectName: "Physics", classLevel: "SSS3" },
-    { teacherEmail: "i.samuel@ums.edu.ng", subjectName: "Chemistry", classLevel: "SSS1" },
-    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Chemistry", classLevel: "SSS2" },
-    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Chemistry", classLevel: "SSS3" },
-    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Computer Science", classLevel: "SSS1" },
-    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Computer Science", classLevel: "SSS2" },
-    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Economics", classLevel: "SSS1" },
-    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Economics", classLevel: "SSS2" },
-    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Government", classLevel: "SSS1" },
-    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Government", classLevel: "SSS2" },
-    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Accounting", classLevel: "SSS1" },
-    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Accounting", classLevel: "SSS2" },
-    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Commerce", classLevel: "SSS1" },
-    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Commerce", classLevel: "SSS2" },
-    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "Civic Education", classLevel: "SSS1" },
-    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "Civic Education", classLevel: "SSS2" },
-    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "CRS", classLevel: "SSS1" },
-    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "CRS", classLevel: "SSS2" },
-    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "English Language", classLevel: "SSS3" },
-    { teacherEmail: "t.ade@ums.edu.ng", subjectName: "Literature in English", classLevel: "SSS3" },
-    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Economics", classLevel: "SSS3" },
-    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Accounting", classLevel: "SSS3" },
-    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "Civic Education", classLevel: "SSS3" },
-    { teacherEmail: "k.obinna@ums.edu.ng", subjectName: "CRS", classLevel: "SSS3" },
-    { teacherEmail: "d.aminu@ums.edu.ng", subjectName: "Government", classLevel: "SSS3" },
-    { teacherEmail: "a.oluchi@ums.edu.ng", subjectName: "Computer Science", classLevel: "SSS3" },
-    { teacherEmail: "g.ekpo@ums.edu.ng", subjectName: "Commerce", classLevel: "SSS3" },
+    { teacherEmail: "j.bello@marksheet.sch.ng", subjectName: "Mathematics", classLevel: "SSS1" },
+    { teacherEmail: "j.bello@marksheet.sch.ng", subjectName: "Mathematics", classLevel: "SSS2" },
+    { teacherEmail: "f.okeke@marksheet.sch.ng", subjectName: "Mathematics", classLevel: "SSS3" },
+    { teacherEmail: "f.okeke@marksheet.sch.ng", subjectName: "Further Mathematics", classLevel: "SSS1" },
+    { teacherEmail: "f.okeke@marksheet.sch.ng", subjectName: "Further Mathematics", classLevel: "SSS2" },
+    { teacherEmail: "t.ade@marksheet.sch.ng", subjectName: "English Language", classLevel: "SSS1" },
+    { teacherEmail: "t.ade@marksheet.sch.ng", subjectName: "English Language", classLevel: "SSS2" },
+    { teacherEmail: "t.ade@marksheet.sch.ng", subjectName: "Literature in English", classLevel: "SSS1" },
+    { teacherEmail: "t.ade@marksheet.sch.ng", subjectName: "Literature in English", classLevel: "SSS2" },
+    { teacherEmail: "n.chiamaka@marksheet.sch.ng", subjectName: "Biology", classLevel: "SSS1" },
+    { teacherEmail: "n.chiamaka@marksheet.sch.ng", subjectName: "Biology", classLevel: "SSS2" },
+    { teacherEmail: "n.chiamaka@marksheet.sch.ng", subjectName: "Biology", classLevel: "SSS3" },
+    { teacherEmail: "n.chiamaka@marksheet.sch.ng", subjectName: "Health Education", classLevel: "SSS1" },
+    { teacherEmail: "i.samuel@marksheet.sch.ng", subjectName: "Physics", classLevel: "SSS1" },
+    { teacherEmail: "i.samuel@marksheet.sch.ng", subjectName: "Physics", classLevel: "SSS2" },
+    { teacherEmail: "i.samuel@marksheet.sch.ng", subjectName: "Physics", classLevel: "SSS3" },
+    { teacherEmail: "i.samuel@marksheet.sch.ng", subjectName: "Chemistry", classLevel: "SSS1" },
+    { teacherEmail: "a.oluchi@marksheet.sch.ng", subjectName: "Chemistry", classLevel: "SSS2" },
+    { teacherEmail: "a.oluchi@marksheet.sch.ng", subjectName: "Chemistry", classLevel: "SSS3" },
+    { teacherEmail: "a.oluchi@marksheet.sch.ng", subjectName: "Computer Science", classLevel: "SSS1" },
+    { teacherEmail: "a.oluchi@marksheet.sch.ng", subjectName: "Computer Science", classLevel: "SSS2" },
+    { teacherEmail: "d.aminu@marksheet.sch.ng", subjectName: "Economics", classLevel: "SSS1" },
+    { teacherEmail: "d.aminu@marksheet.sch.ng", subjectName: "Economics", classLevel: "SSS2" },
+    { teacherEmail: "d.aminu@marksheet.sch.ng", subjectName: "Government", classLevel: "SSS1" },
+    { teacherEmail: "d.aminu@marksheet.sch.ng", subjectName: "Government", classLevel: "SSS2" },
+    { teacherEmail: "g.ekpo@marksheet.sch.ng", subjectName: "Accounting", classLevel: "SSS1" },
+    { teacherEmail: "g.ekpo@marksheet.sch.ng", subjectName: "Accounting", classLevel: "SSS2" },
+    { teacherEmail: "g.ekpo@marksheet.sch.ng", subjectName: "Commerce", classLevel: "SSS1" },
+    { teacherEmail: "g.ekpo@marksheet.sch.ng", subjectName: "Commerce", classLevel: "SSS2" },
+    { teacherEmail: "k.obinna@marksheet.sch.ng", subjectName: "Civic Education", classLevel: "SSS1" },
+    { teacherEmail: "k.obinna@marksheet.sch.ng", subjectName: "Civic Education", classLevel: "SSS2" },
+    { teacherEmail: "k.obinna@marksheet.sch.ng", subjectName: "CRS", classLevel: "SSS1" },
+    { teacherEmail: "k.obinna@marksheet.sch.ng", subjectName: "CRS", classLevel: "SSS2" },
+    { teacherEmail: "t.ade@marksheet.sch.ng", subjectName: "English Language", classLevel: "SSS3" },
+    { teacherEmail: "t.ade@marksheet.sch.ng", subjectName: "Literature in English", classLevel: "SSS3" },
+    { teacherEmail: "d.aminu@marksheet.sch.ng", subjectName: "Economics", classLevel: "SSS3" },
+    { teacherEmail: "g.ekpo@marksheet.sch.ng", subjectName: "Accounting", classLevel: "SSS3" },
+    { teacherEmail: "k.obinna@marksheet.sch.ng", subjectName: "Civic Education", classLevel: "SSS3" },
+    { teacherEmail: "k.obinna@marksheet.sch.ng", subjectName: "CRS", classLevel: "SSS3" },
+    { teacherEmail: "d.aminu@marksheet.sch.ng", subjectName: "Government", classLevel: "SSS3" },
+    { teacherEmail: "a.oluchi@marksheet.sch.ng", subjectName: "Computer Science", classLevel: "SSS3" },
+    { teacherEmail: "g.ekpo@marksheet.sch.ng", subjectName: "Commerce", classLevel: "SSS3" },
   ];
 
   const existingSubjectAssignments = await prisma.assignment.count({
@@ -715,7 +715,7 @@ async function main() {
   console.log("Seed complete.");
   console.log("Logins:");
   console.log("  Super Admin: super@marksheet.dev / superadmin123");
-  console.log("  School Admin: admin@ums.edu.ng / admin123");
+  console.log("  School Admin: admin@marksheet.sch.ng / admin123");
   console.log("  Teachers:");
   for (const t of teacherDefs) {
     console.log(`    ${t.name}: ${t.email} / teacher123`);

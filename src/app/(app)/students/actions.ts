@@ -89,7 +89,7 @@ export async function createStudentAction(
   const admissionNumber = `${shortcode}${padSeq(updated.studentSequence)}`;
 
   // Auto-generate student login
-  const email = `${admissionNumber.toLowerCase()}@ums.edu.ng`;
+  const email = `${admissionNumber.toLowerCase()}@marksheet.sch.ng`;
   const passwordRaw = dateOfBirth ? formatDob(dateOfBirth) : `${firstName.toLowerCase().slice(0, 3)}${lastName.toLowerCase().slice(0, 3)}2026`;
   const passwordHash = await bcrypt.hash(passwordRaw, 10);
 
@@ -167,7 +167,7 @@ export async function createStudentAction(
       await sendEmail({
         to: guardianEmail,
         subject: `Your Parent Portal Credentials – ${(await prisma.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } }))?.name ?? "School"}`,
-        text: `Hello ${guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${guardianEmail}\nPassword: ${parentPasswordRaw}\n\nLogin at: https://marksheet.ums.edu.ng/login\n\nRegards,\nSchool Admin`,
+        text: `Hello ${guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${guardianEmail}\nPassword: ${parentPasswordRaw}\n\nLogin at: https://marksheet.sch.ng/login\n\nRegards,\nSchool Admin`,
       });
     }
   }
@@ -196,7 +196,7 @@ export async function createStudentAction(
   const sendResult = await sendEmail({
     to: email,
     subject: "Your Marksheet Portal Credentials",
-    text: `Hello ${firstName},\n\nYour student portal account has been created.\n\nEmail: ${email}\nPassword: ${passwordRaw}\n\nLogin at: https://marksheet.ums.edu.ng/login\n\nRegards,\nSchool Admin`,
+    text: `Hello ${firstName},\n\nYour student portal account has been created.\n\nEmail: ${email}\nPassword: ${passwordRaw}\n\nLogin at: https://marksheet.sch.ng/login\n\nRegards,\nSchool Admin`,
   });
 
   revalidatePath("/students");
