@@ -38,6 +38,16 @@ export async function setEntryAction(_prev: ActionState, formData: FormData): Pr
   const dayOfWeek = parseInt(formData.get("dayOfWeek") as string);
   const roomId = (formData.get("roomId") as string)?.trim() || null;
 
+  const [classCount, periodCount, subjectCount, roomCount] = await Promise.all([
+    prisma.class.count({ where: { id: classId, schoolId: ctx.schoolId } }),
+    prisma.timetablePeriod.count({ where: { id: periodId, schoolId: ctx.schoolId } }),
+    prisma.subject.count({ where: { id: subjectId, schoolId: ctx.schoolId } }),
+    roomId ? prisma.room.count({ where: { id: roomId, schoolId: ctx.schoolId } }) : 0,
+  ]);
+  if (classCount !== 1 || periodCount !== 1 || subjectCount !== 1 || (roomId && roomCount !== 1)) {
+    return { error: "One or more selected items do not belong to this school." };
+  }
+
   // Auto-resolve teacher from the subject_teacher assignment for this class+subject.
   // Teacher is no longer user-editable in the grid — it's determined by the assignment.
   const assignment = await prisma.assignment.findFirst({
@@ -45,6 +55,10 @@ export async function setEntryAction(_prev: ActionState, formData: FormData): Pr
     select: { staffId: true },
   });
   const staffId = assignment?.staffId ?? (formData.get("staffId") as string) ?? "";
+  if (staffId) {
+    const staffCount = await prisma.staff.count({ where: { id: staffId, schoolId: ctx.schoolId } });
+    if (staffCount !== 1) return { error: "No teacher assigned to this subject for this class. Go to Staff → Assignments to link one." };
+  }
 
   if (!staffId) return { error: "No teacher assigned to this subject for this class. Go to Staff → Assignments to link one." };
 
@@ -84,12 +98,13 @@ export async function deleteEntryAction(entryId: string): Promise<ActionState> {
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
-  const entry = await prisma.timetableEntry.findUnique({
-    where: { id: entryId },
+  const entry = await prisma.timetableEntry.findFirst({
+    where: { id: entryId, schoolId: ctx.schoolId },
     select: { classId: true, dayOfWeek: true, subject: { select: { name: true } } },
   });
+  if (!entry) return { error: "Entry not found." };
 
-  await prisma.timetableEntry.delete({ where: { id: entryId } });
+  await prisma.timetableEntry.deleteMany({ where: { id: entryId, schoolId: ctx.schoolId } });
 
   if (entry) {
     const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];

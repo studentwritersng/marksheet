@@ -60,6 +60,15 @@ export async function createStudentAction(
     return { error: "First name and last name are required." };
   }
 
+  // Validate class belongs to the caller's school
+  if (classId) {
+    const cls = await prisma.class.findFirst({
+      where: { id: classId, schoolId: ctx.schoolId },
+      select: { id: true },
+    });
+    if (!cls) return { error: "Class not found for this school." };
+  }
+
   // Parse date of birth; if invalid, return error early
   const dateOfBirth = dobRaw ? new Date(dobRaw) : null;
   if (dobRaw && isNaN(dateOfBirth!.getTime())) {

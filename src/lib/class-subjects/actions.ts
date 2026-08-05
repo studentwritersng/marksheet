@@ -27,6 +27,16 @@ export async function linkSubjectToClassAction(
     return { error: "Invalid department." };
   }
 
+  const uniqueClassIds = [...new Set(classIds)];
+  const uniqueSubjectIds = [...new Set(subjectIds)];
+  const [classCount, subjectCount] = await Promise.all([
+    prisma.class.count({ where: { id: { in: uniqueClassIds }, schoolId: ctx.schoolId } }),
+    prisma.subject.count({ where: { id: { in: uniqueSubjectIds }, schoolId: ctx.schoolId } }),
+  ]);
+  if (classCount !== uniqueClassIds.length || subjectCount !== uniqueSubjectIds.length) {
+    return { error: "One or more classes or subjects do not belong to this school." };
+  }
+
   let created = 0;
   let skipped = 0;
 
@@ -65,8 +75,8 @@ export async function unlinkSubjectAction(
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
-  await prisma.classSubject.delete({
-    where: { classId_subjectId: { classId, subjectId } },
+  await prisma.classSubject.deleteMany({
+    where: { classId, subjectId, schoolId: ctx.schoolId },
   });
 
   revalidatePath("/class-subjects");

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
@@ -51,6 +52,13 @@ export async function createSyllabusAction(
   if (!subjectId || !classLevel || !sessionId || !term) {
     return { error: "Subject, class level, session, and term are required." };
   }
+
+  const [subjectExists, sessionExists] = await Promise.all([
+    prisma.subject.findFirst({ where: { id: subjectId, schoolId: ctx.schoolId }, select: { id: true } }),
+    prisma.session.findFirst({ where: { id: sessionId, schoolId: ctx.schoolId }, select: { id: true } }),
+  ]);
+  if (!subjectExists) return { error: "Subject not found for this school." };
+  if (!sessionExists) return { error: "Session not found for this school." };
 
   const topicRowsRaw = String(formData.get("topicRows") ?? "");
   let parsedTopics: Prisma.InputJsonValue[] = [];
@@ -254,6 +262,8 @@ export async function getSyllabiByClassAction(
   classLevel: string,
   schoolId: string,
 ): Promise<{ id: string; subjectId: string; subjectName: string; sessionLabel: string; createdAt: Date; parsedTopics: Record<string, unknown>[] | null }[]> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId || user.schoolId !== schoolId) return [];
   const [syllabi, sessions] = await Promise.all([
     prisma.syllabus.findMany({
       where: { schoolId, classLevel },
@@ -358,6 +368,13 @@ export async function commitSyllabusCsvAction(
   if (!subjectId || !classLevel || !sessionId || !term) {
     return { error: "Subject, class level, session, and term are required." };
   }
+
+  const [subjectExists, sessionExists] = await Promise.all([
+    prisma.subject.findFirst({ where: { id: subjectId, schoolId: ctx.schoolId }, select: { id: true } }),
+    prisma.session.findFirst({ where: { id: sessionId, schoolId: ctx.schoolId }, select: { id: true } }),
+  ]);
+  if (!subjectExists) return { error: "Subject not found for this school." };
+  if (!sessionExists) return { error: "Session not found for this school." };
 
   const rowsRaw = String(formData.get("rows") ?? "");
   let rows: CsvRow[];

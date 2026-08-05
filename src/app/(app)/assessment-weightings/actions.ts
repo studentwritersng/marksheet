@@ -122,6 +122,12 @@ export async function deleteAssessmentTypeAction(
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
+  const existing = await prisma.assessmentType.findFirst({
+    where: { id, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!existing) return { error: "Assessment type not found." };
+
   await prisma.assessmentType.delete({ where: { id } });
   revalidatePath("/assessment-weightings");
   return { success: "Assessment type deleted." };
@@ -179,8 +185,10 @@ export async function deleteWeightingAction(
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
+  if (schoolId !== ctx.schoolId) return { error: "Not authorised." };
+
   const existing = await prisma.assessmentWeighting.findFirst({
-    where: { schoolId, subjectId, assessmentTypeId },
+    where: { schoolId: ctx.schoolId, subjectId, assessmentTypeId },
   });
   if (!existing) return { error: "Weighting not found." };
 

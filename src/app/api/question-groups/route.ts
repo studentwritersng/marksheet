@@ -13,6 +13,12 @@ export async function GET(req: NextRequest) {
   const subjectId = req.nextUrl.searchParams.get("subjectId");
   if (!subjectId) return NextResponse.json({ groups: [] });
 
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, schoolId: user.schoolId },
+    select: { id: true },
+  });
+  if (!subject) return NextResponse.json({ groups: [] });
+
   const groups = await prisma.questionGroup.findMany({
     where: { subjectId },
     select: { id: true, stimulusId: true },

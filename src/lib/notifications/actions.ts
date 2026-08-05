@@ -67,8 +67,12 @@ export async function createNotification(input: CreateNotificationInput): Promis
 // ---------------------------------------------------------------------------
 
 export async function markNotificationReadAction(notificationId: string): Promise<void> {
-  await prisma.notification.update({
-    where: { id: notificationId },
+  const user = await getCurrentUser();
+  if (!user) return;
+  const nt = user.role === "parent" ? "parent" : user.role === "student" ? "student" : "staff";
+  const nid = user.role === "student" ? user.userId : user.role === "parent" ? user.userId : user.staffId ?? user.userId;
+  await prisma.notification.updateMany({
+    where: { id: notificationId, recipientType: nt, recipientId: nid },
     data: { isRead: true, readAt: new Date() },
   });
   revalidatePath("/");

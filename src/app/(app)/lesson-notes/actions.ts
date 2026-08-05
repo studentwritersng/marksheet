@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
@@ -405,6 +406,10 @@ export async function getCurriculumTopicsAction(
   term: string,
   schoolId?: string,
 ): Promise<{ id: string; topic: string; week: number; weekSuffix: string }[]> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) return [];
+  if (schoolId && schoolId !== user.schoolId) return [];
+
   async function query(cl: string, sid?: string) {
     return prisma.curriculumTopic.findMany({
       where: {

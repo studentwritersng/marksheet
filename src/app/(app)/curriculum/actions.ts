@@ -111,17 +111,8 @@ export async function deleteCurriculumBySubjectAction(
 
   if (!subject) return { error: "Subject is required." };
 
-  // Delete school-owned overrides and also adopt & delete system entries
-  const systemIds = await prisma.curriculumTopic.findMany({
-    where: {
-      classLevel: classLevel || undefined,
-      term: term || undefined,
-      subject,
-      schoolId: null,
-    },
-    select: { id: true },
-  });
-
+  // Delete only school-owned overrides. System defaults (schoolId: null)
+  // are shared across every school and must not be removed by a single school.
   const overrideIds = await prisma.curriculumTopic.findMany({
     where: {
       classLevel: classLevel || undefined,
@@ -132,8 +123,8 @@ export async function deleteCurriculumBySubjectAction(
     select: { id: true },
   });
 
-  const ids = [...systemIds, ...overrideIds].map((r) => r.id);
-  if (ids.length === 0) return { error: "No curriculum topics found for this selection." };
+  const ids = overrideIds.map((r) => r.id);
+  if (ids.length === 0) return { error: "No school curriculum overrides found for this selection." };
 
   await prisma.curriculumTopic.deleteMany({ where: { id: { in: ids } } });
 

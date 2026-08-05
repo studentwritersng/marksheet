@@ -2,12 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import type { ReportCardConfig } from "./types";
 import { DEFAULT_RC_CONFIG } from "./types";
 
 export async function getReportCardConfig(schoolId: string): Promise<ReportCardConfig> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId || user.schoolId !== schoolId) return { ...DEFAULT_RC_CONFIG };
   const school = await prisma.school.findUnique({
     where: { id: schoolId },
     select: { letterheadSettings: true },

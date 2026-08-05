@@ -119,6 +119,9 @@ export async function deleteTemplateAction(id: string): Promise<ActionState> {
 // ── School Notification Config ────────────────────────────────────────────
 
 export async function getSchoolNotificationConfig(schoolId: string): Promise<SchoolNotifConfigVM | null> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) return null;
+  if (user.schoolId !== schoolId && user.role !== "super_admin" && user.role !== "platform_owner") return null;
   const config = await prisma.schoolNotificationConfig.findUnique({
     where: { schoolId },
     select: { smsActive: true, whatsappActive: true, enabledEvents: true },
@@ -160,6 +163,7 @@ export async function sendTestNotificationAction(
     if (!user || !user.staffId) return { error: "Not authorised." };
     const perms = await resolvePermissions(user);
     if (!perms.isSchoolAdmin && !perms.isSuperAdmin) return { error: "Not authorised." };
+    if (user.schoolId !== schoolId && user.role !== "super_admin" && user.role !== "platform_owner") return { error: "Not authorised." };
     await guardAddon(schoolId);
 
     const queue = await prisma.notificationQueue.create({

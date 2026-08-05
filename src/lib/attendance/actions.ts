@@ -16,6 +16,16 @@ export interface ActionState { error?: string; success?: string }
 const ATTENDANCE_ADDON = "Daily Attendance";
 export type AttendanceStatus = "present" | "absent" | "late" | "excused";
 
+/**
+ * Rejects a request whose schoolId does not match the authenticated user's
+ * school. Server actions must never trust a client-supplied schoolId.
+ */
+async function assertSchoolScope(schoolId: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) throw new Error("Not authenticated.");
+  if (user.schoolId !== schoolId) throw new Error("Not authorised.");
+}
+
 async function guardAddon(schoolId: string) {
   try { await guardActiveLicense(schoolId); } catch (e: unknown) { throw new Error(e instanceof Error ? e.message : "License error"); }
   if (!(await isAddonActive(schoolId, ATTENDANCE_ADDON))) throw new Error("Daily Attendance addon not active.");
@@ -36,6 +46,7 @@ export async function getStudentsWithAttendance(
 ): Promise<{ students: StudentAttendanceRow[] }> {
   const user = await getCurrentUser();
   if (!user) throw new Error("Not authenticated.");
+  await assertSchoolScope(schoolId);
 
   const date = new Date(dateStr + "T00:00:00");
 
@@ -77,6 +88,7 @@ export async function takeStudentAttendanceAction(
   try {
     const user = await getCurrentUser();
     if (!user || !user.staffId) return { error: "Not authorised." };
+    await assertSchoolScope(schoolId);
     const perms = await resolvePermissions(user);
     if (!perms.isSchoolAdmin && !perms.isSuperAdmin && !perms.classTeacherClassIds.has(classId) && !perms.subjectTeacherClassIds.has(classId)) {
       return { error: "Not assigned to this class." };
@@ -142,6 +154,7 @@ export async function getStaffForAttendance(
 ): Promise<{ staff: StaffAttendanceRow[]; myRecord: StaffAttendanceRow | null }> {
   const user = await getCurrentUser();
   if (!user) throw new Error("Not authenticated.");
+  await assertSchoolScope(schoolId);
 
   const date = new Date(dateStr + "T00:00:00");
 
@@ -184,6 +197,7 @@ export async function takeStaffAttendanceAction(
   try {
     const user = await getCurrentUser();
     if (!user || !user.staffId) return { error: "Not authorised." };
+    await assertSchoolScope(schoolId);
     await guardAddon(schoolId);
 
     const date = new Date(dateStr + "T00:00:00");
@@ -209,6 +223,7 @@ export async function adminSetStaffAttendanceAction(
   try {
     const user = await getCurrentUser();
     if (!user || !user.staffId) return { error: "Not authorised." };
+    await assertSchoolScope(schoolId);
     const perms = await resolvePermissions(user);
     if (!perms.isSchoolAdmin && !perms.isSuperAdmin) return { error: "Not authorised." };
     await guardAddon(schoolId);
@@ -244,6 +259,7 @@ export interface AttendanceStats {
 export async function getAttendanceStats(
   schoolId: string, dateStr: string,
 ): Promise<AttendanceStats> {
+  await assertSchoolScope(schoolId);
   const date = new Date(dateStr + "T00:00:00");
 
   const [studentRecords, staffRecords, totalStudents, totalStaff] = await Promise.all([
@@ -280,6 +296,7 @@ export interface AttendanceTimelineRow {
 export async function getStudentAttendanceTimeline(
   schoolId: string, studentId: string, from?: string, to?: string,
 ): Promise<{ records: AttendanceTimelineRow[] }> {
+  await assertSchoolScope(schoolId);
   const where: any = { schoolId, studentId };
   if (from || to) {
     where.date = {};
@@ -305,6 +322,7 @@ export async function getStudentAttendanceTimeline(
 export async function getStudentAttendanceHistory(
   schoolId: string, studentId: string, limit = 30,
 ): Promise<{ date: string; status: AttendanceStatus; signInAt: string | null; signOutAt: string | null }[]> {
+  await assertSchoolScope(schoolId);
   const records = await prisma.attendanceRecord.findMany({
     where: { schoolId, studentId },
     orderBy: { date: "desc" },
@@ -325,6 +343,7 @@ export interface ClassAttendanceSummary {
 export async function getAllClassAttendanceSummary(
   schoolId: string, dateStr: string,
 ): Promise<ClassAttendanceSummary[]> {
+  await assertSchoolScope(schoolId);
   const date = new Date(dateStr + "T00:00:00");
 
   const classes = await prisma.class.findMany({
@@ -374,6 +393,7 @@ export async function getStudentQrCards(
 ): Promise<{ cards: StudentQrCard[] }> {
   const user = await getCurrentUser();
   if (!user) throw new Error("Not authenticated.");
+  await assertSchoolScope(schoolId);
 
   const where: Prisma.StudentWhereInput = { schoolId, status: "active" };
   if (classId) where.currentClassId = classId;
@@ -422,6 +442,7 @@ export async function scanStudentSignInAction(
   try {
     const user = await getCurrentUser();
     if (!user || !user.schoolId) return { error: "Not authenticated." };
+    await assertSchoolScope(schoolId);
     const perms = await resolvePermissions(user);
     if (!perms.isSchoolAdmin && !perms.isSuperAdmin && !perms.isReceptionist) return { error: "Not authorised." };
     await guardAddon(schoolId);
@@ -499,6 +520,7 @@ export async function scanStudentSignOutAction(
   try {
     const user = await getCurrentUser();
     if (!user || !user.schoolId) return { error: "Not authenticated." };
+    await assertSchoolScope(schoolId);
     const perms = await resolvePermissions(user);
     if (!perms.isSchoolAdmin && !perms.isSuperAdmin && !perms.isReceptionist) return { error: "Not authorised." };
     await guardAddon(schoolId);
@@ -552,6 +574,7 @@ export async function getStudentAttendanceSpreadsheet(
 ): Promise<{ rows: { studentId: string; admissionNumber: string; fullName: string; dates: { date: string; status: AttendanceStatus | null }[] }[] }> {
   const user = await getCurrentUser();
   if (!user || !user.schoolId) throw new Error("Not authenticated.");
+  await assertSchoolScope(schoolId);
 
   const from = new Date(fromDate + "T00:00:00");
   const to = new Date(toDate + "T00:00:00");
@@ -603,6 +626,7 @@ export async function getStaffAttendanceSpreadsheet(
 ): Promise<{ rows: { staffId: string; fullName: string; dates: { date: string; status: AttendanceStatus | null }[] }[] }> {
   const user = await getCurrentUser();
   if (!user || !user.schoolId) throw new Error("Not authenticated.");
+  await assertSchoolScope(schoolId);
 
   const from = new Date(fromDate + "T00:00:00");
   const to = new Date(toDate + "T00:00:00");

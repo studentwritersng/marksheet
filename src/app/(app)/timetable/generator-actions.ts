@@ -40,7 +40,7 @@ export async function deleteTemplateAction(_prev: ActionResult, formData: FormDa
   try { await guardGenerator(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
   const templateId = formData.get("templateId") as string;
   if (!templateId) return { error: "Template ID is required." };
-  await prisma.timetableTemplate.delete({ where: { id: templateId } });
+  await prisma.timetableTemplate.deleteMany({ where: { id: templateId, schoolId: ctx.schoolId } });
   revalidatePath("/timetable");
   return { success: "Template deleted." };
 }
@@ -56,6 +56,11 @@ export async function upsertDayAction(_prev: ActionResult, formData: FormData): 
   const dayName = formData.get("dayName") as string;
   const isTeachingDay = formData.get("isTeachingDay") === "true";
   if (!templateId || isNaN(dayIndex) || !dayName) return { error: "Missing required fields." };
+  const template = await prisma.timetableTemplate.findFirst({
+    where: { id: templateId, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!template) return { error: "Template not found." };
   const existingDay = await prisma.schoolDay.findFirst({
     where: { templateId, dayIndex },
   });
@@ -80,6 +85,11 @@ export async function upsertPeriodAction(_prev: ActionResult, formData: FormData
   const endTime = formData.get("endTime") as string;
   const periodType = formData.get("periodType") as string || "teaching";
   if (!templateId || isNaN(periodNumber) || !startTime || !endTime) return { error: "Missing required fields." };
+  const template = await prisma.timetableTemplate.findFirst({
+    where: { id: templateId, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!template) return { error: "Template not found." };
   const existing = await prisma.addonPeriod.findFirst({ where: { templateId, periodNumber } });
   if (existing) {
     await prisma.addonPeriod.update({ where: { id: existing.id }, data: { startTime, endTime, periodType } });
@@ -96,7 +106,7 @@ export async function deletePeriodAction(_prev: ActionResult, formData: FormData
   try { await guardGenerator(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
   const periodId = formData.get("periodId") as string;
   if (!periodId) return { error: "Period ID is required." };
-  await prisma.addonPeriod.delete({ where: { id: periodId } });
+  await prisma.addonPeriod.deleteMany({ where: { id: periodId, template: { schoolId: ctx.schoolId } } });
   revalidatePath("/timetable");
   return { success: "Period deleted." };
 }
@@ -115,6 +125,18 @@ export async function upsertSubjectRequirementAction(_prev: ActionResult, formDa
   const preferredTimeOfDay = (formData.get("preferredTimeOfDay") as string) || "none";
   const isPractical = formData.get("isPractical") === "true";
   if (!subjectId || isNaN(weeklyPeriodsRequired)) return { error: "Missing required fields." };
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!subject) return { error: "Subject not found." };
+  if (classId) {
+    const cls = await prisma.class.findFirst({
+      where: { id: classId, schoolId: ctx.schoolId },
+      select: { id: true },
+    });
+    if (!cls) return { error: "Class not found." };
+  }
   const existing = await prisma.subjectTimetableRequirement.findFirst({
     where: { schoolId: ctx.schoolId, subjectId, classId },
   });
@@ -134,7 +156,7 @@ export async function deleteSubjectRequirementAction(_prev: ActionResult, formDa
   try { await guardGenerator(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
   const reqId = formData.get("reqId") as string;
   if (!reqId) return { error: "Requirement ID is required." };
-  await prisma.subjectTimetableRequirement.delete({ where: { id: reqId } });
+  await prisma.subjectTimetableRequirement.deleteMany({ where: { id: reqId, schoolId: ctx.schoolId } });
   revalidatePath("/timetable");
   return { success: "Requirement deleted." };
 }
@@ -150,6 +172,11 @@ export async function upsertStaffAvailabilityAction(_prev: ActionResult, formDat
   const maxPeriodsPerDay = parseInt(formData.get("maxPeriodsPerDay") as string) || 8;
   const maxPeriodsPerWeek = parseInt(formData.get("maxPeriodsPerWeek") as string) || 40;
   if (!staffId || !daysRaw) return { error: "Missing required fields." };
+  const staff = await prisma.staff.findFirst({
+    where: { id: staffId, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!staff) return { error: "Staff member not found." };
   let days: number[];
   try { days = JSON.parse(daysRaw); } catch { return { error: "Invalid days value." }; }
   if (!Array.isArray(days) || days.length === 0) return { error: "Select at least one day." };
@@ -192,7 +219,7 @@ export async function deleteRuleAction(_prev: ActionResult, formData: FormData):
   try { await guardGenerator(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
   const ruleId = formData.get("ruleId") as string;
   if (!ruleId) return { error: "Rule ID is required." };
-  await prisma.schoolTimetableRule.delete({ where: { id: ruleId } });
+  await prisma.schoolTimetableRule.deleteMany({ where: { id: ruleId, schoolId: ctx.schoolId } });
   revalidatePath("/timetable");
   return { success: "Rule deleted." };
 }
@@ -221,6 +248,11 @@ export async function createRoomAction(_prev: ActionResult, formData: FormData):
   const roomTypeId = formData.get("roomTypeId") as string;
   const capacity = parseInt(formData.get("capacity") as string) || 40;
   if (!name || !roomTypeId) return { error: "Missing required fields." };
+  const roomType = await prisma.roomType.findFirst({
+    where: { id: roomTypeId, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!roomType) return { error: "Room type not found." };
   await prisma.room.create({ data: { schoolId: ctx.schoolId, name, roomTypeId, capacity } });
   revalidatePath("/timetable");
   return { success: "Room created." };
@@ -232,7 +264,7 @@ export async function deleteRoomAction(_prev: ActionResult, formData: FormData):
   try { await guardGenerator(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
   const roomId = formData.get("roomId") as string;
   if (!roomId) return { error: "Room ID is required." };
-  await prisma.room.delete({ where: { id: roomId } });
+  await prisma.room.deleteMany({ where: { id: roomId, schoolId: ctx.schoolId } });
   revalidatePath("/timetable");
   return { success: "Room deleted." };
 }
@@ -244,8 +276,8 @@ export async function publishTimetableAction(timetableId: string): Promise<Actio
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardGenerator(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
-  const timetable = await prisma.addonTimetable.findUnique({
-    where: { id: timetableId },
+  const timetable = await prisma.addonTimetable.findFirst({
+    where: { id: timetableId, schoolId: ctx.schoolId },
     include: {
       entries: { include: { subject: { select: { id: true } }, staff: { select: { id: true } } } },
       template: { include: { periods: { orderBy: { periodNumber: "asc" } } } },
@@ -300,8 +332,8 @@ export async function publishTimetableAction(timetableId: string): Promise<Actio
     inserted++;
   }
 
-  await prisma.addonTimetable.update({
-    where: { id: timetableId },
+  await prisma.addonTimetable.updateMany({
+    where: { id: timetableId, schoolId: ctx.schoolId },
     data: { status: "published" },
   });
 

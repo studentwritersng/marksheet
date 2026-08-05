@@ -39,6 +39,17 @@ export async function createAssignmentAction(
   });
   if (!staff) return { error: "Staff not found." };
 
+  // Verify subject, class, session and term all belong to this school
+  const [subjectOk, classOk, sessionOk, termOk] = await Promise.all([
+    subjectId ? prisma.subject.count({ where: { id: subjectId, schoolId: ctx.schoolId } }) : 1,
+    classId ? prisma.class.count({ where: { id: classId, schoolId: ctx.schoolId } }) : 1,
+    sessionId ? prisma.session.count({ where: { id: sessionId, schoolId: ctx.schoolId } }) : 1,
+    termId ? prisma.term.count({ where: { id: termId, session: { schoolId: ctx.schoolId } } }) : 1,
+  ]);
+  if (subjectOk !== 1 || classOk !== 1 || sessionOk !== 1 || termOk !== 1) {
+    return { error: "One or more selected items do not belong to this school." };
+  }
+
   // Determine which class IDs to create assignments for.
   // For subject_teacher with a general subject, or class_teacher, auto-expand
   // to all department variants of the same level.
@@ -324,12 +335,22 @@ export async function createStaffLoginAction(
   if (staff.user) return { error: "This staff member already has a login account." };
 
   // Check if a user already exists with this email (orphaned)
-  const existingUser = await prisma.user.findUnique({ where: { email: staff.email } });
+  const existingUser = await prisma.user.findUnique({
+    where: { email: staff.email },
+    include: { student: { select: { id: true } } },
+  });
   if (existingUser) {
-    // Re-link the existing user to this staff record
+    // Only re-link a genuinely orphaned account — never steal an account that
+    // is already attached to another school, staff, student or role.
+    const isOrphaned =
+      !existingUser.schoolId && !existingUser.staffId && !existingUser.student && existingUser.role !== "proprietor";
+    if (!isOrphaned) {
+      return { error: "A user account already exists for this email and cannot be re-linked." };
+    }
+    // Re-link the orphaned user to this staff record
     await prisma.user.update({
       where: { id: existingUser.id },
-      data: { staffId: staff.id, schoolId: ctx.schoolId, role: "staff" },
+      data: { staffId: staff.id, schoolId: ctx.schoolId, role: "staff", isActive: true },
     });
     revalidatePath(`/staff/${staffId}`);
     return { success: "Existing account re-linked to this staff member." };

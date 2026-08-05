@@ -45,6 +45,14 @@ export async function updateFeeStatusAction(
     return { error: "Student, term, and status are required." };
   }
 
+  // Verify the student and term belong to the caller's school.
+  const [student, term] = await Promise.all([
+    prisma.student.findFirst({ where: { id: studentId, schoolId: ctx.schoolId }, select: { id: true } }),
+    prisma.term.findFirst({ where: { id: termId, session: { schoolId: ctx.schoolId } }, select: { id: true } }),
+  ]);
+  if (!student) return { error: "Student not found." };
+  if (!term) return { error: "Term not found." };
+
   const existing = await prisma.feeStatus.findUnique({
     where: { studentId_termId: { studentId, termId } },
   });
@@ -90,6 +98,14 @@ export async function bulkUpdateFeeStatusAction(
   if (studentIds.length === 0 || !termId || !status) {
     return { error: "Selected students, term, and status are required." };
   }
+
+  // Verify the term and all students belong to the caller's school.
+  const [term, studentCount] = await Promise.all([
+    prisma.term.findFirst({ where: { id: termId, session: { schoolId: ctx.schoolId } }, select: { id: true } }),
+    prisma.student.count({ where: { id: { in: studentIds }, schoolId: ctx.schoolId } }),
+  ]);
+  if (!term) return { error: "Term not found." };
+  if (studentCount !== studentIds.length) return { error: "One or more students are invalid." };
 
   await prisma.$transaction(
     studentIds.map((sid) =>

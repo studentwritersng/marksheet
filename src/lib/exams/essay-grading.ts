@@ -22,6 +22,9 @@ export async function gradeEssayAnswersAction(examId: string): Promise<ActionSta
   }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId }, select: { id: true } });
+  if (!exam) return { error: "Exam not found." };
+
   const pending = await prisma.studentAnswer.findMany({
     where: {
       gradingStatus: "ai_pending",
@@ -142,6 +145,12 @@ export async function reviewEssayScoreAction(
   }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
+  const answer = await prisma.studentAnswer.findFirst({
+    where: { id: answerId, attempt: { exam: { schoolId: ctx.schoolId } } },
+    select: { id: true },
+  });
+  if (!answer) return { error: "Answer not found." };
+
   await prisma.studentAnswer.update({
     where: { id: answerId },
     data: {
@@ -171,6 +180,9 @@ export async function bulkAcceptScoresAction(examId: string): Promise<ActionStat
     return { error: "Not authorised." };
   }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId }, select: { id: true } });
+  if (!exam) return { error: "Exam not found." };
 
   const toAccept = await prisma.studentAnswer.findMany({
     where: {

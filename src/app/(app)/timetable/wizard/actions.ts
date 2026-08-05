@@ -146,6 +146,13 @@ export async function saveTeacherAvailabilityAction(
   }[];
   try { teachers = JSON.parse(teachersRaw); } catch { return { error: "Invalid data." }; }
 
+  // Every teacher must belong to the caller's school.
+  const teacherIds = [...new Set(teachers.map((t) => t.id))];
+  if (teacherIds.length > 0) {
+    const staffInSchool = await prisma.staff.count({ where: { id: { in: teacherIds }, schoolId: ctx.schoolId } });
+    if (staffInSchool !== teacherIds.length) return { error: "One or more teachers do not belong to this school." };
+  }
+
   // Update Staff records
   for (const t of teachers) {
     await prisma.staff.update({
@@ -324,6 +331,17 @@ export async function saveSubjectFrequencyAction(
   const freqRaw = String(formData.get("frequency") ?? "[]");
   let frequency: { classId: string; subjectId: string; minPerWeek: number; maxPerWeek: number }[];
   try { frequency = JSON.parse(freqRaw); } catch { return { error: "Invalid frequency data." }; }
+
+  // Validate every class/subject reference belongs to the caller's school.
+  const classIds = [...new Set(frequency.map((f) => f.classId).filter(Boolean))];
+  const subjectIds = [...new Set(frequency.map((f) => f.subjectId).filter(Boolean))];
+  const [classCount, subjectCount] = await Promise.all([
+    classIds.length > 0 ? prisma.class.count({ where: { id: { in: classIds }, schoolId: ctx.schoolId } }) : 0,
+    subjectIds.length > 0 ? prisma.subject.count({ where: { id: { in: subjectIds }, schoolId: ctx.schoolId } }) : 0,
+  ]);
+  if (classCount !== classIds.length || subjectCount !== subjectIds.length) {
+    return { error: "One or more classes or subjects do not belong to this school." };
+  }
 
   // Replace all existing subject requirements for this school
   await prisma.subjectTimetableRequirement.deleteMany({

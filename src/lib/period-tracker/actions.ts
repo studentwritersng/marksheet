@@ -24,12 +24,13 @@ export async function markTeacherTaughtAction(
   try {
     const user = await getCurrentUser();
     if (!user || !user.staffId) return { error: "Not authorised." };
+    if (!user.schoolId || user.schoolId !== schoolId) return { error: "Not authorised." };
     const perms = await resolvePermissions(user);
     if (!perms.subjectTeacherSubjectIds.has(subjectId)) return { error: "Not assigned to this subject." };
     await guardAddon(schoolId);
 
     const existing = await prisma.taughtTopic.findFirst({
-      where: { classId, subjectId, curriculumTopicId, teacherId: user.staffId },
+      where: { classId, subjectId, curriculumTopicId, teacherId: user.staffId, schoolId },
     });
 
     if (existing) {
@@ -54,7 +55,7 @@ export async function markCaptainTaughtAction(
 ): Promise<ActionState> {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "student" || !user.userId) return { error: "Not authorised." };
+    if (!user || user.role !== "student" || !user.userId || !user.schoolId || user.schoolId !== schoolId) return { error: "Not authorised." };
 
     const student = await prisma.student.findFirst({
       where: { userId: user.userId, schoolId, currentClassId: classId, OR: [{ isClassCaptain: true }, { isViceClassCaptain: true }] },
@@ -63,7 +64,7 @@ export async function markCaptainTaughtAction(
     await guardAddon(schoolId);
 
     const existing = await prisma.taughtTopic.findFirst({
-      where: { classId, subjectId, curriculumTopicId, teacherId },
+      where: { classId, subjectId, curriculumTopicId, teacherId, schoolId },
     });
 
     if (existing) {
@@ -93,6 +94,13 @@ export interface TeacherEntryVM {
 export async function getTeacherPeriodData(
   schoolId: string, staffId: string, classId: string, subjectId: string, termId: string,
 ): Promise<{ entries: TeacherEntryVM[] }> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId || user.schoolId !== schoolId) return { entries: [] };
+  const perms = await resolvePermissions(user);
+  const isAdmin = perms.isSuperAdmin || perms.isSchoolAdmin;
+  if (user.staffId !== staffId && !isAdmin) return { entries: [] };
+  if (!isAdmin && !perms.subjectTeacherSubjectIds.has(subjectId)) return { entries: [] };
+
   const cls = await prisma.class.findUnique({ where: { id: classId }, select: { level: true } });
   const subj = await prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } });
   const term = await prisma.term.findUnique({ where: { id: termId }, select: { name: true } });
@@ -170,11 +178,22 @@ export interface CaptainEntryVM {
 export async function getCaptainPeriodData(
   schoolId: string, studentId: string,
 ): Promise<{ entries: CaptainEntryVM[] }> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId || user.schoolId !== schoolId) return { entries: [] };
   const student = await prisma.student.findUnique({
     where: { id: studentId },
     select: { currentClassId: true },
   });
   if (!student?.currentClassId) return { entries: [] };
+
+  if (user.role === "student") {
+    if (user.userId !== (await prisma.student.findUnique({ where: { id: studentId }, select: { userId: true } }))?.userId) {
+      return { entries: [] };
+    }
+  } else {
+    const perms = await resolvePermissions(user);
+    if (!(perms.isSuperAdmin || perms.isSchoolAdmin)) return { entries: [] };
+  }
 
   const classId = student.currentClassId;
   const cls = await prisma.class.findUnique({ where: { id: classId }, select: { level: true } });

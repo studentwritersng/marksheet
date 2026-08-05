@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { requireSchoolAdmin, requireExamReviewer, canReviewExams, canPublishExams } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
@@ -34,6 +35,18 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
   if (!subjectId || !termId || !assessmentTypeId || !durationMinutes || classIds.length === 0) {
     return { error: "Missing required fields. Select at least one class." };
   }
+
+  // Verify every referenced entity belongs to the caller's school.
+  const [subject, term, assessmentType, classCount] = await Promise.all([
+    prisma.subject.findFirst({ where: { id: subjectId, schoolId: ctx.schoolId }, select: { id: true } }),
+    prisma.term.findFirst({ where: { id: termId, session: { schoolId: ctx.schoolId } }, select: { id: true } }),
+    prisma.assessmentType.findFirst({ where: { id: assessmentTypeId, schoolId: ctx.schoolId }, select: { id: true } }),
+    prisma.class.count({ where: { id: { in: classIds }, schoolId: ctx.schoolId } }),
+  ]);
+  if (!subject) return { error: "Subject not found." };
+  if (!term) return { error: "Term not found." };
+  if (!assessmentType) return { error: "Assessment type not found." };
+  if (classCount !== classIds.length) return { error: "One or more classes are invalid." };
 
   const exam = await prisma.exam.create({
     data: {
@@ -90,6 +103,12 @@ export async function updateExamAction(_prev: ActionState, formData: FormData): 
     return { error: "Missing required fields." };
   }
 
+  const existing = await prisma.exam.findFirst({
+    where: { id: examId, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!existing) return { error: "Exam not found." };
+
   await prisma.exam.update({
     where: { id: examId },
     data: {
@@ -116,6 +135,8 @@ export async function deleteExamAction(examId: string): Promise<ActionState> {
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   try {
+    const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId }, select: { id: true } });
+    if (!exam) return { error: "Exam not found." };
     await prisma.exam.delete({ where: { id: examId } });
   } catch (e: any) {
     return { error: e.message ?? "Failed to delete exam." };
@@ -272,7 +293,12 @@ export async function rejectExamAction(examId: string, comment: string): Promise
 }
 
 export async function isExamPublishedAction(examId: string): Promise<boolean> {
-  const exam = await prisma.exam.findUnique({ where: { id: examId }, select: { status: true } });
+  const user = await getCurrentUser();
+  if (!user) return false;
+  const exam = await prisma.exam.findFirst({
+    where: { id: examId, schoolId: user.schoolId ?? undefined },
+    select: { status: true },
+  });
   return exam?.status === "published";
 }
 
@@ -280,6 +306,9 @@ export async function addQuestionsToExamAction(examId: string, questionIds: stri
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId }, select: { id: true } });
+  if (!exam) return { error: "Exam not found." };
 
   await prisma.examQuestion.createMany({
     data: questionIds.map((qId) => ({ examId, questionId: qId })),
@@ -294,6 +323,9 @@ export async function removeQuestionFromExamAction(examId: string, questionId: s
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId }, select: { id: true } });
+  if (!exam) return { error: "Exam not found." };
 
   await prisma.examQuestion.deleteMany({
     where: { examId, questionId },
@@ -313,11 +345,26 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 export async function startExamAction(examId: string, studentId: string): Promise<ActionState & { attemptId?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authorised." };
+
+  // The caller must own the student record — a student may only start an
+  // exam for themselves; staff may only start for students in their school.
+  const student = await prisma.student.findFirst({
+    where: { id: studentId },
+    select: { id: true, schoolId: true, userId: true },
+  });
+  if (!student) return { error: "Student not found." };
+  if (student.schoolId !== user.schoolId) return { error: "Not authorised." };
+  if (user.role === "student" && student.userId !== user.userId) return { error: "Not authorised." };
+
   const exam = await prisma.exam.findUnique({
     where: { id: examId },
     select: { status: true, shuffleEnabled: true, durationMinutes: true, schoolId: true, termId: true },
   });
-  if (!exam || exam.status !== "published") return { error: "This exam is not available yet." };
+  if (!exam || exam.schoolId !== user.schoolId || exam.status !== "published") {
+    return { error: "This exam is not available yet." };
+  }
 
   // Fee gate check
   const { checkExamFeeGate } = await import("@/lib/fees/gate");
@@ -394,9 +441,13 @@ export async function startExamAction(examId: string, studentId: string): Promis
 }
 
 export async function submitExamAction(attemptId: string, answers: { questionId: string; mcqSelectedOptionId?: string; essayResponseText?: string }[]): Promise<ActionState & { mcqScore?: number; maxMcqScore?: number }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authorised." };
+
   const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
     include: {
+      student: { select: { schoolId: true, userId: true } },
       exam: {
         include: {
           examQuestions: {
@@ -411,6 +462,15 @@ export async function submitExamAction(attemptId: string, answers: { questionId:
     },
   });
   if (!attempt || attempt.status !== "in_progress") return { error: "Invalid attempt." };
+
+  // The caller must own this attempt — a student may only submit their own
+  // attempt; staff may only submit for students in their school.
+  if (!attempt.student || attempt.student.schoolId !== user.schoolId) {
+    return { error: "Not authorised." };
+  }
+  if (user.role === "student" && attempt.student.userId !== user.userId) {
+    return { error: "Not authorised." };
+  }
 
   // Check server-side timer
   const now = new Date();
@@ -470,11 +530,22 @@ export async function autoSaveExamAction(
   attemptId: string,
   answers: { questionId: string; mcqSelectedOptionId?: string; essayResponseText?: string }[],
 ): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authorised." };
+
   const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
-    select: { id: true, status: true, endsAt: true },
+    select: { id: true, status: true, endsAt: true, studentId: true },
   });
   if (!attempt || attempt.status !== "in_progress") return { error: "Invalid attempt." };
+
+  // The caller must own this attempt (same rules as submit).
+  const owner = await prisma.student.findUnique({
+    where: { id: attempt.studentId },
+    select: { schoolId: true, userId: true },
+  });
+  if (!owner || owner.schoolId !== user.schoolId) return { error: "Not authorised." };
+  if (user.role === "student" && owner.userId !== user.userId) return { error: "Not authorised." };
 
   // Check if timer expired
   if (attempt.endsAt && new Date() > attempt.endsAt) {
@@ -524,6 +595,9 @@ export async function assignResitAction(examId: string, studentIds: string[]): P
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId }, select: { id: true } });
+  if (!exam) return { error: "Exam not found." };
 
   await prisma.examAttempt.updateMany({
     where: { examId, studentId: { in: studentIds } },

@@ -57,6 +57,14 @@ export async function promoteStudentsAction(
   const toSession = await prisma.session.findUnique({ where: { id: toSessionId } });
   if (!toSession) return { error: "Destination session not found." };
 
+  // All promoted students must belong to the caller's school.
+  const studentsInSchool = await prisma.student.count({
+    where: { id: { in: studentIds }, schoolId: ctx.schoolId },
+  });
+  if (studentsInSchool !== studentIds.length) {
+    return { error: "One or more selected students do not belong to this school." };
+  }
+
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {

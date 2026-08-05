@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
@@ -46,6 +47,19 @@ export async function createQuestionAction(
   if (!subjectId || !text) return { error: "Subject and question text are required." };
   if (type === "mcq" && !correctAnswer) return { error: "Select the correct answer for MCQ." };
   if (type === "essay" && !modelAnswer) return { error: "Model answer is required for essay questions." };
+
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!subject) return { error: "Subject not found for this school." };
+  if (questionGroupId) {
+    const group = await prisma.questionGroup.findFirst({
+      where: { id: questionGroupId, subjectId, subject: { schoolId: ctx.schoolId } },
+      select: { id: true },
+    });
+    if (!group) return { error: "Question group not found for this school." };
+  }
 
   let rubricPoints = [];
   if (rubricJson) {
@@ -396,7 +410,9 @@ Difficulty distribution: 1 Easy, 1 Medium, 1 Hard`,
 
 /** Fetch published lesson notes for a subject, optionally filtered by class level. */
 export async function getLessonNotesBySubjectAction(subjectId: string, classLevel?: string): Promise<{ id: string; topic: string; class: string }[]> {
-  const where: Record<string, unknown> = { subjectId, status: "published" };
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) return [];
+  const where: Record<string, unknown> = { subjectId, status: "published", schoolId: user.schoolId };
   if (classLevel) {
     where.class = { level: classLevel };
   }
