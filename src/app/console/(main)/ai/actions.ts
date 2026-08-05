@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { encryptSecret } from "@/lib/secrets";
 
 export interface AiActionResult { error?: string; success?: string; }
 
@@ -22,18 +23,15 @@ export async function upsertAiProviderAction(_prev: AiActionResult, formData: Fo
   const baseUrl = String(formData.get("baseUrl") ?? "").trim();
   const apiKey = String(formData.get("apiKey") ?? "").trim();
   const defaultModelName = String(formData.get("defaultModelName") ?? "").trim();
+  const priority = parseInt(String(formData.get("priority") ?? "1"), 10) || 1;
   const isActive = formData.get("isActive") === "on";
 
   if (!label || !baseUrl || !defaultModelName) {
     return { error: "Label, base URL, and default model are required." };
   }
 
-  const upsertData: Record<string, unknown> = { label, baseUrl, defaultModelName, isActive };
-  if (apiKey) upsertData.apiKeyEncrypted = apiKey;
-
-  if (isActive) {
-    await prisma.aiProviderConfig.updateMany({ data: { isActive: false } });
-  }
+  const upsertData: Record<string, unknown> = { label, baseUrl, defaultModelName, priority, isActive };
+  if (apiKey) upsertData.apiKeyEncrypted = encryptSecret(apiKey);
 
   if (id) {
     await prisma.aiProviderConfig.update({ where: { id }, data: upsertData as never });
@@ -43,11 +41,35 @@ export async function upsertAiProviderAction(_prev: AiActionResult, formData: Fo
 
   await recordAudit({
     actorId: user.userId, action: id ? "update" : "create", entityType: "ai_provider_config",
-    afterValue: { label, baseUrl, defaultModelName } as never,
+    afterValue: { label, baseUrl, defaultModelName, priority } as never,
   });
 
   revalidatePath("/console/ai");
   return { success: `AI provider "${label}" saved.` };
+}
+
+export async function setAiProviderPriorityAction(id: string, priority: number): Promise<AiActionResult> {
+  const user = await guard();
+  if (!user) return { error: "Not authorised." };
+
+  const p = parseInt(String(priority), 10);
+  if (!id || !p || p < 1) return { error: "Provider ID and a priority of 1 or higher are required." };
+
+  const provider = await prisma.aiProviderConfig.findUnique({ where: { id }, select: { label: true } });
+  if (!provider) return { error: "Provider not found." };
+
+  await prisma.aiProviderConfig.update({
+    where: { id },
+    data: { priority: p },
+  });
+
+  await recordAudit({
+    actorId: user.userId, action: "update", entityType: "ai_provider_config",
+    entityId: id, afterValue: { priority: p } as never,
+  });
+
+  revalidatePath("/console/ai");
+  return { success: `"${provider.label}" priority set to ${p}.` };
 }
 
 export async function deleteAiProviderAction(id: string): Promise<AiActionResult> {

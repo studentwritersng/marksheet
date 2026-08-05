@@ -70,24 +70,49 @@ function loadConfig(): GatewayConfig {
   };
 }
 
-async function loadBestConfig(): Promise<GatewayConfig> {
+interface StackProvider {
+  providerConfigId: string | null;
+  baseUrl: string;
+  apiKey: string;
+  defaultModel: string;
+}
+
+/**
+ * Load the ordered provider stack used for AI calls.
+ * Active DB providers are returned sorted by priority (1 = default, tried first).
+ * When no DB provider is configured (or the DB is unavailable) the env config
+ * (AI_BASE_URL / AI_API_KEY / AI_DEFAULT_MODEL) is used as the single entry.
+ */
+async function loadProviderStack(): Promise<StackProvider[]> {
   try {
     const { prisma } = await import("@/lib/prisma");
-    const dbProvider = await prisma.aiProviderConfig.findFirst({
+    const { decryptSecret } = await import("@/lib/secrets");
+    const providers = await prisma.aiProviderConfig.findMany({
       where: { isActive: true },
+      orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
     });
-    if (dbProvider?.baseUrl && dbProvider?.apiKeyEncrypted && dbProvider?.defaultModelName) {
-      return {
-        baseUrl: dbProvider.baseUrl,
-        apiKey: dbProvider.apiKeyEncrypted,
-        defaultModel: dbProvider.defaultModelName,
-        mock: false,
-      };
-    }
+    const stack = providers
+      .filter((p) => p.baseUrl && p.apiKeyEncrypted && p.defaultModelName)
+      .map((p) => ({
+        providerConfigId: p.id,
+        baseUrl: p.baseUrl,
+        apiKey: decryptSecret(p.apiKeyEncrypted),
+        defaultModel: p.defaultModelName,
+      }));
+    if (stack.length > 0) return stack;
   } catch {
     // DB unavailable — fall through to env
   }
-  return loadConfig();
+  const envCfg = loadConfig();
+  if (envCfg.baseUrl && envCfg.apiKey) {
+    return [{
+      providerConfigId: null,
+      baseUrl: envCfg.baseUrl,
+      apiKey: envCfg.apiKey,
+      defaultModel: envCfg.defaultModel,
+    }];
+  }
+  return [];
 }
 
 const MAX_RETRIES = 3;
@@ -1338,34 +1363,31 @@ async function logAiCall(opts: {
 }
 
 /**
- * Resolve the effective provider config ID for a given task type.
- * Returns { providerConfigId, model, temperature, maxTokens }.
+ * Resolve the model / temperature / maxTokens for a single provider + task type.
+ * Task profiles are looked up per provider, so each provider in the stack can
+ * override the model name and generation settings for a given task.
  */
-async function resolveTaskProfile(
+async function resolveProviderProfile(
+  providerConfigId: string | null,
+  defaultModel: string,
   taskType: AiTaskType,
   modelOverride?: string,
-): Promise<{ providerConfigId: string | null; model: string; temperature: number; maxTokens: number }> {
+): Promise<{ model: string; temperature: number; maxTokens: number }> {
+  if (!providerConfigId) {
+    return { model: modelOverride ?? defaultModel, temperature: 0.7, maxTokens: 4096 };
+  }
   try {
     const { prisma } = await import("@/lib/prisma");
-    const activeProvider = await prisma.aiProviderConfig.findFirst({
-      where: { isActive: true },
-    });
-    if (!activeProvider) {
-      return { providerConfigId: null, model: modelOverride ?? loadConfig().defaultModel, temperature: 0.7, maxTokens: 4096 };
-    }
-
     const profile = await prisma.aiTaskProfile.findUnique({
-      where: { taskType_providerConfigId: { taskType, providerConfigId: activeProvider.id } },
+      where: { taskType_providerConfigId: { taskType, providerConfigId } },
     });
-
     return {
-      providerConfigId: activeProvider.id,
-      model: modelOverride ?? profile?.modelNameOverride ?? activeProvider.defaultModelName,
+      model: modelOverride ?? profile?.modelNameOverride ?? defaultModel,
       temperature: profile?.temperature ?? 0.7,
       maxTokens: profile?.maxTokens ?? 4096,
     };
   } catch {
-    return { providerConfigId: null, model: modelOverride ?? loadConfig().defaultModel, temperature: 0.7, maxTokens: 4096 };
+    return { model: modelOverride ?? defaultModel, temperature: 0.7, maxTokens: 4096 };
   }
 }
 
@@ -1373,9 +1395,8 @@ export async function createCompletion(
   opts: AiCompletionOptions,
 ): Promise<AiCompletionResult> {
   const envCfg = loadConfig();
-  const cfg = envCfg.mock ? envCfg : await loadBestConfig();
 
-  if (cfg.mock) {
+  if (envCfg.mock) {
     const result = mockCompletion(opts);
     await logAiCall({
       taskType: opts.taskType,
@@ -1388,123 +1409,148 @@ export async function createCompletion(
     return result;
   }
 
-  if (!cfg.baseUrl || !cfg.apiKey) {
+  const stack = await loadProviderStack();
+  if (stack.length === 0) {
     throw new AiGatewayError(
       "AI provider is not configured. Go to Console → AI Config to set one up, or configure AI_BASE_URL/AI_API_KEY in .env.",
     );
   }
 
-  const taskProfile = await resolveTaskProfile(opts.taskType, opts.model);
-  const model = taskProfile.model;
-  const temperature = opts.temperature ?? taskProfile.temperature;
-  const maxTokens = opts.maxTokens ?? taskProfile.maxTokens;
-  const url = `${cfg.baseUrl.replace(/\/$/, "")}/chat/completions`;
+  const startedAtTotal = Date.now();
+  const failures: { baseUrl: string; error: unknown }[] = [];
 
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    const startedAt = Date.now();
+  // Walk the priority stack: try each provider in order, retrying within a
+  // provider, and silently falling through to the next provider on any issue
+  // (rate limit, 5xx, 4xx rejection, network error, timeout).
+  for (const provider of stack) {
+    const taskProfile = await resolveProviderProfile(provider.providerConfigId, provider.defaultModel, opts.taskType, opts.model);
+    const model = taskProfile.model;
+    const temperature = opts.temperature ?? taskProfile.temperature;
+    const maxTokens = opts.maxTokens ?? taskProfile.maxTokens;
+    const url = `${provider.baseUrl.replace(/\/$/, "")}/chat/completions`;
 
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${cfg.apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: opts.messages,
-          temperature,
-          max_tokens: maxTokens,
-        }),
-        signal: controller.signal,
-      });
+    let lastError: unknown;
+    let lastLatencyMs: number | null = null;
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        if (res.status >= 500 || res.status === 429) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      const startedAt = Date.now();
+
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${provider.apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: opts.messages,
+            temperature,
+            max_tokens: maxTokens,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          lastLatencyMs = Date.now() - startedAt;
+          if (res.status >= 500 || res.status === 429) {
+            lastError = new AiGatewayError(
+              `Provider returned ${res.status}`,
+              text,
+            );
+            throw lastError;
+          }
           lastError = new AiGatewayError(
-            `Provider returned ${res.status}`,
+            `Provider rejected request (${res.status}): ${text}`,
             text,
           );
           throw lastError;
         }
-        const errMsg = `Provider rejected request (${res.status}): ${text}`;
+
+        const json = (await res.json()) as {
+          choices?: { message?: { content?: string }; finish_reason?: string }[];
+          usage?: { prompt_tokens?: number; completion_tokens?: number };
+        };
+
+        const content = json.choices?.[0]?.message?.content ?? "";
+        const latencyMs = Date.now() - startedAt;
+        const promptTokens = json.usage?.prompt_tokens ?? null;
+        const completionTokens = json.usage?.completion_tokens ?? null;
+
         await logAiCall({
           taskType: opts.taskType,
           schoolId: opts.schoolId,
-          providerConfigId: taskProfile.providerConfigId,
+          providerConfigId: provider.providerConfigId,
+          modelName: model,
+          promptTokens,
+          completionTokens,
+          status: "success",
+          latencyMs,
+        });
+
+        return {
+          content,
+          model,
+          promptTokens,
+          completionTokens,
+          latencyMs,
+          mocked: false,
+        };
+      } catch (err) {
+        lastError = err;
+        lastLatencyMs = lastLatencyMs ?? (Date.now() - startedAt);
+
+        // 4xx rejections are provider-specific and not worth retrying there;
+        // everything else (429, 5xx, network, timeout) is retried within the
+        // same provider up to MAX_RETRIES before falling through.
+        const retriable = !(
+          err instanceof AiGatewayError &&
+          err.message.startsWith("Provider rejected request")
+        );
+
+        if (retriable && attempt < MAX_RETRIES) {
+          await sleep(BASE_BACKOFF_MS * attempt);
+          continue;
+        }
+
+        // Log this provider's terminal failure and move to the next in the stack.
+        await logAiCall({
+          taskType: opts.taskType,
+          schoolId: opts.schoolId,
+          providerConfigId: provider.providerConfigId,
           modelName: model,
           status: "error",
-          errorDetail: errMsg,
-          latencyMs: Date.now() - startedAt,
+          errorDetail: err instanceof Error ? err.message : String(err),
+          latencyMs: lastLatencyMs,
         });
-        throw new AiGatewayError(errMsg, text);
+        failures.push({ baseUrl: provider.baseUrl, error: lastError });
+        break;
+      } finally {
+        clearTimeout(timeout);
       }
-
-      const json = (await res.json()) as {
-        choices?: { message?: { content?: string }; finish_reason?: string }[];
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
-      };
-
-      const finishReason = json.choices?.[0]?.finish_reason;
-      const content = json.choices?.[0]?.message?.content ?? "";
-      const latencyMs = Date.now() - startedAt;
-      const promptTokens = json.usage?.prompt_tokens ?? null;
-      const completionTokens = json.usage?.completion_tokens ?? null;
-
-      await logAiCall({
-        taskType: opts.taskType,
-        schoolId: opts.schoolId,
-        providerConfigId: taskProfile.providerConfigId,
-        modelName: model,
-        promptTokens,
-        completionTokens,
-        status: "success",
-        latencyMs,
-      });
-
-      return {
-        content,
-        model,
-        promptTokens,
-        completionTokens,
-        latencyMs,
-        mocked: false,
-      };
-    } catch (err) {
-      lastError = err;
-      if (
-        err instanceof AiGatewayError &&
-        err.message.startsWith("Provider rejected request")
-      ) {
-        throw err;
-      }
-      if (attempt < MAX_RETRIES) {
-        await sleep(BASE_BACKOFF_MS * attempt);
-        continue;
-      }
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
-  // Failed after retries
+  // Every provider in the stack failed.
+  const detail = failures.length > 0
+    ? failures.map((f) => `${f.baseUrl}: ${f.error instanceof Error ? f.error.message : String(f.error)}`).join(" | ")
+    : "No providers in the stack.";
   await logAiCall({
     taskType: opts.taskType,
     schoolId: opts.schoolId,
-    providerConfigId: taskProfile.providerConfigId,
-    modelName: model,
+    providerConfigId: null,
+    modelName: "unknown",
     status: "error",
-    errorDetail: "AI provider unavailable after retries.",
-    latencyMs: null,
+    errorDetail: `All AI providers failed after retries. ${detail}`,
+    latencyMs: Date.now() - startedAtTotal,
   });
 
   throw new AiGatewayError(
-    "AI provider unavailable after retries.",
-    lastError,
+    "AI provider unavailable — all configured providers failed after retries.",
+    failures.map((f) => f.error),
   );
 }
 

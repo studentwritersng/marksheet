@@ -507,6 +507,7 @@ model AiProviderConfig {
   baseUrl          String
   apiKeyEncrypted  String // encrypted at rest, never returned plaintext
   defaultModelName String
+  priority         Int      @default(1) // lower number is tried first; 1 = default provider
   isActive         Boolean  @default(false)
   createdBy        String?
   createdAt        DateTime @default(now())
@@ -1324,7 +1325,7 @@ model Notification {
   sentAt         DateTime  @default(now())
   deliveryStatus String    @default("pending") // pending / sent / failed / read
 
-  @@index([recipientType, recipientId])
+  @@index([recipientType, recipientId, sentAt])
   @@map("notifications")
 }
 

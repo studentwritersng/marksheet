@@ -7,7 +7,7 @@ export default async function ConsoleAiConfigPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "platform_owner") redirect("/console/login");
 
-  const providers = await prisma.aiProviderConfig.findMany({ orderBy: { createdAt: "desc" } });
+  const providers = await prisma.aiProviderConfig.findMany({ orderBy: [{ priority: "asc" }, { createdAt: "asc" }] });
 
   return (
     <AiConfigClient
@@ -17,6 +17,7 @@ export default async function ConsoleAiConfigPage() {
         baseUrl: p.baseUrl,
         hasKey: !!p.apiKeyEncrypted,
         defaultModelName: p.defaultModelName,
+        priority: p.priority,
         isActive: p.isActive,
         createdAt: p.createdAt.toISOString(),
       }))}

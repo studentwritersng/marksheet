@@ -1,19 +1,23 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { upsertAiProviderAction, deleteAiProviderAction, testAiConnectionAction, upsertTaskProfileAction } from "./actions";
+import { upsertAiProviderAction, deleteAiProviderAction, setAiProviderPriorityAction, testAiConnectionAction, upsertTaskProfileAction } from "./actions";
 
 interface ProviderVM {
   id: string; label: string; baseUrl: string; hasKey: boolean;
-  defaultModelName: string; isActive: boolean; createdAt: string;
+  defaultModelName: string; priority: number; isActive: boolean; createdAt: string;
 }
 
 export function AiConfigClient({ providers: initial }: { providers: ProviderVM[] }) {
-  const [providers, setProviders] = useState(initial);
+  const [providers, setProviders] = useState([...initial].sort((a, b) => a.priority - b.priority || a.createdAt.localeCompare(b.createdAt)));
   const [editing, setEditing] = useState<ProviderVM | null>(null);
   const [createNew, setCreateNew] = useState(false);
 
   const [saveState, saveAction, savePending] = useActionState(upsertAiProviderAction, {});
+
+  function applyPriorityChange(id: string, priority: number) {
+    setProviders((prev) => prev.map((p) => (p.id === id ? { ...p, priority } : p)).sort((a, b) => a.priority - b.priority || a.createdAt.localeCompare(b.createdAt)));
+  }
 
   return (
     <div className="space-y-6">
@@ -21,7 +25,7 @@ export function AiConfigClient({ providers: initial }: { providers: ProviderVM[]
         <div>
           <h1 className="text-2xl font-semibold text-white">AI Provider Configuration</h1>
           <p className="text-sm text-white/40 mt-1">
-            {providers.length} provider{providers.length !== 1 ? "s" : ""} configured
+            {providers.length} provider{providers.length !== 1 ? "s" : ""} configured · Enabled providers are tried by priority (1 = default), falling back silently on failure
           </p>
         </div>
         <button onClick={() => { setCreateNew(true); setEditing(null); }}
@@ -58,9 +62,14 @@ export function AiConfigClient({ providers: initial }: { providers: ProviderVM[]
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-1">
                   <h2 className="text-white font-semibold text-base">{p.label}</h2>
-                  {p.isActive && (
-                    <span className="rounded-full bg-emerald-900/50 text-emerald-300 text-[10px] px-2 py-0.5 font-medium">Active</span>
+                  {p.isActive ? (
+                    <span className="rounded-full bg-emerald-900/50 text-emerald-300 text-[10px] px-2 py-0.5 font-medium">Enabled</span>
+                  ) : (
+                    <span className="rounded-full bg-white/10 text-white/40 text-[10px] px-2 py-0.5 font-medium">Disabled</span>
                   )}
+                  <span className="rounded-full bg-blue-900/50 text-blue-300 text-[10px] px-2 py-0.5 font-medium">
+                    Priority {p.priority}{p.priority === 1 ? " · Default" : ""}
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-xs text-white/40">
                   <span>Base URL: <span className="text-white/60 font-mono">{p.baseUrl}</span></span>
@@ -73,6 +82,10 @@ export function AiConfigClient({ providers: initial }: { providers: ProviderVM[]
                 <button onClick={() => { setEditing(p); setCreateNew(false); }}
                   className="text-xs text-white/40 hover:text-white/70 transition-colors underline"
                 >Edit</button>
+                {p.priority !== 1 && (
+                  <PriorityButton providerId={p.id} priority={1} label="Set as Default"
+                    onChanged={() => applyPriorityChange(p.id, 1)} />
+                )}
                 <DeleteButton providerId={p.id} providerLabel={p.label} onDeleted={() => setProviders((prev) => prev.filter((x) => x.id !== p.id))} />
               </div>
             </div>
@@ -201,12 +214,17 @@ function AiProviderForm({ provider, saveAction, savePending, saveState, onCancel
             <input name="defaultModelName" required defaultValue={provider?.defaultModelName ?? ""} placeholder="e.g. anthropic/claude-3.5-sonnet"
               className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white placeholder:text-white/20 font-mono" />
           </div>
+          <div>
+            <label className="text-xs text-white/50 block mb-1">Priority (1 = default, tried first)</label>
+            <input name="priority" type="number" min={1} defaultValue={provider?.priority ?? 1}
+              className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white" />
+          </div>
         </div>
 
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" name="isActive" defaultChecked={provider?.isActive ?? false} 
             className="rounded border-white/10 bg-white/5 text-emerald-600" />
-          <span className="text-sm text-white/70">Set as active provider</span>
+          <span className="text-sm text-white/70">Enabled (included in the call fallback stack)</span>
         </label>
 
         {saveState.error && <p className="text-red-400 text-sm">{saveState.error}</p>}
@@ -272,6 +290,24 @@ function DeleteButton({ providerId, providerLabel, onDeleted }: {
         onClick={(e) => { if (!confirm(`Delete "${providerLabel}"?`)) e.preventDefault(); }}
         className="text-xs text-red-400 hover:text-red-300 transition-colors underline"
       >{pending ? "..." : "Delete"}</button>
+    </form>
+  );
+}
+
+function PriorityButton({ providerId, priority, label, onChanged }: {
+  providerId: string; priority: number; label: string; onChanged: () => void;
+}) {
+  const [, action, pending] = useActionState(async () => {
+    const r = await setAiProviderPriorityAction(providerId, priority);
+    if (!r.error) onChanged();
+    return r;
+  }, {});
+
+  return (
+    <form action={action}>
+      <button type="submit" disabled={pending}
+        className="text-xs text-emerald-400/70 hover:text-emerald-300 transition-colors underline"
+      >{pending ? "..." : label}</button>
     </form>
   );
 }
