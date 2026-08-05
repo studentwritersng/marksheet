@@ -12,6 +12,8 @@ interface ExistingNote {
   source: string;
   status: string;
   createdAt: string;
+  week: number | null;
+  weekSuffix: string;
 }
 
 export function LessonNotesForm({
@@ -209,13 +211,18 @@ export function LessonNotesForm({
                                 <p className="text-xs font-medium text-on-surface-variant mb-1.5">Existing notes ({existingNotes.length})</p>
                                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
                                   {existingNotes.map((n) => (
-                                    <div key={n.id} className="flex items-center justify-between border border-outline-variant rounded-lg px-3 py-2 bg-surface">
-                                      <div>
-                                        <p className="text-xs font-medium text-on-surface">{n.topic}</p>
+                                    <div key={n.id} className="flex items-center justify-between gap-2 border border-outline-variant rounded-lg px-3 py-2 bg-surface">
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-medium text-on-surface truncate">{n.topic}</p>
                                         <p className="text-[10px] text-on-surface-variant mt-0.5">
                                           {n.duration ? `${n.duration} · ` : ""}{n.source === "ai_generated" ? "AI" : "Manual"} · {n.status}
                                         </p>
                                       </div>
+                                      {n.week != null && (
+                                        <span className="shrink-0 rounded-full bg-primary-container text-on-primary-container px-2 py-0.5 text-[10px] font-semibold">
+                                          Week {n.week}{n.weekSuffix || ""}
+                                        </span>
+                                      )}
                                     </div>
                                   ))}
                                 </div>

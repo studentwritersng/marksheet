@@ -373,30 +373,125 @@ export async function getSubjectsWithNotesAction(
   });
 }
 
-/** Fetch existing lesson notes for a class + subject + term combination. */
+const curriculumSubjectAltNames: Record<string, string[]> = {
+  "English Language": ["English Studies", "English"],
+  "Basic Science": ["Basic Science and Technology", "Integrated Science"],
+  "Basic Technology": ["Introductory Technology"],
+  "Business Studies": ["Business Education"],
+  "Civic Education": ["Civics"],
+  "Physical and Health Education": ["Physical Education", "PHE"],
+  "Social Studies": ["Social Sciences"],
+  "Agricultural Science": ["Agriculture"],
+  "Computer Science": ["Information Technology", "IT", "Computer Studies"],
+  "Home Economics": ["Home Management"],
+  "Christian Religious Studies": ["CRS", "Christian Religious Knowledge", "Christian Religious Education"],
+  "Islamic Studies": ["IRS", "Islamic Religious Studies"],
+};
+
+function subjectNameVariations(name: string): string[] {
+  const variations = [name];
+  for (const alts of Object.values(curriculumSubjectAltNames)) {
+    if (alts.some((a) => a.toLowerCase() === name.toLowerCase())) {
+      variations.push(...alts);
+      break;
+    }
+  }
+  return variations;
+}
+
+/** Resolve the curriculum week for a lesson note topic, or null when no match is found. */
+function resolveCurriculumWeek(
+  topic: string,
+  weekMap: Map<string, { week: number; weekSuffix: string }>,
+): { week: number; weekSuffix: string } | null {
+  const normalized = topic.trim().toLowerCase().replace(/^(week\s*\d+\s*[ab]?\s*[:-]\s*)/i, "");
+
+  const exact = weekMap.get(normalized);
+  if (exact) return exact;
+
+  let best: { week: number; weekSuffix: string } | null = null;
+  let bestLen = 0;
+  for (const [key, w] of weekMap) {
+    if (key.length > 0 && (normalized.includes(key) || key.includes(normalized))) {
+      if (key.length > bestLen) {
+        best = w;
+        bestLen = key.length;
+      }
+    }
+  }
+  if (best) return best;
+
+  const match = topic.match(/(?:week\s*)(\d+)/i);
+  if (match) return { week: parseInt(match[1], 10), weekSuffix: "" };
+
+  return null;
+}
+
+/** Fetch existing lesson notes for a class + subject + term combination, ordered by curriculum week. */
 export async function getExistingNotesAction(
   classId: string,
   subjectId: string,
   termId: string,
-): Promise<{ id: string; topic: string; duration: string | null; source: string; status: string; createdAt: string }[]> {
+): Promise<{ id: string; topic: string; duration: string | null; source: string; status: string; createdAt: string; week: number | null; weekSuffix: string }[]> {
   let ctx;
   try { ctx = await requireSchoolAdmin(); } catch { return []; }
   await guardActiveLicense(ctx.schoolId).catch(() => null);
 
-  const notes = await prisma.lessonNote.findMany({
-    where: { classId, subjectId, termId, schoolId: ctx.schoolId },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, topic: true, duration: true, source: true, status: true, createdAt: true },
+  const [notes, cls, term, subject] = await Promise.all([
+    prisma.lessonNote.findMany({
+      where: { classId, subjectId, termId, schoolId: ctx.schoolId },
+      select: { id: true, topic: true, duration: true, source: true, status: true, createdAt: true },
+    }),
+    prisma.class.findUnique({ where: { id: classId }, select: { level: true } }),
+    prisma.term.findUnique({ where: { id: termId }, select: { name: true } }),
+    prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } }),
+  ]);
+
+  // Build a topic → week map from the curriculum (school-specific entries take precedence).
+  const weekMap = new Map<string, { week: number; weekSuffix: string }>();
+  if (cls && term && subject) {
+    const curriculum = await prisma.curriculumTopic.findMany({
+      where: {
+        classLevel: cls.level,
+        subject: { in: subjectNameVariations(subject.name) },
+        term: term.name.toUpperCase(),
+        OR: [{ schoolId: ctx.schoolId }, { schoolId: null }],
+      },
+      orderBy: [{ schoolId: "desc" }, { week: "asc" }, { weekSuffix: "asc" }],
+      select: { topic: true, week: true, weekSuffix: true },
+    });
+    for (const t of curriculum) {
+      const key = t.topic.trim().toLowerCase();
+      if (key && !weekMap.has(key)) {
+        weekMap.set(key, { week: t.week, weekSuffix: t.weekSuffix });
+      }
+    }
+  }
+
+  const result = notes.map((n) => {
+    const w = resolveCurriculumWeek(n.topic, weekMap);
+    return {
+      id: n.id,
+      topic: n.topic,
+      duration: n.duration,
+      source: n.source,
+      status: n.status,
+      createdAt: n.createdAt.toISOString(),
+      week: w ? w.week : null,
+      weekSuffix: w ? w.weekSuffix : "",
+    };
   });
 
-  return notes.map((n) => ({
-    id: n.id,
-    topic: n.topic,
-    duration: n.duration,
-    source: n.source,
-    status: n.status,
-    createdAt: n.createdAt.toISOString(),
-  }));
+  // Order by curriculum week (unmatched notes sink to the end), regardless of generation time.
+  result.sort((a, b) => {
+    const wa = a.week ?? Number.MAX_SAFE_INTEGER;
+    const wb = b.week ?? Number.MAX_SAFE_INTEGER;
+    if (wa !== wb) return wa - wb;
+    if (a.weekSuffix !== b.weekSuffix) return a.weekSuffix.localeCompare(b.weekSuffix);
+    return a.createdAt.localeCompare(b.createdAt);
+  });
+
+  return result;
 }
 
 /** Fetch curriculum topics (syllabus items) for a subject and class level. */
