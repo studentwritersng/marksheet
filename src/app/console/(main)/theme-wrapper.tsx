@@ -30,6 +30,7 @@ const navItems: NavItem[] = [
   { label: "Schools", href: "/console/schools", icon: "domain" },
   { label: "Referrals", href: "/console/referrals", icon: "share" },
   { label: "Referral Settings", href: "/console/referral-settings", icon: "settings" },
+  { label: "Landing Stats", href: "/console/landing-stats", icon: "monitoring" },
   { label: "Licenses", href: "/console/licenses", icon: "verified" },
   { label: "Curriculum", href: "/console/curriculum", icon: "book" },
   { label: "Upload NERDC", href: "/console/nerdc-upload", icon: "upload_file" },

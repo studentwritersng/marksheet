@@ -2025,3 +2025,20 @@ model HomepageContentBlock {
   @@index([sectionKey])
   @@map("homepage_content_blocks")
 }
+
+// PRD 20: Landing page hero statistics, controllable from the Platform Owner Console.
+// valueSource is "auto" (the number is derived from live platform counts) or
+// "manual" (the number shown is the value stored in manualValue).
+model LandingStat {
+  id           String   @id @default(cuid())
+  key          String   @unique // e.g. schools_registered, total_students, verification_codes, uptime
+  label        String // short descriptor shown under the number, e.g. "schools registered"
+  valueSource  String   @default("auto") // auto | manual
+  manualValue  String   @default("") // used only when valueSource === "manual"
+  enabled      Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("landing_stats")
+}

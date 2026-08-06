@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { resolveLandingStats } from "@/lib/landing-stats";
 import { MarketingLandingPage } from "./(marketing)/landing-page";
 
 export const metadata = {
@@ -22,5 +23,10 @@ export default async function Home() {
     redirect("/dashboard");
   }
 
-  return <MarketingLandingPage />;
+  const stats = await resolveLandingStats();
+  return (
+    <MarketingLandingPage
+      stats={stats.map((s) => ({ value: s.value, label: s.label }))}
+    />
+  );
 }

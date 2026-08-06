@@ -94,7 +94,7 @@ const faqs = [
 
 const COUNT_RANGES = ["Under 100", "100 – 300", "300 – 500", "500 – 1,000", "1,000+"];
 
-export function MarketingLandingPage() {
+export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string; label: string }> }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [code, setCode] = useState("");
   const [verifyState, setVerifyState] = useState<{
@@ -257,15 +257,18 @@ export function MarketingLandingPage() {
           </div>
 
           <dl className="mt-14 grid max-w-2xl grid-cols-2 gap-px overflow-hidden rounded-2xl glass sm:grid-cols-4">
-            {[
-              ["3", "terms tracked"],
-              ["1", "source of truth"],
-              ["0", "re-typed scores"],
-              ["24/7", "code verification"],
-            ].map(([k, v]) => (
-              <div key={v} className="px-5 py-4">
-                <dt className="font-mk-display text-2xl font-bold text-mk-ink-fg">{k}</dt>
-                <dd className="mt-0.5 text-xs text-mk-ink-fg/60">{v}</dd>
+            {(stats && stats.length
+              ? stats
+              : [
+                  { value: "3", label: "terms tracked" },
+                  { value: "1", label: "source of truth" },
+                  { value: "0", label: "re-typed scores" },
+                  { value: "24/7", label: "code verification" },
+                ]
+            ).map((stat) => (
+              <div key={stat.label} className="px-5 py-4">
+                <dt className="font-mk-display text-2xl font-bold text-mk-ink-fg">{stat.value}</dt>
+                <dd className="mt-0.5 text-xs text-mk-ink-fg/60">{stat.label}</dd>
               </div>
             ))}
           </dl>
