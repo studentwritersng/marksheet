@@ -63,8 +63,8 @@ export async function updateLandingStatAction(
     action: "update",
     entityType: "landing_stat",
     entityId: id,
-    beforeValue: beforeValue as unknown as Record<string, unknown>,
-    afterValue: { label, valueSource, manualValue, enabled } as unknown as Record<string, unknown>,
+    beforeValue: beforeValue as never,
+    afterValue: { label, valueSource, manualValue, enabled } as never,
   });
 
   revalidatePath("/console/landing-stats");

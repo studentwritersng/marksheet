@@ -1,49 +1,13 @@
-2026-07-29 06:29:42.613 [error] ===== AI JSON PARSE FAILED =====
-2026-07-29 06:29:42.613 [error] Parse error: SyntaxError: Unexpected token '}', ...""options":}]}" is not valid JSON
-2026-07-29 06:29:42.613 [error] Raw AI response length: 18110
-2026-07-29 06:29:42.613 [error] Clean content length: 18105
-2026-07-29 06:29:42.613 [error] Clean content (first 500): {
-  "questions": [
-    {
-      "question_text": "Biological classification is primarily the scientific process of grouping living organisms based on ________.",
-      "marks": 1,
-      "difficulty": "Easy",
-      "options": [
-        { "label": "A", "text": "their geographical distribution", "is_correct": false },
-        { "label": "B", "text": "their economic importance", "is_correct": false },
-        { "label": "C", "text": "shared observable and genetic characteristics", "is_correct": true
-2026-07-29 06:29:42.613 [error] Clean content (last 2000): ": false },
-        { "label": "B", "text": "Tracheophyta", "is_correct": true },
-        { "label": "C", "text": "Bryophyta", "is_correct": false },
-        { "label": "D", "text": "Pteridophyta", "is_correct": false }
-      ],
-      "rationale": "The 'Worked Example: African Oil Palm' explicitly states its 'Phylum: Tracheophyta (plants with vascular tissues...)'.",
-      "grounding_summary": {
-        "target_grounding_percentage": 80,
-        "grounded_count": 20,
-        "extension_count": 5
-      }
-    },
-    {
-      "question_text": "A scientist observes an unknown unicellular organism under a microscope. It lacks a true nucleus but has a cell wall. To which kingdom would this organism most likely be classified?",
-      "marks": 1,
-      "difficulty": "Hard",
-      "options": [
-        { "label": "A", "text": "Protista, because it is unicellular.", "is_correct": false },
-        { "label": "B", "text": "Monera, because it lacks a true nucleus and has a cell wall.", "is_correct": true },
-        { "label": "C", "text": "Fungi, because it has a cell wall.", "is_correct": false },
-        { "label": "D", "text": "Plantae, because it has a cell wall and is unicellular.", "is_correct": false }
-      ],
-      "rationale": "Kingdom Monera is characterized by being unicellular, prokaryotic (lacks a true nucleus), and having a cell wall. Protista are eukaryotic (have a true nucleus). Fungi and Plantae, while having cell walls, are typically multicellular or have different defining characteristics for unicellular forms.",
-      "grounding_summary": {
-        "target_grounding_percentage": 80,
-        "grounded_count": 20,
-        "extension_count": 5
-      }
-    },
-    {
-      "question_text": "A newly discovered organism is found to be multicellular, heterotrophic, and its cells possess cell walls made of chitin. Based on these characteristics, it would most likely be classified under Kingdom ________.",
-      "marks": 1,
-      "difficulty": "Hard",
-      "options":}]}
-2026-07-29 06:29:42.613 [error] ===== END AI OUTPUT =====
+Failed to type check.
+./src/app/console/(main)/landing-stats/actions.ts:66:5
+Type error: Type 'Record<string, unknown>' is not assignable to type 'InputJsonValue | null | undefined'.
+  Type 'Record<string, unknown>' is missing the following properties from type 'readonly (InputJsonValue | null)[]': length, concat, join, slice, and 26 more.
+  64 |     entityType: "landing_stat",
+  65 |     entityId: id,
+> 66 |     beforeValue: beforeValue as unknown as Record<string, unknown>,
+     |     ^
+  67 |     afterValue: { label, valueSource, manualValue, enabled } as unknown as Record<string, ...
+  68 |   });
+  69 |
+Next.js build worker exited with code: 1 and signal: null
+Error: Command "npm run build" exited with 1
