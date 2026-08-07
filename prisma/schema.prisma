@@ -1915,8 +1915,8 @@ model SchoolRegistration {
 
 model ReferralCommissionSetting {
   id                String   @id @default(cuid())
-  registrationFee   Decimal  @default(10000) // registration fee in NGN
-  commissionPercent Decimal  @default(10)    // percentage of registration fee paid to referrer
+  registrationFee   Decimal  @default(250000) // registration fee in NGN
+  commissionPercent Decimal  @default(20)    // percentage of registration fee paid to referrer
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

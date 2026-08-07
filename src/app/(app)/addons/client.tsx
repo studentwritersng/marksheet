@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useRef } from "react";
 import { activateAddonWithCodeAction, purchaseAddonAction } from "./actions";
 
 interface AddonVM {
@@ -85,6 +85,16 @@ export function AddonsClient({ addons, activeAddons, schoolStage, methods }: {
   const [actionMode, setActionMode] = useState<"code" | "purchase">("code");
   const [codeState, codeAction, codePending] = useActionState(activateAddonWithCodeAction, {});
   const [purchaseState, purchaseAction, purchasePending] = useActionState(purchaseAddonAction, {});
+  const [proofBase64, setProofBase64] = useState<string>("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setProofBase64(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const activeMap = new Map(activeAddons.map((a) => [a.addonId, a]));
   const activeAddonsList = addons.filter((a) => a.isActive);
@@ -201,27 +211,34 @@ export function AddonsClient({ addons, activeAddons, schoolStage, methods }: {
                       </form>
                     )}
 
-                    {actionMode === "purchase" && price && (
-                      <form action={purchaseAction} className="space-y-2">
-                        <input type="hidden" name="addonId" value={addon.id} />
-                        {methods.length > 0 && (
-                          <select name="methodId" required className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-                            <option value="">Select payment method</option>
-                            {methods.map((m) => <option key={m.id} value={m.id}>{m.label} ({m.type.replace("_", " ")})</option>)}
-                          </select>
-                        )}
-                        <input name="reference" placeholder="Payment reference / teller ID"
-                          className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-                        <input name="notes" placeholder="Optional notes"
-                          className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-                        <button type="submit" disabled={purchasePending}
-                          className={`w-full bg-gradient-to-r ${theme.gradient} text-white text-sm py-2 rounded-lg disabled:opacity-60 shadow-sm`}>
-                          {purchasePending ? "Processing..." : `Pay ${formatPrice(price)}`}
-                        </button>
-                        {purchaseState.error && <p className="text-red-600 text-xs">{purchaseState.error}</p>}
-                        {purchaseState.success && <p className="text-emerald-600 text-xs">{purchaseState.success}</p>}
-                      </form>
-                    )}
+                     {actionMode === "purchase" && price && (
+                       <form action={purchaseAction} className="space-y-2">
+                         <input type="hidden" name="addonId" value={addon.id} />
+                         <input type="hidden" name="proofUrl" value={proofBase64} />
+                         {methods.length > 0 && (
+                           <select name="methodId" required className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+                             <option value="">Select payment method</option>
+                             {methods.map((m) => <option key={m.id} value={m.id}>{m.label} ({m.type.replace("_", " ")})</option>)}
+                           </select>
+                         )}
+                         <input name="reference" placeholder="Payment reference / teller ID"
+                           className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                         <div>
+                           <label className="font-body-sm text-body-sm text-on-surface block mb-1">Upload Proof of Payment</label>
+                           <input ref={fileRef} type="file" accept="image/*" onChange={handleFile}
+                             className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-[#002046] file:text-white hover:file:bg-[#003366]" />
+                           {proofBase64 && <img src={proofBase64} alt="Receipt preview" className="mt-2 max-h-32 rounded-lg border border-outline-variant object-contain" />}
+                         </div>
+                         <input name="notes" placeholder="Optional notes"
+                           className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                         <button type="submit" disabled={purchasePending}
+                           className={`w-full bg-gradient-to-r ${theme.gradient} text-white text-sm py-2 rounded-lg disabled:opacity-60 shadow-sm`}>
+                           {purchasePending ? "Processing..." : `Pay ${formatPrice(price)}`}
+                         </button>
+                         {purchaseState.error && <p className="text-red-600 text-xs">{purchaseState.error}</p>}
+                         {purchaseState.success && <p className="text-emerald-600 text-xs">{purchaseState.success}</p>}
+                       </form>
+                     )}
                   </div>
                 )}
               </div>

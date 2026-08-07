@@ -154,9 +154,9 @@ export function SchoolRegistrationForm({
           <div className="flex items-center justify-between rounded-2xl bg-mk-muted p-5">
             <div>
               <p className="text-sm text-mk-muted-fg">Registration fee</p>
-              <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-mk-muted-fg">
-                Not charged now. Used to reconcile your payment once you&apos;re approved.
-              </p>
+               <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-mk-muted-fg">
+                 One-time registration fee. Pay now to complete your application.
+               </p>
             </div>
             <p className="font-mk-display text-3xl font-bold">₦{registrationFee.toLocaleString()}</p>
           </div>

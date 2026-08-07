@@ -57,8 +57,8 @@ const benefits = [
 export default async function ReferralPage() {
   const setting = await prisma.referralCommissionSetting.findFirst();
 
-  const registrationFee = setting ? Number(setting.registrationFee) : 10000;
-  const commissionPercent = setting ? Number(setting.commissionPercent) : 10;
+  const registrationFee = setting ? Number(setting.registrationFee) : 250000;
+  const commissionPercent = setting ? Number(setting.commissionPercent) : 20;
   const commissionAmount = Math.round((registrationFee * commissionPercent) / 100);
 
   return (

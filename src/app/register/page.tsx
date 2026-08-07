@@ -74,7 +74,7 @@ export default async function RegisterPage({
     prisma.referralCommissionSetting.findFirst(),
   ]);
 
-  const registrationFee = setting ? Number(setting.registrationFee) : 10000;
+    const registrationFee = setting ? Number(setting.registrationFee) : 250000;
 
   const methods = paymentMethods.map((m) => ({
     id: m.id,
