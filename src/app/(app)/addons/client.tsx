@@ -109,7 +109,7 @@ export function AddonsClient({ addons, activeAddons, schoolStage, methods }: {
 
       <div className="relative overflow-hidden rounded-2xl border border-outline-variant">
         <Image
-          src="/addons-illustration.png"
+          src="/addons-illustration.webp"
           alt="Addons illustration"
           width={1920}
           height={1080}

@@ -523,17 +523,7 @@ export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string;
       {/* Addons */}
       <section className="border-y border-mk-border bg-mk-secondary/40 py-20 lg:py-28">
         <div className="mx-auto max-w-6xl px-5">
-          <div className="overflow-hidden rounded-3xl shadow-mk-soft">
-            <Image
-              src="/addons-illustration.png"
-              alt="Marksheet addons illustration"
-              width={1920}
-              height={1080}
-              priority
-              className="h-auto w-full"
-            />
-          </div>
-          <div className="mt-14 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+          <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
             <div className="min-w-0">
               <p className="text-[0.7rem] font-bold uppercase tracking-[0.28em] text-mk-primary">
                 Addons
@@ -545,6 +535,15 @@ export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string;
                 Every addon is available on request and activated per school. No code changes, no
                 new logins.
               </p>
+              <div className="mt-8 overflow-hidden rounded-2xl border border-mk-border shadow-mk-soft">
+                <Image
+                  src="/addons-illustration.webp"
+                  alt="Marksheet addons illustration"
+                  width={1920}
+                  height={1080}
+                  className="h-auto w-full"
+                />
+              </div>
             </div>
             <ul className="min-w-0">
               {addons.map((a) => (
@@ -567,66 +566,91 @@ export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string;
 
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl px-5 py-20 lg:py-28">
-        <p className="text-[0.7rem] font-bold uppercase tracking-[0.28em] text-mk-primary">Pricing</p>
-        <h2 className="mt-5 max-w-xl font-mk-display text-3xl font-bold sm:text-4xl">
-          One licence per school. Set up personally.
-        </h2>
+        <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:items-center">
+          <div className="min-w-0">
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.28em] text-mk-primary">Pricing</p>
+            <h2 className="mt-5 max-w-xl font-mk-display text-3xl font-bold sm:text-4xl">
+              One licence per school. Set up personally.
+            </h2>
 
-        <div className="mt-12 space-y-4">
-          {[
-            {
-              plan: "Monthly",
-              price: "₦25,000",
-              unit: "per school, per month",
-              note: "Rolling. Good for a school trying a first term.",
-              dark: false,
-            },
-            {
-              plan: "Termly",
-              price: "₦70,000",
-              unit: "per school, per term",
-              note: "Best value. Covers a full term including result publication.",
-              dark: true,
-            },
-          ].map((p) => (
-            <div
-              key={p.plan}
-              className={`grid gap-6 rounded-3xl p-7 sm:p-9 lg:grid-cols-[0.6fr_0.7fr_1fr_auto] lg:items-center ${
-                p.dark ? "bg-mk-ink text-mk-ink-fg" : "border border-mk-border bg-mk-card shadow-mk-soft"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-mk-display text-xl font-bold">{p.plan}</span>
-                {p.dark && (
-                  <span className="rounded-full bg-mk-warm px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-mk-ink">
-                    Popular
-                  </span>
-                )}
-              </div>
-              <div>
-                <p className="font-mk-display text-3xl font-bold">{p.price}</p>
-                <p className={`text-xs ${p.dark ? "text-mk-ink-fg/60" : "text-mk-muted-fg"}`}>
-                  {p.unit}
-                </p>
-              </div>
-              <p className={`text-sm ${p.dark ? "text-mk-ink-fg/70" : "text-mk-muted-fg"}`}>
-                {p.note}
-              </p>
-              <a
-                href="#demo"
-                className={`inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold ${
-                  p.dark ? "bg-mk-card text-mk-card-fg" : "bg-mk-ink text-mk-ink-fg"
-                }`}
-              >
-                Book a demo
-                <ArrowUpRight className="h-4 w-4" />
-              </a>
+            <div className="mt-10 space-y-4">
+              {[
+                {
+                  plan: "Monthly",
+                  price: "₦25,000",
+                  unit: "per school, per month",
+                  note: "Rolling. Good for a school trying a first term.",
+                  dark: false,
+                },
+                {
+                  plan: "Termly",
+                  price: "₦70,000",
+                  unit: "per school, per term",
+                  note: "Best value. Covers a full term including result publication.",
+                  dark: true,
+                },
+              ].map((p) => (
+                <div
+                  key={p.plan}
+                  className={`rounded-3xl p-7 sm:p-8 ${
+                    p.dark ? "bg-mk-ink text-mk-ink-fg" : "border border-mk-border bg-mk-card shadow-mk-soft"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mk-display text-xl font-bold">{p.plan}</span>
+                      {p.dark && (
+                        <span className="rounded-full bg-mk-warm px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-mk-ink">
+                          Popular
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <p className={`text-[0.65rem] font-bold uppercase tracking-widest ${p.dark ? "text-mk-ink-fg/60" : "text-mk-muted-fg"}`}>
+                        Starting from
+                      </p>
+                      <p className="mt-0.5 font-mk-display text-3xl font-bold">{p.price}</p>
+                      <p className={`text-xs ${p.dark ? "text-mk-ink-fg/60" : "text-mk-muted-fg"}`}>
+                        {p.unit}
+                      </p>
+                    </div>
+                  </div>
+                  <p className={`mt-4 text-sm ${p.dark ? "text-mk-ink-fg/70" : "text-mk-muted-fg"}`}>
+                    {p.note}
+                  </p>
+                  <a
+                    href="#demo"
+                    className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold ${
+                      p.dark ? "bg-mk-card text-mk-card-fg" : "bg-mk-ink text-mk-ink-fg"
+                    }`}
+                  >
+                    Book a demo
+                    <ArrowUpRight className="h-4 w-4" />
+                  </a>
+                </div>
+              ))}
             </div>
-          ))}
+            <p className="mt-6 text-sm text-mk-muted-fg">
+              No online checkout, no surprise renewal fees. Licensing is arranged with our team.
+            </p>
+            <p className="mt-2 text-xs text-mk-muted-fg">
+              Prices shown are the starting point. Larger schools use more AI credits and pay more than
+              smaller schools.
+            </p>
+          </div>
+
+          <div className="min-w-0">
+            <div className="overflow-hidden rounded-3xl border border-mk-border shadow-mk-soft">
+              <Image
+                src="/license-illustration.webp"
+                alt="Marksheet licence illustration"
+                width={1080}
+                height={1350}
+                className="h-auto w-full"
+              />
+            </div>
+          </div>
         </div>
-        <p className="mt-6 text-sm text-mk-muted-fg">
-          No online checkout, no surprise renewal fees. Licensing is arranged with our team.
-        </p>
       </section>
 
       {/* FAQ */}
