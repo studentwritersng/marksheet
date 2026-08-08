@@ -1,4 +1,3 @@
-import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const securityHeaders = [
@@ -42,21 +41,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-const sentryConfig = {
-  org: "teta-digitals",
-  project: "javascript-nextjs",
-  silent: !process.env.CI,
-  widenClientFileUpload: true,
-  tunnelRoute: "/monitoring",
-  sourceMaps: {
-    enabled: false,
-  },
-  webpack: {
-    automaticVercelMonitors: true,
-    treeshake: {
-      removeDebugLogging: true,
-    },
-  },
-};
-
-export default withSentryConfig(nextConfig, sentryConfig);
+export default nextConfig;
