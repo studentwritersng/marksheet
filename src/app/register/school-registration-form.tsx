@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useActionState } from "react";
 import {
   ArrowUpRight,
@@ -35,6 +35,16 @@ export function SchoolRegistrationForm({
   const [state, action, pending] = useActionState(registerSchoolAction, init);
   const [step, setStep] = useState<"details" | "payment">("details");
   const [selectedMethod, setSelectedMethod] = useState<string>("");
+  const [proofBase64, setProofBase64] = useState<string>("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setProofBase64(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   if (state.success) {
     return (
@@ -211,18 +221,39 @@ export function SchoolRegistrationForm({
                   )}
                 </>
               )}
-              {selectedMethodData.type === "online" && (
-                <p className="text-sm text-mk-muted-fg">
-                  You&apos;ll be guided to complete payment after your application is approved.
-                </p>
+                  {selectedMethodData.type === "online" && (
+                    <p className="text-sm text-mk-muted-fg">
+                      You&apos;ll be guided to complete payment after your application is approved.
+                    </p>
+                  )}
+                  {selectedMethodData.type === "cash" && (
+                    <p className="text-sm text-mk-muted-fg">
+                      Contact the platform team to arrange cash payment.
+                    </p>
+                  )}
+                </div>
               )}
-              {selectedMethodData.type === "cash" && (
-                <p className="text-sm text-mk-muted-fg">
-                  Contact the platform team to arrange cash payment.
-                </p>
+              {selectedMethodData?.type === "bank_transfer" && (
+                <div>
+                  <label className="font-body-sm text-body-sm text-on-surface block mb-1">
+                    Upload Proof of Payment
+                  </label>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFile}
+                    className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-[#002046] file:text-white hover:file:bg-[#003366]"
+                  />
+                  {proofBase64 && (
+                    <img
+                      src={proofBase64}
+                      alt="Payment proof preview"
+                      className="mt-2 max-h-32 rounded-lg border border-outline-variant object-contain"
+                    />
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
           {/* Payment reference */}
           <Field
@@ -233,6 +264,7 @@ export function SchoolRegistrationForm({
           />
 
           <input type="hidden" name="registrationFee" value={registrationFee} />
+          <input type="hidden" name="paymentProofUrl" value={proofBase64} />
 
           {state.error && step === "payment" && <ErrorBanner message={state.error} />}
 

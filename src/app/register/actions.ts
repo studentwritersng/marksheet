@@ -24,6 +24,7 @@ export async function registerSchoolAction(
   // Payment fields
   const paymentMethodId = (formData.get("paymentMethodId") as string)?.trim() || null;
   const paymentReference = (formData.get("paymentReference") as string)?.trim() || null;
+  const paymentProofUrl = (formData.get("paymentProofUrl") as string)?.trim() || null;
   const registrationFeeRaw = (formData.get("registrationFee") as string)?.trim() || null;
 
   if (!schoolName) return { error: "School name is required." };
@@ -63,6 +64,7 @@ export async function registerSchoolAction(
       registrationFee: registrationFee || undefined,
       paymentMethodId: paymentMethodId || undefined,
       paymentReference: paymentReference || undefined,
+      paymentProofUrl: paymentProofUrl || undefined,
       paymentStatus,
     },
   });
@@ -70,7 +72,7 @@ export async function registerSchoolAction(
   // Auto-create commission if referral exists
   if (referralId && registrationFee && registrationFee > 0) {
     const setting = await prisma.referralCommissionSetting.findFirst();
-    const commissionPercent = setting ? Number(setting.commissionPercent) : 10;
+    const commissionPercent = setting ? Number(setting.commissionPercent) : 20;
     const commissionAmount = (registrationFee * commissionPercent) / 100;
 
     const registration = await prisma.schoolRegistration.findFirst({

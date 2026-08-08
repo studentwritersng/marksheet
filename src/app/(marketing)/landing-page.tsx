@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -522,7 +523,17 @@ export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string;
       {/* Addons */}
       <section className="border-y border-mk-border bg-mk-secondary/40 py-20 lg:py-28">
         <div className="mx-auto max-w-6xl px-5">
-          <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+          <div className="overflow-hidden rounded-3xl shadow-mk-soft">
+            <Image
+              src="/addons-illustration.png"
+              alt="Marksheet addons illustration"
+              width={1920}
+              height={1080}
+              priority
+              className="h-auto w-full"
+            />
+          </div>
+          <div className="mt-14 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
             <div className="min-w-0">
               <p className="text-[0.7rem] font-bold uppercase tracking-[0.28em] text-mk-primary">
                 Addons
@@ -683,13 +694,13 @@ export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string;
 
           <div className="grid gap-6 sm:grid-cols-2">
             <div className="rounded-3xl bg-mk-ink p-7 text-mk-ink-fg">
-              <p className="font-mk-display text-4xl font-bold text-mk-amber">₦1,000</p>
+              <p className="font-mk-display text-4xl font-bold text-mk-amber">₦50,000</p>
               <p className="mt-2 text-sm leading-relaxed text-mk-ink-fg/70">
-                commission on a ₦10,000 school registration fee
+                commission on a ₦250,000 school registration fee
               </p>
             </div>
             <div className="rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft">
-              <p className="font-mk-display text-4xl font-bold text-mk-teal">10%</p>
+              <p className="font-mk-display text-4xl font-bold text-mk-teal">20%</p>
               <p className="mt-2 text-sm leading-relaxed text-mk-muted-fg">
                 of the registration fee paid to you per referred school
               </p>
