@@ -48,6 +48,9 @@ const sentryConfig = {
   silent: !process.env.CI,
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
+  sourceMaps: {
+    enabled: false,
+  },
   webpack: {
     automaticVercelMonitors: true,
     treeshake: {
@@ -56,6 +59,4 @@ const sentryConfig = {
   },
 };
 
-export default process.env.SENTRY_AUTH_TOKEN
-  ? withSentryConfig(nextConfig, sentryConfig)
-  : nextConfig;
+export default withSentryConfig(nextConfig, sentryConfig);
