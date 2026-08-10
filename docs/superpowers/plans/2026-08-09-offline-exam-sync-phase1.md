@@ -655,21 +655,20 @@ git commit -m "feat: offline bundle serializer with answer-key leak guard and pi
 
 **Interfaces:**
 - Produces:
-  - `fetchExamDataForBundle(examId: string): Promise<{ exam: {...}; questions: OfflineQuestionVM[]; roster: { studentId; admissionNumber; firstName; lastName }[] }>` — throws if exam missing / not published / has no questions.
+  - `fetchExamDataForBundle(examId: string, schoolId: string): Promise<{ exam: {...}; questions: OfflineQuestionVM[]; roster: { studentId; admissionNumber; firstName; lastName }[] }>` — throws if exam missing / not in this school / not published / has no questions.
   - `releaseExamToHub(examId: string, hubId: string): Promise<{ bundleId: string; hubName: string; examTitle: string; studentCount: number; questionCount: number }>` — builds bundle, stores `OfflineBundle` + `ExamPin` rows, sets `Exam.offlineStatus = "released"`.
   - Server actions `registerHubAction(prev, formData)` and `revokeHubAction(prev, formData)` — console hub management; `registerHubAction` returns plaintext `apiKey`, `signingSecret`, `invigilatorCode` exactly once.
 - Consumes: Task 2 models, Task 3 crypto, Task 4 `serializeBundle`/`generatePin`/`hashPin`, `getCurrentUser`.
 
 - [ ] **Step 1: Add the Prisma-backed builder to bundle.ts**
 
-Append to `src/lib/offline/bundle.ts`:
+Append to `src/lib/offline/bundle.ts` (add `prisma` to the existing imports at the top of the file — do NOT import from `./bundle` inside bundle.ts):
 ```ts
 import { prisma } from "@/lib/prisma";
-import { generatePin, hashPin, serializeBundle, type OfflineQuestionVM } from "./bundle";
 
-export async function fetchExamDataForBundle(examId: string) {
-  const exam = await prisma.exam.findUnique({
-    where: { id: examId },
+export async function fetchExamDataForBundle(examId: string, schoolId: string) {
+  const exam = await prisma.exam.findFirst({
+    where: { id: examId, schoolId },
     include: {
       subject: { select: { name: true } },
       term: { include: { session: { select: { label: true } } } },
@@ -770,7 +769,7 @@ const baseExam = {
 };
 
 beforeEach(() => {
-  (prisma.exam.findUnique as any) = vi.fn().mockResolvedValue(baseExam);
+  (prisma.exam.findFirst as any) = vi.fn().mockResolvedValue(baseExam);
   (prisma.student.findMany as any) = vi.fn().mockResolvedValue([
     { id: "stu-1", admissionNumber: "ADM/001", firstName: "Ada", lastName: "Obi" },
   ]);
@@ -778,7 +777,7 @@ beforeEach(() => {
 
 describe("fetchExamDataForBundle", () => {
   it("strips answer keys and produces serializable data", async () => {
-    const data = await fetchExamDataForBundle("exam-1");
+    const data = await fetchExamDataForBundle("exam-1", "school-1");
     expect(data.questions[0].mcqOptions[0]).not.toHaveProperty("isCorrect");
     expect(data.questions[0].mcqOptions[1]).not.toHaveProperty("isCorrect");
     const bundle: OfflineBundleV1 = {
@@ -886,7 +885,7 @@ export async function releaseExamToHub(examId: string, hubId: string): Promise<O
   const hub = await prisma.hub.findFirst({ where: { id: hubId, schoolId: user.schoolId, status: "active" } });
   if (!hub) return { error: "Active hub not found for this school." };
 
-  const examData = await fetchExamDataForBundle(examId);
+  const examData = await fetchExamDataForBundle(examId, user.schoolId);
   const bundleId = `b-${generateRandomBytes(8)}`;
   const issuedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -986,12 +985,9 @@ const bcrypt = (await import("bcryptjs")).default;
 const fakeHash = await bcrypt.hash("mk_hub_testkey", 4);
 
 beforeEach(() => {
-  (prisma.hub.findFirst as any) = vi.fn().mockImplementation(({ where }) => {
-    if (where.status === "active") {
-      return Promise.resolve({ id: "hub-1", schoolId: "school-1", name: "Hall 1", signingSecret: "sec", apiKeyHash: fakeHash, status: "active" });
-    }
-    return Promise.resolve(null);
-  });
+  (prisma.hub.findMany as any) = vi.fn().mockResolvedValue([
+    { id: "hub-1", schoolId: "school-1", name: "Hall 1", signingSecret: "sec", apiKeyHash: fakeHash, status: "active" },
+  ]);
   (prisma.hub.update as any) = vi.fn().mockResolvedValue({});
 });
 
@@ -1030,7 +1026,6 @@ export async function authenticateHub(
   const apiKey = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
   if (!apiKey) return null;
 
-  const hub = await prisma.hub.findFirst({ where: { status: "active" } });
   // Match by trying bcrypt against all active hubs is O(n); instead match by hash scan:
   const hubs = await prisma.hub.findMany({ where: { status: "active" }, select: { id: true, schoolId: true, name: true, signingSecret: true, apiKeyHash: true } });
   const bcrypt = (await import("bcryptjs")).default;
@@ -1112,7 +1107,7 @@ git commit -m "feat: hub auth and sync-down endpoint"
 **Interfaces:**
 - Produces:
   - `interface SyncUpPayload` — `{ bundleId, attempts: Array<{ hubAttemptId, studentId, examId, startedAt, submittedAt, status, shuffledQuestionIds: string[] | null, shuffledOptionOrder: Record<string,string[]> | null, answers: Array<{ questionId, mcqSelectedOptionId?: string, essayResponseText?: string, clientTimestamp: string, localChecksum: string }> }> }`.
-  - `interface IngestStore` — `{ findAttempt(key: { hubId; hubAttemptId }): Promise<boolean>; createAttempt(...): Promise<void>; createAnswers(...): Promise<void>; }`.
+  - `interface IngestStore` — `{ findAttempt(key: { hubId; hubAttemptId }): Promise<boolean>; createAttempt(...): Promise<string>; createAnswers(...): Promise<void>; }` — `createAttempt` returns the created `ExamAttempt.id`.
   - `processSyncUp(payload, hub: { id; signingSecret }, store: IngestStore): Promise<Array<{ hubAttemptId; status: "accepted" | "duplicate" | "flagged" }>>` — pure; idempotent via `findAttempt`; each answer checksum-verified, mismatch → `checksumFlagged`.
 - Consumes: Task 3 `verifyAnswerChecksum`, Task 2 schema via the store adapter.
 
@@ -1163,6 +1158,7 @@ function makeStore(): IngestStore & { calls: any[] } {
     async createAttempt(...args) {
       this.calls.push(["create", args]);
       seen.add((args[0] as any).hubAttemptId);
+      return "db-att-1";
     },
     async createAnswers(...args) {
       this.calls.push(["answers", args]);
@@ -1267,7 +1263,7 @@ export interface AnswerRecord {
 
 export interface IngestStore {
   findAttempt(key: AttemptKey): Promise<boolean>;
-  createAttempt(record: AttemptRecord): Promise<void>;
+  createAttempt(record: AttemptRecord): Promise<string>;
   createAnswers(records: AnswerRecord[]): Promise<void>;
 }
 
@@ -1300,7 +1296,7 @@ export async function processSyncUp(
       );
       if (!valid) flagged = true;
       answers.push({
-        attemptId: attempt.hubAttemptId,
+        attemptId: attempt.hubAttemptId, // replaced with the real DB id below
         questionId: a.questionId,
         mcqSelectedOptionId: a.mcqSelectedOptionId ?? null,
         essayResponseText: a.essayResponseText ?? null,
@@ -1308,7 +1304,7 @@ export async function processSyncUp(
       });
     }
 
-    await store.createAttempt({
+    const attemptId = await store.createAttempt({
       hubId: hub.id,
       hubAttemptId: attempt.hubAttemptId,
       studentId: attempt.studentId,
@@ -1321,7 +1317,7 @@ export async function processSyncUp(
       syncStatus: "synced",
     });
 
-    if (answers.length > 0) await store.createAnswers(answers);
+    if (answers.length > 0) await store.createAnswers(answers.map((a) => ({ ...a, attemptId })));
 
     results.push({ hubAttemptId: attempt.hubAttemptId, status: flagged ? "flagged" : "accepted" });
   }
@@ -1371,7 +1367,7 @@ const store: IngestStore = {
     return found !== null;
   },
   async createAttempt(record: AttemptRecord) {
-    await prisma.examAttempt.create({
+    const created = await prisma.examAttempt.create({
       data: {
         hubId: record.hubId,
         hubAttemptId: record.hubAttemptId,
@@ -1385,6 +1381,7 @@ const store: IngestStore = {
         syncStatus: "synced",
       },
     });
+    return created.id;
   },
   async createAnswers(records: AnswerRecord[]) {
     await prisma.studentAnswer.createMany({ data: records });
@@ -2046,7 +2043,6 @@ export async function syncUp(db: Db): Promise<{ uploaded: number }> {
 import { openDb } from "../src/db";
 import { syncDown, syncUp } from "../src/sync";
 import { getConfig } from "../src/config";
-import { deriveBundleKey, decryptBundle } from "../src/crypto";
 import { createHmac, randomBytes } from "node:crypto";
 
 function checksum(secret: string, attemptId: string, questionId: string, ts: string, payload: string): string {
@@ -2063,8 +2059,8 @@ async function main() {
   if (n === 0) throw new Error("No bundles to drill with. Release an exam to this hub first.");
 
   const bundle = db.getBundles()[0];
-  const plain = decryptBundle(bundle.payload, deriveBundleKey(cfg.signingSecret, bundle.bundleId));
-  const parsed = JSON.parse(plain) as { examId: string; roster: Array<{ studentId: string; admissionNumber: string }> };
+  // syncDown stores the DECRYPTED plaintext payload in bundles.payload, so parse directly.
+  const parsed = JSON.parse(bundle.payload) as { examId: string; roster: Array<{ studentId: string; admissionNumber: string }> };
   const student = parsed.roster[0];
 
   console.log(`2) Simulate attempt by ${student.admissionNumber} on exam ${parsed.examId} …`);
@@ -2125,6 +2121,16 @@ git commit -m "feat: hub sync engine and end-to-end drill"
 - **Placeholder scan:** none — every step contains real code or an exact command.
 - **Type consistency:** `processSyncUp` returns `"accepted" | "duplicate" | "flagged"` everywhere; `hubId_hubAttemptId` matches Prisma's default unique index name; `OfflineBundleV1` fields used identically across Task 4/5/12.
 - **Deliberate simplification:** `authenticateHub` scans active hubs with bcrypt.compare (O(n) per request). Acceptable at this scale; can be optimized to a keyed lookup later. `syncUp` sends `bundleId: ""` for the fake drill — real attempts must carry their bundleId; tightened in Phase 2 when real attempts exist.
+
+## Amendments (pre-flight review)
+
+Five plan-text defects found during the pre-flight scan and fixed in this revision:
+
+1. **Task 6** — `hub-auth.test.ts` mocked `prisma.hub.findFirst` but `authenticateHub` calls `prisma.hub.findMany` (never mocked → TypeError), plus a dead `findFirst` line. Fixed: mock `findMany` returning an array; removed the dead `findFirst`.
+2. **Task 7/8** — `StudentAnswer.attemptId` was set to `hubAttemptId` in `processSyncUp`, but Task 8's adapter creates `ExamAttempt` with a generated cuid `id`, so `student_answers.attemptId` would violate the FK. Fixed: `IngestStore.createAttempt` now returns the created DB `ExamAttempt.id` (`Promise<string>`), and `processSyncUp` maps answer records to that real id via `answers.map((a) => ({ ...a, attemptId }))`.
+3. **Task 12** — the drill re-decrypted `bundles.payload`, but `syncDown` already stores the DECRYPTED plaintext there. Fixed: drill parses `bundle.payload` directly with `JSON.parse` and no longer imports `deriveBundleKey`/`decryptBundle`.
+4. **Task 5** — the appended `bundle.ts` block self-imported from `"./bundle"`. Fixed: only `import { prisma } from "@/lib/prisma"` is added; `fetchExamDataForBundle` uses `prisma.exam.findFirst` scoped by `schoolId` (also fixes Finding 5).
+5. **Task 5** — `releaseExamToHub`/`fetchExamDataForBundle` had no cross-school authorization: any staff user could release another school's exam to their hub via the directly-callable server action. Fixed: `fetchExamDataForBundle(examId, schoolId)` filters `where: { id: examId, schoolId }`, and `releaseExamToHub` passes `user.schoolId`.
 
 ## Execution Handoff
 
