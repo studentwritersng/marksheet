@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { encryptBundle, decryptBundle, deriveBundleKey } from "./crypto";
+import { prisma } from "@/lib/prisma";
 
 export interface OfflineQuestionVM {
   id: string;
@@ -69,4 +70,68 @@ export function parseBundlePayload(payload: string, keyHex: string): OfflineBund
     throw new Error("Invalid bundle payload shape.");
   }
   return parsed;
+}
+
+export async function fetchExamDataForBundle(examId: string, schoolId: string) {
+  const exam = await prisma.exam.findFirst({
+    where: { id: examId, schoolId },
+    include: {
+      subject: { select: { name: true } },
+      term: { include: { session: { select: { label: true } } } },
+      classes: { include: { class: { select: { id: true, name: true } } } },
+      examQuestions: {
+        include: {
+          question: {
+            include: {
+              mcqOptions: { select: { id: true, optionText: true, isCorrect: true } },
+              group: { select: { id: true, internallyShufflable: true, stimulus: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!exam) throw new Error("Exam not found.");
+  if (exam.status !== "published") throw new Error("Only published exams can be released offline.");
+  if (exam.examQuestions.length === 0) throw new Error("Exam has no questions.");
+
+  const classIds = exam.classes.map((ec) => ec.classId);
+  const students = await prisma.student.findMany({
+    where: { schoolId: exam.schoolId, currentClassId: { in: classIds }, status: "active" },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    select: { id: true, admissionNumber: true, firstName: true, lastName: true },
+  });
+  if (students.length === 0) throw new Error("No active students are enrolled in this exam's classes.");
+
+  const questions: OfflineQuestionVM[] = exam.examQuestions.map((eq) => {
+    const q = eq.question;
+    return {
+      id: q.id,
+      text: q.text,
+      type: q.type,
+      marks: q.marks,
+      classLevel: q.classLevel,
+      topic: q.topic,
+      questionGroupId: q.questionGroupId,
+      groupInternallyShufflable: q.group?.internallyShufflable ?? null,
+      stimulus: q.group?.stimulus
+        ? { id: q.group.stimulus.id, type: q.group.stimulus.type, content: q.group.stimulus.content }
+        : null,
+      mcqOptions: q.mcqOptions.map((o) => ({ id: o.id, optionText: o.optionText })),
+    };
+  });
+
+  return {
+    exam: {
+      id: exam.id,
+      schoolId: exam.schoolId,
+      durationMinutes: exam.durationMinutes,
+      shuffleEnabled: exam.shuffleEnabled,
+      subjectName: exam.subject.name,
+      classNames: exam.classes.map((ec) => ec.class.name),
+      termLabel: `${exam.term.name} (${exam.term.session.label})`,
+    },
+    questions,
+    students,
+  };
 }
