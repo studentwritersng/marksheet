@@ -39,6 +39,7 @@ const navItems: NavItem[] = [
   { label: "Notifications", href: "/console/notifications", icon: "notifications" },
   { label: "Addons", href: "/console/addons", icon: "extension" },
   { label: "School Groups", href: "/console/groups", icon: "workspaces" },
+  { label: "Offline Hubs", href: "/console/offline-hubs", icon: "router" },
   { label: "AI Config", href: "/console/ai", icon: "settings" },
   { label: "Tickets", href: "/console/tickets", icon: "support" },
   { label: "Audit Log", href: "/console/audit", icon: "history" },
