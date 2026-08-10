@@ -92,6 +92,8 @@ model School {
   schoolNotificationConfig SchoolNotificationConfig?
   groupMembership          GroupMembership?
   referral                 Referral?        @relation(fields: [referralId], references: [id])
+  hubs                     Hub[]
+  offlineBundles           OfflineBundle[]
 
   originTransfers      GroupStudentTransferRecord[] @relation("TransferOriginSchool")
   destinationTransfers GroupStudentTransferRecord[] @relation("TransferDestinationSchool")
@@ -796,6 +798,8 @@ model Exam {
   attempts      ExamAttempt[]
   classes       ExamClass[]
   manualScores  ManualScore[]
+  offlineBundles OfflineBundle[]
+  offlineStatus  String   @default("none") // none | released | synced
 
   @@index([schoolId])
   @@index([subjectId, classId, termId])
@@ -853,6 +857,9 @@ model ExamAttempt {
   shuffledQuestionIds Json? // ordered array of question IDs for this student
   shuffledOptionOrder Json? // map of questionId → ordered option IDs
   endsAt              DateTime? // server-side timer end time (startedAt + durationMinutes)
+  hubId               String?
+  hubAttemptId        String?
+  hub                 Hub?       @relation(fields: [hubId], references: [id])
   createdAt           DateTime      @default(now())
 
   exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
@@ -861,6 +868,7 @@ model ExamAttempt {
 
   @@index([examId])
   @@index([studentId])
+  @@unique([hubId, hubAttemptId])
   @@map("exam_attempts")
 }
 
@@ -871,6 +879,7 @@ model StudentAnswer {
   mcqSelectedOptionId String?
   essayResponseText   String?
   localChecksum       String?
+  checksumFlagged     Boolean   @default(false)
   gradedScore         Float? // null until graded
   // AI essay grading fields (PRD 07)
   aiSuggestedScore    Float?
@@ -2041,4 +2050,70 @@ model LandingStat {
   updatedAt    DateTime @updatedAt
 
   @@map("landing_stats")
+}
+
+// ---------------------------------------------------------------------------
+// Offline Exam Sync (Phase 1) — Hub, OfflineBundle, ExamPin
+// ---------------------------------------------------------------------------
+
+enum HubStatus {
+  active
+  revoked
+}
+
+model Hub {
+  id                  String    @id @default(cuid())
+  schoolId            String
+  name                String
+  apiKeyHash          String
+  signingSecret       String
+  invigilatorCodeHash String
+  status              HubStatus @default(active)
+  lastSeenAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  school   School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  bundles  OfflineBundle[]
+  attempts ExamAttempt[]
+
+  @@index([schoolId])
+  @@map("hubs")
+}
+
+model OfflineBundle {
+  id        String   @id @default(cuid())
+  bundleId  String   @unique
+  examId    String
+  hubId     String
+  schoolId  String
+  status    String   @default("pending") // pending | downloaded | closed
+  payload   String   // encrypted msb1.<iv>.<tag>.<ct>
+  issuedAt  DateTime @default(now())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  exam   Exam         @relation(fields: [examId], references: [id])
+  hub    Hub          @relation(fields: [hubId], references: [id])
+  school School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  pins   ExamPin[]
+
+  @@index([hubId])
+  @@index([examId])
+  @@map("offline_bundles")
+}
+
+model ExamPin {
+  id        String   @id @default(cuid())
+  bundleId  String
+  examId    String
+  studentId String
+  pinHash   String
+  createdAt DateTime @default(now())
+
+  bundle OfflineBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  @@unique([bundleId, studentId])
+  @@index([examId])
+  @@map("exam_pins")
 }
