@@ -282,14 +282,15 @@ ALTER TABLE "student_answers" ADD COLUMN "checksumFlagged" BOOLEAN NOT NULL DEFA
 
 ALTER TABLE "hubs" ADD CONSTRAINT "hubs_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "schools"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "offline_bundles" ADD CONSTRAINT "offline_bundles_examId_fkey" FOREIGN KEY ("examId") REFERENCES "exams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "offline_bundles" ADD CONSTRAINT "offline_bundles_hubId_fkey" FOREIGN KEY ("hubId") REFERENCES "hubs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "offline_bundles" ADD CONSTRAINT "offline_bundles_hubId_fkey" FOREIGN KEY ("hubId") REFERENCES "hubs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "offline_bundles" ADD CONSTRAINT "offline_bundles_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "schools"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "exam_pins" ADD CONSTRAINT "exam_pins_bundleId_fkey" FOREIGN KEY ("bundleId") REFERENCES "offline_bundles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "exam_attempts" ADD CONSTRAINT "exam_attempts_hubId_fkey" FOREIGN KEY ("hubId") REFERENCES "hubs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 CREATE UNIQUE INDEX "offline_bundles_bundleId_key" ON "offline_bundles"("bundleId");
 CREATE INDEX "offline_bundles_hubId_idx" ON "offline_bundles"("hubId");
 CREATE INDEX "offline_bundles_examId_idx" ON "offline_bundles"("examId");
-CREATE INDEX "exam_pins_bundleId_studentId_key" ON "exam_pins"("bundleId", "studentId");
+CREATE UNIQUE INDEX "exam_pins_bundleId_studentId_key" ON "exam_pins"("bundleId", "studentId");
 CREATE INDEX "exam_pins_examId_idx" ON "exam_pins"("examId");
 CREATE INDEX "hubs_schoolId_idx" ON "hubs"("schoolId");
 CREATE UNIQUE INDEX "exam_attempts_hubId_hubAttemptId_key" ON "exam_attempts"("hubId", "hubAttemptId");
@@ -2131,6 +2132,8 @@ Five plan-text defects found during the pre-flight scan and fixed in this revisi
 3. **Task 12** — the drill re-decrypted `bundles.payload`, but `syncDown` already stores the DECRYPTED plaintext there. Fixed: drill parses `bundle.payload` directly with `JSON.parse` and no longer imports `deriveBundleKey`/`decryptBundle`.
 4. **Task 5** — the appended `bundle.ts` block self-imported from `"./bundle"`. Fixed: only `import { prisma } from "@/lib/prisma"` is added; `fetchExamDataForBundle` uses `prisma.exam.findFirst` scoped by `schoolId` (also fixes Finding 5).
 5. **Task 5** — `releaseExamToHub`/`fetchExamDataForBundle` had no cross-school authorization: any staff user could release another school's exam to their hub via the directly-callable server action. Fixed: `fetchExamDataForBundle(examId, schoolId)` filters `where: { id: examId, schoolId }`, and `releaseExamToHub` passes `user.schoolId`.
+
+6. **Task 2** — migration SQL aligned to the applied schema/`db push` (schema is the source of truth; migration is a history mirror): `offline_bundles_hubId_fkey` `ON DELETE CASCADE` → `RESTRICT` (Prisma default for required relation with no `onDelete`), added the missing `exam_attempts_hubId_fkey` (`ON DELETE SET NULL ON UPDATE CASCADE`, Prisma default for optional `ExamAttempt.hub`), and `exam_pins_bundleId_studentId_key` changed to `CREATE UNIQUE INDEX` to match `@@unique([bundleId, studentId])`.
 
 ## Execution Handoff
 
