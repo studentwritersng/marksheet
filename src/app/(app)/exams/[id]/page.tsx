@@ -4,6 +4,7 @@ import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { canReviewExams } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { ScoreEntryTable } from "./score-entry";
+import { OfflineSyncCard } from "./offline-sync-card";
 
 export default async function ExamDetailPage(props: {
   params: Promise<{ id: string }>;
@@ -101,6 +102,11 @@ export default async function ExamDetailPage(props: {
       })
     : [];
 
+  const hubs = await prisma.hub.findMany({
+    where: { schoolId: user.schoolId, status: "active" },
+    select: { id: true, name: true },
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -153,6 +159,12 @@ export default async function ExamDetailPage(props: {
           </p>
         </div>
       )}
+
+      <OfflineSyncCard
+        examId={exam.id}
+        hubs={hubs.map((h) => ({ id: h.id, name: h.name, status: "active" }))}
+        offlineStatus={exam.offlineStatus}
+      />
 
       {/* Score entry or question review */}
       {isOfficer ? (
