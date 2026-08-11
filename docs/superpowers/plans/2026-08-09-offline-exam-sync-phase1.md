@@ -657,7 +657,7 @@ git commit -m "feat: offline bundle serializer with answer-key leak guard and pi
 **Interfaces:**
 - Produces:
   - `fetchExamDataForBundle(examId: string, schoolId: string): Promise<{ exam: {...}; questions: OfflineQuestionVM[]; roster: { studentId; admissionNumber; firstName; lastName }[] }>` — throws if exam missing / not in this school / not published / has no questions.
-  - `releaseExamToHub(examId: string, hubId: string): Promise<{ bundleId: string; hubName: string; examTitle: string; studentCount: number; questionCount: number }>` — builds bundle, stores `OfflineBundle` + `ExamPin` rows, sets `Exam.offlineStatus = "released"`.
+  - `releaseExamToHub(examId: string, hubId: string): Promise<OfflineActionResult>` — builds bundle, stores `OfflineBundle` + `ExamPin` rows, sets `Exam.offlineStatus = "released"`; returns `data: { examTitle; studentCount; questionCount }` (consumed by the Task 10 offline-sync card).
   - Server actions `registerHubAction(prev, formData)` and `revokeHubAction(prev, formData)` — console hub management; `registerHubAction` returns plaintext `apiKey`, `signingSecret`, `invigilatorCode` exactly once.
 - Consumes: Task 2 models, Task 3 crypto, Task 4 `serializeBundle`/`generatePin`/`hashPin`, `getCurrentUser`.
 
@@ -2025,7 +2025,7 @@ export async function syncUp(db: Db): Promise<{ uploaded: number }> {
   const res = await fetch(`${cfg.cloudBaseUrl}/api/hub/sync-up`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${cfg.apiKey}` },
-    body: JSON.stringify({ bundleId: "", attempts }),
+    body: JSON.stringify({ bundleId: bundle.bundle_id, attempts }),
   });
   if (!res.ok) throw new Error(`sync-up failed: ${res.status}`);
   const body = (await res.json()) as { results: Array<{ hubAttemptId: string; status: string }> };
@@ -2121,7 +2121,7 @@ git commit -m "feat: hub sync engine and end-to-end drill"
 - **Spec coverage:** §4 (bundle build, strip keys, PINs, HTTP pull, expires) → Tasks 4, 5, 6; §6.1–6.4 (sync-up, idempotency, checksum, MCQs later) → Tasks 7, 8 (grading intentionally deferred to Phase 3); §3 hub registry → Tasks 2, 5, 9; release trigger → Task 10. Hub runtime exam-taking, console live room, USB fallback, resit/absent handling are explicitly Phase 2–4.
 - **Placeholder scan:** none — every step contains real code or an exact command.
 - **Type consistency:** `processSyncUp` returns `"accepted" | "duplicate" | "flagged"` everywhere; `hubId_hubAttemptId` matches Prisma's default unique index name; `OfflineBundleV1` fields used identically across Task 4/5/12.
-- **Deliberate simplification:** `authenticateHub` scans active hubs with bcrypt.compare (O(n) per request). Acceptable at this scale; can be optimized to a keyed lookup later. `syncUp` sends `bundleId: ""` for the fake drill — real attempts must carry their bundleId; tightened in Phase 2 when real attempts exist.
+- **Deliberate simplification:** `authenticateHub` scans active hubs with bcrypt.compare (O(n) per request). Acceptable at this scale; can be optimized to a keyed lookup later.
 
 ## Amendments (pre-flight review)
 
@@ -2134,6 +2134,10 @@ Five plan-text defects found during the pre-flight scan and fixed in this revisi
 5. **Task 5** — `releaseExamToHub`/`fetchExamDataForBundle` had no cross-school authorization: any staff user could release another school's exam to their hub via the directly-callable server action. Fixed: `fetchExamDataForBundle(examId, schoolId)` filters `where: { id: examId, schoolId }`, and `releaseExamToHub` passes `user.schoolId`.
 
 6. **Task 2** — migration SQL aligned to the applied schema/`db push` (schema is the source of truth; migration is a history mirror): `offline_bundles_hubId_fkey` `ON DELETE CASCADE` → `RESTRICT` (Prisma default for required relation with no `onDelete`), added the missing `exam_attempts_hubId_fkey` (`ON DELETE SET NULL ON UPDATE CASCADE`, Prisma default for optional `ExamAttempt.hub`), and `exam_pins_bundleId_studentId_key` changed to `CREATE UNIQUE INDEX` to match `@@unique([bundleId, studentId])`.
+
+7. **Task 5** — the Task 5 "Produces" prose declared `releaseExamToHub` returns `Promise<{ bundleId; hubName; examTitle; studentCount; questionCount }>`, but the Step 4 code (authoritative, and the Task 10 consumer) returns `Promise<OfflineActionResult>` with `data: { examTitle; studentCount; questionCount }`. Fixed the prose to match the code.
+
+8. **Task 12** — `syncUp` sent `bundleId: ""` for the drill ("deliberate simplification"), but the shipped `sync-up` route rejects a falsy `bundleId` with 400, so the drill's end-to-end upload always failed. Fixed: `syncUp` sends the attempt's real `bundle_id` (already fetched for the examId lookup) as the payload `bundleId`; the self-review note was removed.
 
 ## Execution Handoff
 

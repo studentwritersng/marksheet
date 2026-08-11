@@ -1,6 +1,6 @@
 import { getConfig } from "./config";
 import { openDb, type Db } from "./db";
-import { deriveBundleKey, decryptBundle } from "./crypto";
+import { decryptBundle } from "./crypto";
 
 export async function syncDown(db: Db): Promise<number> {
   const cfg = getConfig();
@@ -23,14 +23,15 @@ export async function syncUp(db: Db): Promise<{ uploaded: number }> {
   const pending = db.getLocalOnlyAttempts();
   if (pending.length === 0) return { uploaded: 0 };
 
+  const bundle = db.raw.prepare("SELECT bundle_id FROM attempts WHERE hub_attempt_id = ?").get(pending[0].hubAttemptId) as { bundle_id: string };
+
   const attempts = pending.map((a) => {
     const row = db.raw.prepare("SELECT * FROM attempts WHERE hub_attempt_id = ?").get(a.hubAttemptId) as Record<string, unknown>;
     const answers = db.raw.prepare("SELECT * FROM answers WHERE hub_attempt_id = ?").all(a.hubAttemptId) as Array<Record<string, unknown>>;
-    const bundle = db.raw.prepare("SELECT bundle_id FROM attempts WHERE hub_attempt_id = ?").get(a.hubAttemptId) as { bundle_id: string };
     return {
       hubAttemptId: a.hubAttemptId,
       studentId: row.student_id,
-      examId: (db.raw.prepare("SELECT exam_id FROM bundles WHERE bundle_id = ?").get(bundle.bundle_id) as { exam_id: string }).exam_id,
+      examId: (db.raw.prepare("SELECT exam_id FROM bundles WHERE bundle_id = ?").get(row.bundle_id) as { exam_id: string }).exam_id,
       startedAt: row.started_at,
       submittedAt: row.submitted_at,
       status: row.status,
@@ -49,7 +50,7 @@ export async function syncUp(db: Db): Promise<{ uploaded: number }> {
   const res = await fetch(`${cfg.cloudBaseUrl}/api/hub/sync-up`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${cfg.apiKey}` },
-    body: JSON.stringify({ bundleId: "", attempts }),
+    body: JSON.stringify({ bundleId: bundle.bundle_id, attempts }),
   });
   if (!res.ok) throw new Error(`sync-up failed: ${res.status}`);
   const body = (await res.json()) as { results: Array<{ hubAttemptId: string; status: string }> };
