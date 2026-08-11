@@ -20,6 +20,8 @@ Enable schools to run fully offline computer-based exams on a local hub server o
 | MCQ grading location | **Cloud-only, after sync.** The answer key never leaves the cloud. |
 | Score visibility for students | Never. Students only see "Submitted". (Also requires locking down today's online submit-flow MCQ-score display.) |
 | Transport | Direct HTTP (hub polls cloud) as the normal path + file-bundle USB fallback, sharing the same bundle format |
+| Hub registration authority | School admin registers/revokes own-school hubs; platform owner has read-only console oversight |
+| Release permission | School admin or exam officer releases an exam to the school's hub |
 
 ## 3. System architecture
 
@@ -30,7 +32,7 @@ Enable schools to run fully offline computer-based exams on a local hub server o
 │   - bundle builder + "Release to offline hub" action                          │
 │   - sync-down API   GET  /api/hub/sync-down                                   │
 │   - sync-up ingest  POST /api/hub/sync-up                                     │
-│   - console pages to register/revoke hubs and observe sync                    │
+│   - school-admin page to register/revoke own-school hubs; console read-only oversight                    │
 │  MCQ grading happens on ingest; result computation unchanged.                 │
 └──────────▲──────────────────────────────────────────────▲─────────────────────┘
            │ HTTPS poll/push with hub API key             │ USB file-bundle fallback
@@ -61,7 +63,7 @@ The cloud remains the only source of truth. The hub is a **dumb, secure storage 
    - Per-student, per-exam **PINs** (4–6 digits), generated at release; cloud stores hash-only
    - Manifest: `bundleId`, `examId`, `schoolId`, `schemaVersion`, `issuedAt`, `expiresAt`
 3. Encryption: bundle encrypted with a per-bundle key delivered to the school via the console; hub decrypts into SQLite.
-4. Transport: hub polls `GET /api/hub/sync-down` with its API key every 60s when internet exists. Fallback: **Download bundle file** in console → USB → "Import bundle file" on the hub admin page.
+4. Transport: hub polls `GET /api/hub/sync-down` with its API key every 60s when internet exists. Fallback: **Download bundle file** in the school admin area → USB → "Import bundle file" on the hub admin page.
 5. A bundle becomes live on the hub only when an invigilator presses **Open session** (or at a configured start time).
 6. A **server-side assertion + automated test** guarantees the serialized bundle contains no answer-key data (`isCorrect`, model answers, rubric internals).
 7. PIN regeneration per student is supported (old PIN invalidated). PIN entry is rate-limited on the hub: 5 wrong attempts → 2-min lockout.
@@ -113,7 +115,7 @@ Served at `http://hub-ip:3210/admin` behind a per-hub invigilator code set at re
 | Hub dies mid-exam | SQLite WAL journaling; restart reopens same session; students resume from last autosave; remaining time preserved from stored `endsAt` |
 | Student device drops off LAN | Last autosave stands; reconnect from any device; PIN resume |
 | Two hubs at one school | Attempts uniquely keyed by `(hubId, hubAttemptId)`; distinct secrets per hub → no collisions |
-| Lost/stolen hub / wrong school | API key + signing secret are school-scoped; revocable from console |
+| Lost/stolen hub / wrong school | API key + signing secret are school-scoped; revocable by the school admin |
 | Hub clock skew | Durations are hub-relative; cloud only audits `receivedAt` |
 | Partial batch upload | Idempotent ingest — replay is safe |
 | After-hours online taking | An exam released offline is **not** also available online in the same window; release locks online delivery until closed/synced |
