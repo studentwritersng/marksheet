@@ -51,7 +51,8 @@ export function OfflineSyncCard({ examId, hubs, offlineStatus }: {
       )}
       {offlineStatus === "none" && hubs.length === 0 && (
         <p className="font-body-sm text-body-sm text-on-surface-variant">
-          No active hubs for this school. Contact the platform team.
+          No active hubs for this school.{" "}
+          <a href="/offline-hubs" className="text-primary underline">Register a hub</a>.
         </p>
       )}
       {state.error && <p className="mt-2 text-red-600 text-xs">{state.error}</p>}

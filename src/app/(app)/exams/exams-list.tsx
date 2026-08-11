@@ -234,7 +234,7 @@ export function ExamsList({
                             <button onClick={() => setEditingId(exam.id)}
                               className="text-primary font-label-sm text-label-sm hover:underline">Edit</button>
                             <a href={`/exams/${exam.id}`}
-                              className="text-primary font-label-sm text-label-sm hover:underline">Scores</a>
+                              className="text-primary font-label-sm text-label-sm hover:underline">Details</a>
                             <button onClick={() => setAddingQuestionsTo(exam.id)}
                               className="text-primary font-label-sm text-label-sm hover:underline">Questions</button>
                             <button onClick={() => setShowDeleteConfirm(exam.id)}
