@@ -17,11 +17,11 @@ vi.mock("./bundle", () => ({
   generatePin: () => "123456",
   hashPin: (p: string) => `pin:${p}`,
   serializeBundle: () => "payload",
-  fetchExamDataForBundle: async () => ({
+  fetchExamDataForBundle: vi.fn(async () => ({
     exam: { id: "exam-1", schoolId: "school-1", durationMinutes: 60, shuffleEnabled: false, subjectName: "Maths", classNames: "JSS1", termLabel: "Term 1" },
     questions: [],
     students: [{ id: "stu-1", admissionNumber: "A1", firstName: "Ada", lastName: "Lovelace" }],
-  }),
+  })),
 }));
 
 const { prisma } = await import("@/lib/prisma");
@@ -148,5 +148,22 @@ describe("releaseExamToHub", () => {
     (prisma.hub as any) = { findFirst: vi.fn().mockResolvedValue(null) };
     const res = await releaseExamToHub("exam-1", "other-hub");
     expect(res.error).toBe("Active hub not found for this school.");
+  });
+
+  it("returns a graceful error when the exam cannot be fetched, without mutating the exam", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    const { fetchExamDataForBundle } = await import("./bundle");
+    (fetchExamDataForBundle as any).mockRejectedValue(new Error("exam not found"));
+
+    const res = await releaseExamToHub("exam-1", "hub-1");
+
+    expect(res.error).toBe("Exam not found or not ready to release.");
+    expect(prisma.exam.update).not.toHaveBeenCalled();
+
+    (fetchExamDataForBundle as any).mockImplementation(async () => ({
+      exam: { id: "exam-1", schoolId: "school-1", durationMinutes: 60, shuffleEnabled: false, subjectName: "Maths", classNames: "JSS1", termLabel: "Term 1" },
+      questions: [],
+      students: [{ id: "stu-1", admissionNumber: "A1", firstName: "Ada", lastName: "Lovelace" }],
+    }));
   });
 });

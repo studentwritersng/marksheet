@@ -89,7 +89,12 @@ export async function releaseExamToHub(examId: string, hubId: string): Promise<O
   const hub = await prisma.hub.findFirst({ where: { id: hubId, schoolId: user.schoolId, status: "active" } });
   if (!hub) return { error: "Active hub not found for this school." };
 
-  const examData = await fetchExamDataForBundle(examId, user.schoolId);
+  let examData;
+  try {
+    examData = await fetchExamDataForBundle(examId, user.schoolId);
+  } catch {
+    return { error: "Exam not found or not ready to release." };
+  }
   const bundleId = `b-${generateRandomBytes(8)}`;
   const issuedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();

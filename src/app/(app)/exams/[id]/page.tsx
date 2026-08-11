@@ -164,6 +164,7 @@ export default async function ExamDetailPage(props: {
         examId={exam.id}
         hubs={hubs.map((h) => ({ id: h.id, name: h.name, status: "active" }))}
         offlineStatus={exam.offlineStatus}
+        canRegister={canManageSchool(perms)}
       />
 
       {/* Score entry or question review */}
