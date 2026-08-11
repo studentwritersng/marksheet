@@ -1,0 +1,8 @@
+{
+  "cloudBaseUrl": "https://marksheet.sch.ng",
+  "apiKey": "mk_hub_...",
+  "signingSecret": "...",
+  "port": 3210,
+  "dataDir": "./data",
+  "syncIntervalMs": 60000
+}
