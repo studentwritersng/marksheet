@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
+import { canReviewExams } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { generateRandomBytes } from "./crypto";
 import { fetchExamDataForBundle, serializeBundle, generatePin, hashPin, type OfflineBundleV1 } from "./bundle";
@@ -24,13 +26,14 @@ export async function registerHubAction(
   formData: FormData,
 ): Promise<OfflineActionResult> {
   const user = await getCurrentUser();
-  if (!user || user.role !== "platform_owner") return { error: "Not authorised." };
+  if (!user?.schoolId) return { error: "Not authorised." };
+  const perms = await resolvePermissions(user);
+  if (!canManageSchool(perms)) return { error: "Not authorised." };
 
-  const schoolId = (formData.get("schoolId") as string)?.trim();
   const name = (formData.get("name") as string)?.trim();
-  if (!schoolId || !name) return { error: "School and hub name are required." };
+  if (!name) return { error: "Hub name is required." };
 
-  const school = await prisma.school.findUnique({ where: { id: schoolId } });
+  const school = await prisma.school.findUnique({ where: { id: user.schoolId } });
   if (!school) return { error: "School not found." };
 
   const apiKey = `mk_hub_${generateRandomBytes(24)}`;
@@ -40,7 +43,7 @@ export async function registerHubAction(
 
   const hub = await prisma.hub.create({
     data: {
-      schoolId,
+      schoolId: user.schoolId,
       name,
       apiKeyHash: await bcrypt.hash(apiKey, 10),
       signingSecret,
@@ -48,6 +51,7 @@ export async function registerHubAction(
     },
   });
 
+  revalidatePath("/offline-hubs");
   revalidatePath("/console/offline-hubs");
   return {
     success: `Hub "${name}" registered.`,
@@ -60,19 +64,27 @@ export async function revokeHubAction(
   formData: FormData,
 ): Promise<OfflineActionResult> {
   const user = await getCurrentUser();
-  if (!user || user.role !== "platform_owner") return { error: "Not authorised." };
+  if (!user?.schoolId) return { error: "Not authorised." };
+  const perms = await resolvePermissions(user);
+  if (!canManageSchool(perms)) return { error: "Not authorised." };
 
   const hubId = (formData.get("hubId") as string)?.trim();
   if (!hubId) return { error: "Hub id is required." };
 
+  const hub = await prisma.hub.findFirst({ where: { id: hubId, schoolId: user.schoolId } });
+  if (!hub) return { error: "Hub not found." };
+
   await prisma.hub.update({ where: { id: hubId }, data: { status: "revoked" } });
+  revalidatePath("/offline-hubs");
   revalidatePath("/console/offline-hubs");
   return { success: "Hub revoked." };
 }
 
 export async function releaseExamToHub(examId: string, hubId: string): Promise<OfflineActionResult> {
   const user = await getCurrentUser();
-  if (!user || !user.schoolId) return { error: "Not authorised." };
+  if (!user?.schoolId) return { error: "Not authorised." };
+  const perms = await resolvePermissions(user);
+  if (!canManageSchool(perms) && !canReviewExams(perms)) return { error: "Not authorised." };
 
   const hub = await prisma.hub.findFirst({ where: { id: hubId, schoolId: user.schoolId, status: "active" } });
   if (!hub) return { error: "Active hub not found for this school." };
