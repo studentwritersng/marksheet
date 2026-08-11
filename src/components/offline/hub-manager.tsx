@@ -102,7 +102,7 @@ export function HubManager({ mode, hubs }: { mode: "manage" | "oversight"; hubs:
               </tr>
             ))}
             {hubs.length === 0 && (
-              <tr><td colSpan={mode === "manage" ? 4 : 3} className="p-4 text-center text-gray-400">No hubs registered yet.</td></tr>
+              <tr><td colSpan={4} className="p-4 text-center text-gray-400">No hubs registered yet.</td></tr>
             )}
           </tbody>
         </table>
