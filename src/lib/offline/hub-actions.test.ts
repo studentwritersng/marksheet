@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { registerHubAction, revokeHubAction, releaseExamToHub } from "./actions";
+import { registerHubAction, revokeHubAction, releaseExamToHub, cancelReleaseToHubAction } from "./actions";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/auth/current-user", () => ({ getCurrentUser: vi.fn() }));
@@ -78,6 +78,13 @@ describe("registerHubAction", () => {
 });
 
 describe("revokeHubAction", () => {
+  beforeEach(() => {
+    (prisma.offlineBundle as any) = { findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0) };
+    (prisma.exam as any) = { update: vi.fn().mockResolvedValue({}) };
+    (prisma.examAttempt as any) = { count: vi.fn().mockResolvedValue(0) };
+    (prisma.$transaction as any) = async (fn: any) => fn(prisma);
+  });
+
   it("lets a school admin revoke one of their own hubs", async () => {
     (getCurrentUser as any).mockResolvedValue(makeUser());
     (prisma.hub as any) = {
@@ -110,6 +117,108 @@ describe("revokeHubAction", () => {
     const form = new FormData();
     form.set("hubId", "hub-1");
     expect((await revokeHubAction({} as any, form)).error).toBe("Not authorised.");
+  });
+
+  it("deletes bundles and resets exams that were released only to the revoked hub", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.hub as any) = {
+      findFirst: vi.fn().mockResolvedValue({ id: "hub-1", schoolId: "school-1" }),
+      update: vi.fn().mockResolvedValue({}),
+    };
+    (prisma.offlineBundle as any).findMany.mockResolvedValue([{ id: "b-1", examId: "exam-1" }]);
+
+    const form = new FormData();
+    form.set("hubId", "hub-1");
+    const res = await revokeHubAction({} as any, form);
+
+    expect(res.success).toBe("Hub revoked.");
+    expect(prisma.examAttempt.count).toHaveBeenCalledWith({ where: { examId: "exam-1", hubAttemptId: { not: null } } });
+    expect(prisma.exam.update).toHaveBeenCalledWith({ where: { id: "exam-1" }, data: { offlineStatus: "none" } });
+  });
+
+  it("does not reset an exam that already synced attempts back when its hub is revoked", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.hub as any) = {
+      findFirst: vi.fn().mockResolvedValue({ id: "hub-1", schoolId: "school-1" }),
+      update: vi.fn().mockResolvedValue({}),
+    };
+    (prisma.offlineBundle as any).findMany.mockResolvedValue([{ id: "b-1", examId: "exam-1" }]);
+    (prisma.examAttempt as any).count.mockResolvedValue(1);
+
+    const form = new FormData();
+    form.set("hubId", "hub-1");
+    const res = await revokeHubAction({} as any, form);
+
+    expect(res.success).toBe("Hub revoked.");
+    expect(prisma.exam.update).not.toHaveBeenCalled();
+  });
+
+  it("does not reset an exam that is still released to another hub", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.hub as any) = {
+      findFirst: vi.fn().mockResolvedValue({ id: "hub-1", schoolId: "school-1" }),
+      update: vi.fn().mockResolvedValue({}),
+    };
+    (prisma.offlineBundle as any).findMany.mockResolvedValue([{ id: "b-1", examId: "exam-1" }]);
+    (prisma.offlineBundle as any).count = vi.fn().mockResolvedValue(1);
+
+    const form = new FormData();
+    form.set("hubId", "hub-1");
+    const res = await revokeHubAction({} as any, form);
+
+    expect(res.success).toBe("Hub revoked.");
+    expect(prisma.exam.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("cancelReleaseToHubAction", () => {
+  beforeEach(() => {
+    (prisma.exam as any) = {
+      findFirst: vi.fn().mockResolvedValue({ id: "exam-1", schoolId: "school-1", offlineStatus: "released" }),
+      update: vi.fn().mockResolvedValue({}),
+    };
+    (prisma.examAttempt as any) = { count: vi.fn().mockResolvedValue(0) };
+    (prisma.offlineBundle as any) = { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) };
+    (prisma.$transaction as any) = async (fn: any) => fn(prisma);
+  });
+
+  it("lets a school admin cancel a release for their own exam", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    const res = await cancelReleaseToHubAction("exam-1");
+    expect(res.success).toBe("Exam release cancelled.");
+    expect(prisma.offlineBundle.deleteMany).toHaveBeenCalledWith({ where: { examId: "exam-1" } });
+    expect(prisma.exam.update).toHaveBeenCalledWith({ where: { id: "exam-1" }, data: { offlineStatus: "none" } });
+  });
+
+  it("lets an exam officer cancel a release", async () => {
+    (resolvePermissions as any).mockResolvedValue(officerPerms);
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    const res = await cancelReleaseToHubAction("exam-1");
+    expect(res.success).toBe("Exam release cancelled.");
+  });
+
+  it("rejects a teacher without admin/officer permission", async () => {
+    (resolvePermissions as any).mockResolvedValue(teacherPerms);
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    const res = await cancelReleaseToHubAction("exam-1");
+    expect(res.error).toBe("Not authorised.");
+  });
+
+  it("cannot cancel an exam belonging to another school", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.exam as any).findFirst.mockResolvedValue(null);
+    const res = await cancelReleaseToHubAction("other-exam");
+    expect(res.error).toBe("Exam not found.");
+    expect(prisma.offlineBundle.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses to cancel once attempts have synced back from a hub", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.examAttempt as any).count.mockResolvedValue(1);
+    const res = await cancelReleaseToHubAction("exam-1");
+    expect(res.error).toBe("Exam attempts have already synced back from a hub; release cannot be cancelled.");
+    expect(prisma.offlineBundle.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.exam.update).not.toHaveBeenCalled();
   });
 });
 

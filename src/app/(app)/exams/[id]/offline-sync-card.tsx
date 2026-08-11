@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { releaseExamToHub, type OfflineActionResult } from "@/lib/offline/actions";
+import { releaseExamToHub, cancelReleaseToHubAction, type OfflineActionResult } from "@/lib/offline/actions";
 
 type HubRow = { id: string; name: string; status: string };
 
@@ -19,6 +19,13 @@ export function OfflineSyncCard({ examId, hubs, offlineStatus, canRegister = fal
     if (!hubId) return;
     setPending(true);
     const res = await releaseExamToHub(examId, hubId);
+    setState(res);
+    setPending(false);
+  }
+
+  async function cancelRelease() {
+    setPending(true);
+    const res = await cancelReleaseToHubAction(examId);
     setState(res);
     setPending(false);
   }
@@ -47,6 +54,17 @@ export function OfflineSyncCard({ examId, hubs, offlineStatus, canRegister = fal
             className="rounded-lg bg-[#002046] hover:bg-[#003366] text-white text-sm px-4 py-2 disabled:opacity-50"
           >
             {pending ? "Releasing…" : "Release to hub"}
+          </button>
+        </div>
+      )}
+      {offlineStatus === "released" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={cancelRelease}
+            disabled={pending}
+            className="rounded-lg border border-red-300 text-red-700 text-sm px-4 py-2 hover:bg-red-50 disabled:opacity-50"
+          >
+            {pending ? "Cancelling…" : "Cancel release"}
           </button>
         </div>
       )}

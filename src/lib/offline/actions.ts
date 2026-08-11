@@ -74,10 +74,43 @@ export async function revokeHubAction(
   const hub = await prisma.hub.findFirst({ where: { id: hubId, schoolId: user.schoolId } });
   if (!hub) return { error: "Hub not found." };
 
+  const bundles = await prisma.offlineBundle.findMany({ where: { hubId }, select: { examId: true } });
+  const examIds = [...new Set(bundles.map((b) => b.examId))];
+  for (const examId of examIds) {
+    const synced = await prisma.examAttempt.count({ where: { examId, hubAttemptId: { not: null } } });
+    if (synced > 0) continue;
+    const otherActive = await prisma.offlineBundle.count({
+      where: { examId, hubId: { not: hubId }, hub: { status: "active" } },
+    });
+    if (otherActive > 0) continue;
+    await prisma.exam.update({ where: { id: examId }, data: { offlineStatus: "none" } });
+  }
+
   await prisma.hub.update({ where: { id: hubId }, data: { status: "revoked" } });
   revalidatePath("/offline-hubs");
   revalidatePath("/console/offline-hubs");
   return { success: "Hub revoked." };
+}
+
+export async function cancelReleaseToHubAction(examId: string): Promise<OfflineActionResult> {
+  const user = await getCurrentUser();
+  if (!user?.schoolId) return { error: "Not authorised." };
+  const perms = await resolvePermissions(user);
+  if (!canManageSchool(perms) && !canReviewExams(perms)) return { error: "Not authorised." };
+
+  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: user.schoolId } });
+  if (!exam) return { error: "Exam not found." };
+
+  const synced = await prisma.examAttempt.count({ where: { examId, hubAttemptId: { not: null } } });
+  if (synced > 0) return { error: "Exam attempts have already synced back from a hub; release cannot be cancelled." };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.offlineBundle.deleteMany({ where: { examId } });
+    await tx.exam.update({ where: { id: examId }, data: { offlineStatus: "none" } });
+  });
+
+  revalidatePath(`/exams/${examId}`);
+  return { success: "Exam release cancelled." };
 }
 
 export async function releaseExamToHub(examId: string, hubId: string): Promise<OfflineActionResult> {
