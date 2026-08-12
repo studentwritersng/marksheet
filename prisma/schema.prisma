@@ -91,7 +91,7 @@ model School {
   notificationQueue        NotificationQueue[]
   schoolNotificationConfig SchoolNotificationConfig?
   groupMembership          GroupMembership?
-  referral                 Referral?        @relation(fields: [referralId], references: [id])
+  referral                 Referral?                     @relation(fields: [referralId], references: [id])
   hubs                     Hub[]
   offlineBundles           OfflineBundle[]
 
@@ -155,20 +155,20 @@ model Term {
 }
 
 model Class {
-  id           String   @id @default(cuid())
-  schoolId     String
-  sessionId    String
-  name         String // auto-generated: level + section (e.g. "JSS1" or "JSS1A")
-  level        String // JSS1 / JSS2 / JSS3 / SSS1 / SSS2 / SSS3
-  section      String   @default("") // optional arm: "A", "B", "C"... "" means single-section
-  department   String   @default("") // SSS only: "science" / "art" / "commercial" / ""
+  id            String   @id @default(cuid())
+  schoolId      String
+  sessionId     String
+  name          String // auto-generated: level + section (e.g. "JSS1" or "JSS1A")
+  level         String // JSS1 / JSS2 / JSS3 / SSS1 / SSS2 / SSS3
+  section       String   @default("") // optional arm: "A", "B", "C"... "" means single-section
+  department    String   @default("") // SSS only: "science" / "art" / "commercial" / ""
   defaultRoomId String?
-  archived     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  archived      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   session               Session                       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  defaultRoom           Room?                          @relation(fields: [defaultRoomId], references: [id])
+  defaultRoom           Room?                         @relation(fields: [defaultRoomId], references: [id])
   assignments           Assignment[]
   students              Student[]
   promotionsFrom        PromotionRecord[]             @relation("PromotionFromClass")
@@ -541,6 +541,7 @@ model AiCallLog {
   id               String   @id @default(cuid())
   taskType         String
   schoolId         String?
+  userId           String?
   providerConfigId String?
   modelName        String
   promptTokens     Int?
@@ -556,6 +557,30 @@ model AiCallLog {
   @@index([schoolId])
   @@index([createdAt])
   @@map("ai_call_logs")
+}
+
+model AiRateLimitSetting {
+  id                    String   @id @default(cuid())
+  enabled               Boolean  @default(true)
+  perUserDailyQuota     Int      @default(15)
+  perUserPerMinuteBurst Int      @default(5)
+  perSchoolDailyCap     Int      @default(300)
+  resetsAtUtc           String   @default("00:00") // fixed daily rollover, "HH:MM" UTC
+  createdBy             String?
+  updatedAt             DateTime @updatedAt
+
+  @@map("ai_rate_limit_settings")
+}
+
+model AiRateLimitBucket {
+  id          String   @id @default(cuid())
+  key         String   @unique // user:{id}:day:YYYY-MM-DD / user:{id}:min:{epochMinute} / school:{id}:day:YYYY-MM-DD
+  windowStart DateTime
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@index([windowStart])
+  @@map("ai_rate_limit_buckets")
 }
 
 // ---------------------------------------------------------------------------
@@ -779,27 +804,27 @@ model Exam {
   attemptType          ExamAttemptType @default(original)
   originalExamId       String?
   // Review workflow: subject teacher creates, admin/form master submits, exam officer approves/rejects
-  createdBy            String?         // staff id of creator
+  createdBy            String? // staff id of creator
   submittedForReviewAt DateTime?
-  reviewedBy           String?         // staff id of the exam officer
+  reviewedBy           String? // staff id of the exam officer
   reviewedAt           DateTime?
-  reviewComment        String?         // comment from exam officer (approve or reject reason)
+  reviewComment        String? // comment from exam officer (approve or reject reason)
   // Per-exam sub-assessment weight distribution, e.g. [{ subAssessmentTypeId: "xxx", weightPercentage: 20 }]
   // Must sum to the parent assessment type's school-level weight.
   subAssessmentWeights Json?
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @default(now()) @updatedAt
 
-  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  subject       Subject        @relation(fields: [subjectId], references: [id])
-  class         Class?         @relation(fields: [classId], references: [id])
-  term          Term           @relation(fields: [termId], references: [id])
-  examQuestions ExamQuestion[]
-  attempts      ExamAttempt[]
-  classes       ExamClass[]
-  manualScores  ManualScore[]
+  school         School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject        Subject         @relation(fields: [subjectId], references: [id])
+  class          Class?          @relation(fields: [classId], references: [id])
+  term           Term            @relation(fields: [termId], references: [id])
+  examQuestions  ExamQuestion[]
+  attempts       ExamAttempt[]
+  classes        ExamClass[]
+  manualScores   ManualScore[]
   offlineBundles OfflineBundle[]
-  offlineStatus  String   @default("none") // none | released | synced
+  offlineStatus  String          @default("none") // none | released | synced
 
   @@index([schoolId])
   @@index([subjectId, classId, termId])
@@ -859,16 +884,16 @@ model ExamAttempt {
   endsAt              DateTime? // server-side timer end time (startedAt + durationMinutes)
   hubId               String?
   hubAttemptId        String?
-  hub                 Hub?       @relation(fields: [hubId], references: [id])
+  hub                 Hub?          @relation(fields: [hubId], references: [id])
   createdAt           DateTime      @default(now())
 
   exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
   student Student         @relation(fields: [studentId], references: [id])
   answers StudentAnswer[]
 
+  @@unique([hubId, hubAttemptId])
   @@index([examId])
   @@index([studentId])
-  @@unique([hubId, hubAttemptId])
   @@map("exam_attempts")
 }
 
@@ -879,7 +904,7 @@ model StudentAnswer {
   mcqSelectedOptionId String?
   essayResponseText   String?
   localChecksum       String?
-  checksumFlagged     Boolean   @default(false)
+  checksumFlagged     Boolean  @default(false)
   gradedScore         Float? // null until graded
   // AI essay grading fields (PRD 07)
   aiSuggestedScore    Float?
@@ -927,7 +952,7 @@ model AssessmentType {
 model RemarkTemplate {
   id        String   @id @default(cuid())
   schoolId  String
-  type      String   // "teacher" | "principal"
+  type      String // "teacher" | "principal"
   text      String
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
@@ -943,7 +968,7 @@ model AssessmentWeighting {
   schoolId         String
   subjectId        String?
   assessmentTypeId String // references AssessmentType.code
-  weightPercentage Float   // percentage of total term score (all types must sum to 100)
+  weightPercentage Float // percentage of total term score (all types must sum to 100)
 
   school School @relation(fields: [schoolId], references: [id])
 
@@ -961,11 +986,11 @@ model ManualScore {
   id                    String   @id @default(cuid())
   examId                String
   studentId             String
-  subAssessmentTypeCode String   // "OBJ" | "THEORY" | "PRC" — matches AssessmentType.code
-  rawScore              Float    // raw score as entered by the teacher
-  maxRawScore           Float    // denominator the teacher scored out of (for scaling)
-  enteredBy             String   // staff id
-  note                  String?  // optional teacher note
+  subAssessmentTypeCode String // "OBJ" | "THEORY" | "PRC" — matches AssessmentType.code
+  rawScore              Float // raw score as entered by the teacher
+  maxRawScore           Float // denominator the teacher scored out of (for scaling)
+  enteredBy             String // staff id
+  note                  String? // optional teacher note
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -1080,7 +1105,7 @@ model TimetablePeriod {
 }
 
 model TimetableEntry {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   schoolId  String
   classId   String
   periodId  String
@@ -1210,9 +1235,9 @@ model Room {
   roomTypeId String
   capacity   Int    @default(40)
 
-  roomType        RoomType          @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  roomType         RoomType         @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
   timetableEntries TimetableEntry[]
-  classes         Class[]
+  classes          Class[]
 
   @@map("rooms")
 }
@@ -1309,7 +1334,7 @@ model ParentAccount {
   id                      String   @id @default(cuid())
   guardianId              String // links to Guardian entity (PRD 03)
   email                   String
-  passwordHash       String   @default("")
+  passwordHash            String   @default("")
   phone                   String?
   notificationPreferences Json? // which channels/events
   createdAt               DateTime @default(now())
@@ -1368,20 +1393,20 @@ enum LicenseStageName {
 }
 
 model LicensePlan {
-  id            String              @id @default(cuid())
-  name          String              @unique // e.g. "Monthly", "Termly"
-  durationType  LicenseDurationType
-  price         Decimal? // deprecated — use stage-specific prices below
-  basicPrice    Decimal? // price for Basic-stage schools
-  standardPrice Decimal? // price for Standard-stage schools
-  premiumPrice  Decimal? // price for Premium-stage schools
-  groupPrice    Decimal? // per-school base price for multi-branch groups (progressive discount applies)
-  durationDays  Int? // e.g. 30 or 90
+  id             String              @id @default(cuid())
+  name           String              @unique // e.g. "Monthly", "Termly"
+  durationType   LicenseDurationType
+  price          Decimal? // deprecated — use stage-specific prices below
+  basicPrice     Decimal? // price for Basic-stage schools
+  standardPrice  Decimal? // price for Standard-stage schools
+  premiumPrice   Decimal? // price for Premium-stage schools
+  groupPrice     Decimal? // per-school base price for multi-branch groups (progressive discount applies)
+  durationDays   Int? // e.g. 30 or 90
   // When true, groupPrice field is available for multi-branch group billing
   isGroupBilling Boolean             @default(false)
-  isActive      Boolean             @default(true) // can this plan be assigned to new schools?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  isActive       Boolean             @default(true) // can this plan be assigned to new schools?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   schoolLicenses SchoolLicense[]
   payments       Payment[]
@@ -1440,7 +1465,7 @@ model PaymentMethod {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
-  payments          Payment[]
+  payments            Payment[]
   schoolRegistrations SchoolRegistration[]
 
   @@map("payment_methods")
@@ -1861,26 +1886,26 @@ model GroupStudentTransferRecord {
 }
 
 model Referral {
-  id                 String   @id @default(cuid())
-  fullName           String
-  address            String
-  dateOfBirth        DateTime
-  phoneNumber        String
-  email              String   @unique
-  whatsappNumber     String
-  bankName           String
-  bankAccountNumber  String
-  bankAccountName    String
-  passwordHash       String   @default("")
-  referralCode       String   @unique
-  status             String   @default("active") // active | inactive
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  fullName          String
+  address           String
+  dateOfBirth       DateTime
+  phoneNumber       String
+  email             String   @unique
+  whatsappNumber    String
+  bankName          String
+  bankAccountNumber String
+  bankAccountName   String
+  passwordHash      String   @default("")
+  referralCode      String   @unique
+  status            String   @default("active") // active | inactive
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  schools            School[]
+  schools             School[]
   schoolRegistrations SchoolRegistration[]
-  commissions        ReferralCommission[]
-  users              User[]
+  commissions         ReferralCommission[]
+  users               User[]
 
   @@index([referralCode])
   @@map("referrals")
@@ -1914,8 +1939,8 @@ model SchoolRegistration {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  referral   Referral?        @relation(fields: [referralId], references: [id])
-  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  referral      Referral?            @relation(fields: [referralId], references: [id])
+  paymentMethod PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
   commissions   ReferralCommission[]
 
   @@index([status])
@@ -1925,7 +1950,7 @@ model SchoolRegistration {
 model ReferralCommissionSetting {
   id                String   @id @default(cuid())
   registrationFee   Decimal  @default(250000) // registration fee in NGN
-  commissionPercent Decimal  @default(20)    // percentage of registration fee paid to referrer
+  commissionPercent Decimal  @default(20) // percentage of registration fee paid to referrer
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -1933,20 +1958,20 @@ model ReferralCommissionSetting {
 }
 
 model ReferralCommission {
-  id                String   @id @default(cuid())
-  referralId        String
-  registrationId    String?
-  schoolId          String?
-  amount            Decimal
-  status            String   @default("pending") // pending | paid | rejected
-  paidAt            DateTime?
-  notes             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id             String    @id @default(cuid())
+  referralId     String
+  registrationId String?
+  schoolId       String?
+  amount         Decimal
+  status         String    @default("pending") // pending | paid | rejected
+  paidAt         DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  referral     Referral             @relation(fields: [referralId], references: [id])
+  referral     Referral            @relation(fields: [referralId], references: [id])
   registration SchoolRegistration? @relation(fields: [registrationId], references: [id])
-  school       School?              @relation(fields: [schoolId], references: [id])
+  school       School?             @relation(fields: [schoolId], references: [id])
 
   @@index([referralId])
   @@index([status])
@@ -1958,11 +1983,11 @@ model ReferralCommission {
 // ---------------------------------------------------------------------------
 
 model Conversation {
-  id          String    @id @default(cuid())
-  schoolId    String
-  subject     String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  schoolId  String
+  subject   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   participants ConversationParticipant[]
   messages     Message[]
@@ -1975,11 +2000,11 @@ model ConversationParticipant {
   id             String    @id @default(cuid())
   conversationId String
   userId         String
-  userType       String    // "staff" | "parent" | "student"
+  userType       String // "staff" | "parent" | "student"
   userLabel      String?
   lastReadAt     DateTime?
 
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, userId])
   @@index([userId])
@@ -1987,14 +2012,14 @@ model ConversationParticipant {
 }
 
 model Message {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   conversationId String
   senderId       String
   content        String
-  isRead         Boolean   @default(false)
-  createdAt      DateTime  @default(now())
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([senderId])
@@ -2006,17 +2031,17 @@ model Message {
 // ---------------------------------------------------------------------------
 
 model DemoRequest {
-  id                 String   @id @default(cuid())
-  contactName        String
-  schoolName         String
-  phone              String?
-  email              String
-  studentCountRange  String? // informational, e.g. "100-300"
-  message            String?
-  status             String   @default("new") // new | contacted | qualified | converted | closed
-  source             String   @default("homepage") // which page/section the form was submitted from
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  contactName       String
+  schoolName        String
+  phone             String?
+  email             String
+  studentCountRange String? // informational, e.g. "100-300"
+  message           String?
+  status            String   @default("new") // new | contacted | qualified | converted | closed
+  source            String   @default("homepage") // which page/section the form was submitted from
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([status])
   @@index([email])
@@ -2088,14 +2113,14 @@ model OfflineBundle {
   hubId     String
   schoolId  String
   status    String   @default("pending") // pending | downloaded | closed
-  payload   String   // encrypted msb1.<iv>.<tag>.<ct>
+  payload   String // encrypted msb1.<iv>.<tag>.<ct>
   issuedAt  DateTime @default(now())
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  exam   Exam         @relation(fields: [examId], references: [id])
-  hub    Hub          @relation(fields: [hubId], references: [id])
-  school School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  exam   Exam      @relation(fields: [examId], references: [id])
+  hub    Hub       @relation(fields: [hubId], references: [id])
+  school School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   pins   ExamPin[]
 
   @@index([hubId])
