@@ -1478,6 +1478,7 @@ export async function createCompletion(
     await logAiCall({
       taskType: opts.taskType,
       schoolId: opts.schoolId,
+      userId: opts.userId,
       providerConfigId: null,
       modelName: result.model,
       status: "success",
