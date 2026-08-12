@@ -1,0 +1,38 @@
+@import "tailwindcss";
+@import "../../../shared/exam-rendering/exam-tokens.css";
+
+/* The shared exam-taking view lives outside the Vite root, so Tailwind's
+ * automatic content detection never scans it. Declare it explicitly or the
+ * exam screen renders with no utility CSS. */
+@source "../../../shared/exam-rendering";
+
+body {
+  font-family: "IBM Plex Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #faf8ff;
+  color: #161b28;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c4c6cf;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #74777f;
+}
+
+::selection {
+  background: #d6e3ff;
+  color: #001b3d;
+}

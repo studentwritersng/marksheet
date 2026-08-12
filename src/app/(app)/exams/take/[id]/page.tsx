@@ -97,7 +97,9 @@ export default async function ExamTakePage(props: {
     include: { answers: true },
   });
 
-  if (existingAttempt?.status === "submitted") {
+  const isSubmitted = existingAttempt?.status === "submitted";
+
+  if (isSubmitted) {
     return <SubmittedView exam={exam} attempt={existingAttempt} />;
   }
 
@@ -135,9 +137,13 @@ export default async function ExamTakePage(props: {
       studentId={student.id}
       attemptId={existingAttempt?.id}
       attemptData={existingAttempt ? {
-        shuffledQuestionIds: existingAttempt.shuffledQuestionIds,
-        shuffledOptionOrder: existingAttempt.shuffledOptionOrder,
+        status: isSubmitted ? "submitted" : "started",
+        startedAt: existingAttempt.startedAt?.toISOString() ?? new Date().toISOString(),
+        submittedAt: existingAttempt.submittedAt?.toISOString() ?? null,
         endsAt: existingAttempt.endsAt?.toISOString() ?? null,
+        shuffledQuestionIds: (existingAttempt.shuffledQuestionIds as string[] | null) ?? null,
+        shuffledOptionOrder: (existingAttempt.shuffledOptionOrder as Record<string, string[]> | null) ?? null,
+        lastAutosaveAt: null,
       } : null}
       subjectName={exam.subject.name}
       className={exam.class?.name ?? ""}

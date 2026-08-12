@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@exam-rendering/*": ["./shared/exam-rendering/*"]
     }
   },
   "include": [

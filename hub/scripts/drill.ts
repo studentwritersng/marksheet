@@ -18,13 +18,19 @@ async function main() {
 
   const bundle = db.getBundles()[0];
   // syncDown stores the DECRYPTED plaintext payload in bundles.payload, so parse directly.
-  const parsed = JSON.parse(bundle.payload) as { examId: string; roster: Array<{ studentId: string; admissionNumber: string }> };
+  const parsed = JSON.parse(bundle.payload) as {
+    examId: string;
+    roster: Array<{ studentId: string; admissionNumber: string }>;
+    questions: Array<{ id: string; mcqOptions: Array<{ id: string }> }>;
+  };
   const student = parsed.roster[0];
+  const firstQuestion = parsed.questions[0];
 
   console.log(`2) Simulate attempt by ${student.admissionNumber} on exam ${parsed.examId} …`);
   const hubAttemptId = `att-${randomBytes(4).toString("hex")}`;
   const ts = new Date().toISOString();
-  const answer = { questionId: "q-1", mcqSelectedOptionId: "opt-1", clientTimestamp: ts };
+  const mcqSelectedOptionId = firstQuestion.mcqOptions[0]?.id ?? null;
+  const answer = { questionId: firstQuestion.id, mcqSelectedOptionId, clientTimestamp: ts };
   db.insertAttempt({
     hubAttemptId,
     bundleId: bundle.bundleId,
@@ -35,10 +41,11 @@ async function main() {
     endsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     shuffledQuestionIds: null,
     shuffledOptionOrder: null,
+    lastAutosaveAt: null,
   });
   db.raw.prepare(
     "INSERT INTO answers (hub_attempt_id, question_id, mcq_selected_option_id, client_timestamp, local_checksum) VALUES (?, ?, ?, ?, ?)",
-  ).run(hubAttemptId, answer.questionId, answer.mcqSelectedOptionId, ts, checksum(cfg.signingSecret, hubAttemptId, answer.questionId, ts, "opt-1"));
+  ).run(hubAttemptId, answer.questionId, mcqSelectedOptionId, ts, checksum(cfg.signingSecret, hubAttemptId, answer.questionId, ts, mcqSelectedOptionId ?? ""));
 
   console.log("3) Sync up …");
   const { uploaded } = await syncUp(db);

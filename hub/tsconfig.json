@@ -8,5 +8,6 @@
     "skipLibCheck": true,
     "outDir": "dist"
   },
-  "include": ["src", "scripts"]
+  "include": ["src", "scripts", "../shared/exam-rendering/exam-taking-core.ts", "../shared/exam-rendering/types.ts"],
+  "exclude": ["../shared/exam-rendering/*.tsx"]
 }

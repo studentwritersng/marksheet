@@ -4,5 +4,7 @@
   "signingSecret": "...",
   "port": 3210,
   "dataDir": "./data",
-  "syncIntervalMs": 60000
+  "syncIntervalMs": 60000,
+  "invigilatorCode": "123456",
+  "schoolName": "Delight International School"
 }

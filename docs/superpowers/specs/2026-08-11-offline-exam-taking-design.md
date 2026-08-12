@@ -119,6 +119,7 @@ Express handlers stay thin; all behavior lives in pure functions over the `Db` s
 
 | Endpoint | Behavior |
 |---|---|
+| `GET /api/open-sessions` | List currently-OPEN bundles as `{ bundleId, subjectName, termLabel, durationMinutes, questionCount }` for the SPA session picker (no auth — no student data exposed). |
 | `POST /api/sign-in` `{ bundleId, admissionNumber, pin }` | Verify session OPEN + roster/PIN + lockout. Returns `{ student, exam, questions, attempt \| null }`. Existing `in_progress` attempt → resume (includes saved answers, stored order, `endsAt`). |
 | `POST /api/attempts/start` `{ bundleId, studentId }` | Create attempt (`endsAt = now + duration`; shuffle persisted when enabled) or return existing `in_progress`. |
 | `POST /api/attempts/:id/autosave` | Upsert answers with browser `clientTimestamp` + hub-computed checksum; `touchLastAutosave`. |

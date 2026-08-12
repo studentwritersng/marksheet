@@ -8,6 +8,8 @@ export interface HubConfig {
   port: number;
   dataDir: string;
   syncIntervalMs: number;
+  invigilatorCode: string;
+  schoolName: string;
 }
 
 export function getConfig(configPath = resolve(import.meta.dirname, "../config.json")): HubConfig {
@@ -23,5 +25,7 @@ export function getConfig(configPath = resolve(import.meta.dirname, "../config.j
     port: cfg.port ?? 3210,
     dataDir: cfg.dataDir ?? "./data",
     syncIntervalMs: cfg.syncIntervalMs ?? 60000,
+    invigilatorCode: cfg.invigilatorCode ?? process.env.INVIGILATOR_CODE ?? "",
+    schoolName: cfg.schoolName ?? "Exam Hub",
   };
 }
