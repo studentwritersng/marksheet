@@ -84,6 +84,7 @@ Output valid JSON only, with this exact shape and no additional text before or a
       const result = await createCompletion({
         taskType: "essay_grading",
         schoolId: ctx.schoolId,
+        userId: ctx.user.userId,
         messages: [
           { role: "system", content: "You are an expert examiner grading secondary school exam responses." },
           { role: "user", content: prompt },

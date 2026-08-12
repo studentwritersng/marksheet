@@ -259,6 +259,7 @@ export async function aiGenerateQuestionsAction(
   const result = await createCompletion({
     taskType: "question_generation",
     schoolId: ctx.schoolId,
+    userId: ctx.user.userId,
     messages: [
       {
         role: "system",
@@ -660,6 +661,7 @@ Output valid JSON only, with this exact shape and no additional text before or a
     const result = await createCompletion({
       taskType: "question_generation",
       schoolId: ctx.schoolId,
+      userId: ctx.user.userId,
       messages: [
         { role: "system", content: systemContent },
         {

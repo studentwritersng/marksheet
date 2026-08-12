@@ -36,7 +36,8 @@ export async function parseCurriculumAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  try { await guardOwner(); } catch { return { error: "Not authorised." }; }
+  let user: Awaited<ReturnType<typeof guardOwner>>;
+  try { user = await guardOwner(); } catch { return { error: "Not authorised." }; }
 
   const classLevel = formData.get("classLevel") as string;
   const term = formData.get("term") as string;
@@ -80,6 +81,7 @@ ${nerdcContent.slice(0, 25000)}`;
   try {
     const result = await createCompletion({
       taskType: "curriculum_parsing",
+      userId: user.userId,
       messages: [
         { role: "system", content: "You are a precise curriculum data parser. Return only valid JSON arrays." },
         { role: "user", content: prompt },

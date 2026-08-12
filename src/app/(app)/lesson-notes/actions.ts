@@ -218,6 +218,7 @@ export async function aiGenerateNoteAction(
     const levelGuidance = classLevelGuidance(cls?.level ?? "SSS1");
     result = await createCompletion({
       taskType: "lesson_note_generation",
+      userId: ctx.user.userId,
     messages: [
       {
         role: "system",
