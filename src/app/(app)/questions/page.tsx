@@ -6,6 +6,8 @@ import { QuestionList } from "./question-list";
 import { CreateQuestionForm } from "./create-question-form";
 import { QuestionCsvImport } from "./question-csv-import";
 
+export const maxDuration = 300;
+
 export default async function QuestionsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");

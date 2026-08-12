@@ -95,7 +95,13 @@ export function CreateQuestionForm({
     fd.delete("lessonNoteIds");
     for (const id of selectedNoteIds) fd.append("lessonNoteIds", id);
     setAiResult({});
-    startAi(async () => setAiResult(await aiGenerateQuestionsMultiAction({}, fd)));
+    startAi(async () => {
+      try {
+        setAiResult(await aiGenerateQuestionsMultiAction({}, fd));
+      } catch (e) {
+        setAiResult({ error: e instanceof Error ? e.message : "AI generation failed. Please try again." });
+      }
+    });
   }
 
   const pending = manualPending || aiPending;
