@@ -113,21 +113,11 @@ export async function cancelReleaseToHubAction(examId: string): Promise<OfflineA
   return { success: "Exam release cancelled." };
 }
 
-export async function releaseExamToHub(examId: string, hubId: string): Promise<OfflineActionResult> {
-  const user = await getCurrentUser();
-  if (!user?.schoolId) return { error: "Not authorised." };
-  const perms = await resolvePermissions(user);
-  if (!canManageSchool(perms) && !canReviewExams(perms)) return { error: "Not authorised." };
-
-  const hub = await prisma.hub.findFirst({ where: { id: hubId, schoolId: user.schoolId, status: "active" } });
-  if (!hub) return { error: "Active hub not found for this school." };
-
-  let examData;
-  try {
-    examData = await fetchExamDataForBundle(examId, user.schoolId);
-  } catch {
-    return { error: "Exam not found or not ready to release." };
-  }
+async function releaseSingleExamToHub(
+  examId: string,
+  hub: { id: string; name: string; signingSecret: string; schoolId: string },
+): Promise<{ examTitle: string; studentCount: number; questionCount: number }> {
+  const examData = await fetchExamDataForBundle(examId, hub.schoolId);
   const bundleId = `b-${generateRandomBytes(8)}`;
   const issuedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -160,7 +150,7 @@ export async function releaseExamToHub(examId: string, hubId: string): Promise<O
 
   const payload = serializeBundle(bundle, hub.signingSecret, bundleId);
 
-  const created = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const offline = await tx.offlineBundle.create({
       data: {
         bundleId,
@@ -174,7 +164,7 @@ export async function releaseExamToHub(examId: string, hubId: string): Promise<O
     });
     await tx.examPin.createMany({
       data: roster.map((r) => ({
-        bundleId: offline.id, // FK to offline_bundles.id
+        bundleId: offline.id,
         examId,
         studentId: r.studentId,
         pinHash: hashPin(r.pin),
@@ -182,12 +172,30 @@ export async function releaseExamToHub(examId: string, hubId: string): Promise<O
       skipDuplicates: true,
     });
     await tx.exam.update({ where: { id: examId }, data: { offlineStatus: "released" } });
-    return offline;
   });
+
+  return { examTitle: examData.exam.subjectName, studentCount: roster.length, questionCount: examData.questions.length };
+}
+
+export async function releaseExamToHub(examId: string, hubId: string): Promise<OfflineActionResult> {
+  const user = await getCurrentUser();
+  if (!user?.schoolId) return { error: "Not authorised." };
+  const perms = await resolvePermissions(user);
+  if (!canManageSchool(perms) && !canReviewExams(perms)) return { error: "Not authorised." };
+
+  const hub = await prisma.hub.findFirst({ where: { id: hubId, schoolId: user.schoolId, status: "active" } });
+  if (!hub) return { error: "Active hub not found for this school." };
+
+  let data;
+  try {
+    data = await releaseSingleExamToHub(examId, hub);
+  } catch {
+    return { error: "Exam not found or not ready to release." };
+  }
 
   revalidatePath(`/exams/${examId}`);
   return {
     success: `Exam released to hub "${hub.name}".`,
-    data: { examTitle: `${examData.exam.subjectName}`, studentCount: roster.length, questionCount: examData.questions.length },
+    data,
   };
 }
