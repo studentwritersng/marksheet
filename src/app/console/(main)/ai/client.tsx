@@ -1,14 +1,38 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { upsertAiProviderAction, deleteAiProviderAction, setAiProviderPriorityAction, testAiConnectionAction, upsertTaskProfileAction } from "./actions";
+import { upsertAiProviderAction, deleteAiProviderAction, setAiProviderPriorityAction, testAiConnectionAction, upsertTaskProfileAction, saveAiRateLimitSettingsAction } from "./actions";
 
 interface ProviderVM {
   id: string; label: string; baseUrl: string; hasKey: boolean;
   defaultModelName: string; priority: number; isActive: boolean; createdAt: string;
 }
 
-export function AiConfigClient({ providers: initial }: { providers: ProviderVM[] }) {
+interface RateLimitSettingsVM {
+  enabled: boolean;
+  perUserDailyQuota: number;
+  perUserPerMinuteBurst: number;
+  perSchoolDailyCap: number;
+  resetsAtUtc: string;
+}
+
+interface UsageVM {
+  userDaily: number;
+  userMinute: number;
+  schoolDaily: number;
+}
+
+export function AiConfigClient({
+  providers: initial,
+  rateLimitSettings: initialRateLimits,
+  usage,
+}: {
+  providers: ProviderVM[];
+  rateLimitSettings: RateLimitSettingsVM;
+  usage: UsageVM;
+}) {
+  const [rateLimits, setRateLimits] = useState<RateLimitSettingsVM>(initialRateLimits);
+  const [rateLimitState, rateLimitAction, rateLimitPending] = useActionState(saveAiRateLimitSettingsAction, {});
   const [providers, setProviders] = useState([...initial].sort((a, b) => a.priority - b.priority || a.createdAt.localeCompare(b.createdAt)));
   const [editing, setEditing] = useState<ProviderVM | null>(null);
   const [createNew, setCreateNew] = useState(false);
@@ -48,6 +72,63 @@ export function AiConfigClient({ providers: initial }: { providers: ProviderVM[]
       {providers.filter(p => p.isActive).map((p) => (
         <TaskProfileSection key={p.id} providerId={p.id} />
       ))}
+
+      {/* Rate Limits card */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-white font-semibold text-base">Rate Limits</h2>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${rateLimits.enabled ? "bg-emerald-900/50 text-emerald-300" : "bg-white/10 text-white/40"}`}>
+            {rateLimits.enabled ? "Enabled" : "Disabled"}
+          </span>
+        </div>
+        <p className="text-xs text-white/40 mb-4">
+          Combined AI calls per user and per school. Rollover at {rateLimits.resetsAtUtc} UTC daily.
+          Click save after editing limits.
+        </p>
+
+        <form action={rateLimitAction} className="space-y-3">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-white/60">
+            <span>Today · User daily: <span className="text-white/80 font-mono">{usage.userDaily}</span></span>
+            <span>User per-minute: <span className="text-white/80 font-mono">{usage.userMinute}</span></span>
+            <span>School daily: <span className="text-white/80 font-mono">{usage.schoolDaily}</span></span>
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-white/70 cursor-pointer">
+            <input type="checkbox" name="enabled" checked={rateLimits.enabled}
+              onChange={(e) => setRateLimits((p) => ({ ...p, enabled: e.target.checked }))}
+              className="accent-emerald-500" />
+            Enable rate limiting
+          </label>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <NumberField label="User daily quota" name="perUserDailyQuota"
+              value={rateLimits.perUserDailyQuota}
+              onChange={(v) => setRateLimits((p) => ({ ...p, perUserDailyQuota: v }))} />
+            <NumberField label="User per-minute burst" name="perUserPerMinuteBurst"
+              value={rateLimits.perUserPerMinuteBurst}
+              onChange={(v) => setRateLimits((p) => ({ ...p, perUserPerMinuteBurst: v }))} />
+            <NumberField label="School daily cap" name="perSchoolDailyCap"
+              value={rateLimits.perSchoolDailyCap}
+              onChange={(v) => setRateLimits((p) => ({ ...p, perSchoolDailyCap: v }))} />
+          </div>
+
+          <label className="block text-xs text-white/70">
+            Daily reset (UTC, HH:MM)
+            <input type="text" name="resetsAtUtc" value={rateLimits.resetsAtUtc}
+              onChange={(e) => setRateLimits((p) => ({ ...p, resetsAtUtc: e.target.value }))}
+              className="mt-1 w-full sm:w-40 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-white/30" />
+          </label>
+
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={rateLimitPending}
+              className="text-xs text-white/70 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30 disabled:opacity-50">
+              {rateLimitPending ? "Saving…" : "Save rate limits"}
+            </button>
+            {rateLimitState.error && <span className="text-xs text-red-400">{rateLimitState.error}</span>}
+            {rateLimitState.success && <span className="text-xs text-emerald-400">{rateLimitState.success}</span>}
+          </div>
+        </form>
+      </div>
 
       {/* AI Call Log link */}
       <a href="/console/ai/call-log" className="block text-xs text-blue-400 hover:text-blue-300 transition-colors">
@@ -309,5 +390,20 @@ function PriorityButton({ providerId, priority, label, onChanged }: {
         className="text-xs text-emerald-400/70 hover:text-emerald-300 transition-colors underline"
       >{pending ? "..." : label}</button>
     </form>
+  );
+}
+
+function NumberField({ label, name, value, onChange }: {
+  label: string; name: string; value: number; onChange: (v: number) => void;
+}) {
+  return (
+    <label className="block text-xs text-white/70">
+      {label}
+      <input
+        type="number" min={1} name={name} value={value}
+        onChange={(e) => onChange(Math.max(1, Number(e.target.value) || 1))}
+        className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-white/30"
+      />
+    </label>
   );
 }

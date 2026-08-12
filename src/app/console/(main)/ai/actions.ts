@@ -72,6 +72,46 @@ export async function setAiProviderPriorityAction(id: string, priority: number):
   return { success: `"${provider.label}" priority set to ${p}.` };
 }
 
+function clampLimit(raw: FormDataEntryValue | null, fallback: number, max: number): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(Math.floor(n), max);
+}
+
+function normalizeResetsAtUtc(raw: FormDataEntryValue | null): string {
+  const v = String(raw ?? "").trim();
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : "00:00";
+}
+
+export async function saveAiRateLimitSettingsAction(_prev: AiActionResult, formData: FormData): Promise<AiActionResult> {
+  const user = await guard();
+  if (!user) return { error: "Not authorised." };
+
+  const enabled = formData.get("enabled") === "on";
+  const perUserDailyQuota = clampLimit(formData.get("perUserDailyQuota"), 15, 100000);
+  const perUserPerMinuteBurst = clampLimit(formData.get("perUserPerMinuteBurst"), 5, 100000);
+  const perSchoolDailyCap = clampLimit(formData.get("perSchoolDailyCap"), 300, 1000000);
+  const resetsAtUtc = normalizeResetsAtUtc(formData.get("resetsAtUtc"));
+
+  const data = { enabled, perUserDailyQuota, perUserPerMinuteBurst, perSchoolDailyCap, resetsAtUtc };
+  const existing = await prisma.aiRateLimitSetting.findFirst();
+  if (existing) {
+    await prisma.aiRateLimitSetting.update({ where: { id: existing.id }, data });
+  } else {
+    await prisma.aiRateLimitSetting.create({ data: { ...data, createdBy: user.userId } });
+  }
+
+  await recordAudit({
+    actorId: user.userId,
+    action: "update",
+    entityType: "ai_rate_limit_setting",
+    afterValue: data as never,
+  });
+
+  revalidatePath("/console/ai");
+  return { success: "Rate limits saved." };
+}
+
 export async function deleteAiProviderAction(id: string): Promise<AiActionResult> {
   const user = await guard();
   if (!user) return { error: "Not authorised." };
