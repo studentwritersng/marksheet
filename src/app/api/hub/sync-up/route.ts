@@ -32,6 +32,27 @@ const store: IngestStore = {
   async createAnswers(records: AnswerRecord[]) {
     await prisma.studentAnswer.createMany({ data: records });
   },
+  async getGradingInfo(examId: string, questionIds: string[]) {
+    const examQuestions = await prisma.examQuestion.findMany({
+      where: { examId, questionId: { in: questionIds } },
+      select: {
+        questionId: true,
+        question: {
+          select: {
+            type: true,
+            marks: true,
+            mcqOptions: { select: { id: true, isCorrect: true } },
+          },
+        },
+      },
+    });
+    return examQuestions.map((eq) => ({
+      questionId: eq.questionId,
+      type: eq.question.type,
+      marks: eq.question.marks,
+      correctOptionId: eq.question.mcqOptions.find((o) => o.isCorrect)?.id ?? null,
+    }));
+  },
 };
 
 export async function POST(request: Request) {

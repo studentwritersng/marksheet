@@ -49,12 +49,22 @@ export interface AnswerRecord {
   mcqSelectedOptionId: string | null;
   essayResponseText: string | null;
   checksumFlagged: boolean;
+  gradedScore: number | null;
+  gradingStatus: string;
+}
+
+export interface GradingInfo {
+  questionId: string;
+  type: string;
+  marks: number;
+  correctOptionId: string | null;
 }
 
 export interface IngestStore {
   findAttempt(key: AttemptKey): Promise<boolean>;
   createAttempt(record: AttemptRecord): Promise<string>;
   createAnswers(records: AnswerRecord[]): Promise<void>;
+  getGradingInfo(examId: string, questionIds: string[]): Promise<GradingInfo[]>;
 }
 
 export async function processSyncUp(
@@ -73,7 +83,7 @@ export async function processSyncUp(
     }
 
     let flagged = false;
-    const answers: AnswerRecord[] = [];
+    const verified: Array<{ answer: SyncUpAnswer; valid: boolean }> = [];
     for (const a of attempt.answers) {
       const payloadStr = a.mcqSelectedOptionId ?? a.essayResponseText ?? "";
       const valid = verifyAnswerChecksum(
@@ -85,14 +95,34 @@ export async function processSyncUp(
         a.localChecksum,
       );
       if (!valid) flagged = true;
-      answers.push({
+      verified.push({ answer: a, valid });
+    }
+
+    // Grade MCQs at ingest time so offline attempts score like online ones.
+    // Flagged (checksum-tampered) answers are never graded.
+    const questionIds = verified.map((v) => v.answer.questionId);
+    const gradingInfo = await store.getGradingInfo(attempt.examId, questionIds);
+    const gradingByQuestion = new Map(gradingInfo.map((g) => [g.questionId, g]));
+
+    const answers: AnswerRecord[] = verified.map(({ answer: a, valid }) => {
+      const info = gradingByQuestion.get(a.questionId);
+      let gradedScore: number | null = null;
+      let gradingStatus = "ai_pending";
+      if (valid && info?.type === "mcq" && a.mcqSelectedOptionId) {
+        const correct = a.mcqSelectedOptionId === info.correctOptionId;
+        gradedScore = correct ? info.marks : 0;
+        gradingStatus = "teacher_reviewed";
+      }
+      return {
         attemptId: attempt.hubAttemptId, // replaced with the real DB id below
         questionId: a.questionId,
         mcqSelectedOptionId: a.mcqSelectedOptionId ?? null,
         essayResponseText: a.essayResponseText ?? null,
         checksumFlagged: !valid,
-      });
-    }
+        gradedScore,
+        gradingStatus,
+      };
+    });
 
     const attemptId = await store.createAttempt({
       hubId: hub.id,
