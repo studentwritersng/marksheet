@@ -8,6 +8,12 @@ import { prisma } from "@/lib/prisma";
 import { generateRandomBytes } from "./crypto";
 import { fetchExamDataForBundle, serializeBundle, generatePin, hashPin, type OfflineBundleV1 } from "./bundle";
 
+export interface BatchReleaseItem {
+  examId: string;
+  title: string;
+  reason?: string;
+}
+
 export interface OfflineActionResult {
   error?: string;
   success?: string;
@@ -18,6 +24,9 @@ export interface OfflineActionResult {
     examTitle?: string;
     studentCount?: number;
     questionCount?: number;
+    released?: BatchReleaseItem[];
+    skipped?: BatchReleaseItem[];
+    failed?: BatchReleaseItem[];
   };
 }
 
@@ -197,5 +206,54 @@ export async function releaseExamToHub(examId: string, hubId: string): Promise<O
   return {
     success: `Exam released to hub "${hub.name}".`,
     data,
+  };
+}
+
+export async function batchReleaseExamsToHub(hubId: string, examIds: string[]): Promise<OfflineActionResult> {
+  const user = await getCurrentUser();
+  if (!user?.schoolId) return { error: "Not authorised." };
+  const perms = await resolvePermissions(user);
+  if (!canManageSchool(perms) && !canReviewExams(perms)) return { error: "Not authorised." };
+
+  const hub = await prisma.hub.findFirst({ where: { id: hubId, schoolId: user.schoolId, status: "active" } });
+  if (!hub) return { error: "Active hub not found for this school." };
+
+  const requested = await prisma.exam.findMany({
+    where: { id: { in: examIds }, schoolId: user.schoolId },
+    select: { id: true, status: true, offlineStatus: true, subject: { select: { name: true } } },
+  });
+  const byId = new Map(requested.map((e) => [e.id, e]));
+
+  const released: BatchReleaseItem[] = [];
+  const skipped: BatchReleaseItem[] = [];
+  const failed: BatchReleaseItem[] = [];
+
+  for (const examId of examIds) {
+    const exam = byId.get(examId);
+    if (!exam) {
+      skipped.push({ examId, title: examId, reason: "not found in this school" });
+      continue;
+    }
+    if (exam.status !== "published") {
+      skipped.push({ examId, title: exam.subject.name, reason: "not published" });
+      continue;
+    }
+    if (exam.offlineStatus !== "none") {
+      skipped.push({ examId, title: exam.subject.name, reason: "already released" });
+      continue;
+    }
+    try {
+      await releaseSingleExamToHub(examId, hub);
+      released.push({ examId, title: exam.subject.name });
+      revalidatePath(`/exams/${examId}`);
+    } catch (e: any) {
+      failed.push({ examId, title: exam.subject.name, reason: e.message ?? "release failed" });
+    }
+  }
+
+  revalidatePath("/offline-hubs");
+  return {
+    success: `${released.length} released, ${skipped.length} skipped, ${failed.length} failed.`,
+    data: { released, skipped, failed },
   };
 }

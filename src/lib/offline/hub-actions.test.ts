@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { registerHubAction, revokeHubAction, releaseExamToHub, cancelReleaseToHubAction } from "./actions";
+import { registerHubAction, revokeHubAction, releaseExamToHub, cancelReleaseToHubAction, batchReleaseExamsToHub } from "./actions";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/auth/current-user", () => ({ getCurrentUser: vi.fn() }));
@@ -274,5 +274,110 @@ describe("releaseExamToHub", () => {
       questions: [],
       students: [{ id: "stu-1", admissionNumber: "A1", firstName: "Ada", lastName: "Lovelace" }],
     }));
+  });
+});
+
+describe("batchReleaseExamsToHub", () => {
+  beforeEach(() => {
+    (prisma.hub as any) = { findFirst: vi.fn().mockResolvedValue({ id: "hub-1", schoolId: "school-1", name: "Hall 1", signingSecret: "sec" }) };
+    (prisma.offlineBundle as any) = { create: vi.fn().mockResolvedValue({ id: "bundle-1" }) };
+    (prisma.examPin as any) = { createMany: vi.fn().mockResolvedValue({ count: 1 }) };
+    (prisma.exam as any) = {
+      findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn().mockResolvedValue({}),
+    };
+    (prisma.$transaction as any) = async (fn: any) => fn(prisma);
+  });
+
+  it("releases multiple eligible exams to one hub", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.exam as any).findMany.mockResolvedValue([
+      { id: "exam-1", status: "published", offlineStatus: "none", subject: { name: "Maths" } },
+      { id: "exam-2", status: "published", offlineStatus: "none", subject: { name: "English" } },
+    ]);
+
+    const res = await batchReleaseExamsToHub("hub-1", ["exam-1", "exam-2"]);
+
+    expect(res.data?.released).toHaveLength(2);
+    expect(prisma.exam.update).toHaveBeenCalledTimes(2);
+    expect(prisma.exam.update).toHaveBeenCalledWith({ where: { id: "exam-2" }, data: { offlineStatus: "released" } });
+  });
+
+  it("skips already-released exams without re-releasing", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.exam as any).findMany.mockResolvedValue([
+      { id: "exam-1", status: "published", offlineStatus: "released", subject: { name: "Maths" } },
+      { id: "exam-2", status: "published", offlineStatus: "none", subject: { name: "English" } },
+    ]);
+
+    const res = await batchReleaseExamsToHub("hub-1", ["exam-1", "exam-2"]);
+
+    expect(res.data?.released).toHaveLength(1);
+    expect(res.data?.skipped).toEqual([
+      { examId: "exam-1", title: "Maths", reason: "already released" },
+    ]);
+    expect(prisma.exam.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips non-published exams", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.exam as any).findMany.mockResolvedValue([
+      { id: "exam-1", status: "draft", offlineStatus: "none", subject: { name: "Maths" } },
+    ]);
+
+    const res = await batchReleaseExamsToHub("hub-1", ["exam-1"]);
+
+    expect(res.data?.released).toHaveLength(0);
+    expect(res.data?.skipped).toEqual([{ examId: "exam-1", title: "Maths", reason: "not published" }]);
+  });
+
+  it("isolates a per-exam failure so other exams still release", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.exam as any).findMany.mockResolvedValue([
+      { id: "exam-1", status: "published", offlineStatus: "none", subject: { name: "Maths" } },
+      { id: "exam-2", status: "published", offlineStatus: "none", subject: { name: "English" } },
+    ]);
+    const { fetchExamDataForBundle } = await import("./bundle");
+    (fetchExamDataForBundle as any).mockRejectedValueOnce(new Error("No active students"));
+
+    const res = await batchReleaseExamsToHub("hub-1", ["exam-1", "exam-2"]);
+
+    expect(res.data?.released).toHaveLength(1);
+    expect(res.data?.failed).toEqual([
+      { examId: "exam-1", title: "Maths", reason: "No active students" },
+    ]);
+
+    (fetchExamDataForBundle as any).mockImplementation(async () => ({
+      exam: { id: "exam-1", schoolId: "school-1", durationMinutes: 60, shuffleEnabled: false, subjectName: "Maths", classNames: "JSS1", termLabel: "Term 1" },
+      questions: [],
+      students: [{ id: "stu-1", admissionNumber: "A1", firstName: "Ada", lastName: "Lovelace" }],
+    }));
+  });
+
+  it("rejects a teacher without admin/officer permission", async () => {
+    (resolvePermissions as any).mockResolvedValue(teacherPerms);
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+
+    const res = await batchReleaseExamsToHub("hub-1", ["exam-1"]);
+
+    expect(res.error).toBe("Not authorised.");
+  });
+
+  it("cannot release to a hub outside the school", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+    (prisma.hub as any).findFirst.mockResolvedValue(null);
+
+    const res = await batchReleaseExamsToHub("other-hub", ["exam-1"]);
+
+    expect(res.error).toBe("Active hub not found for this school.");
+  });
+
+  it("no-ops when given an empty exam list", async () => {
+    (getCurrentUser as any).mockResolvedValue(makeUser());
+
+    const res = await batchReleaseExamsToHub("hub-1", []);
+
+    expect(res.data?.released).toEqual([]);
+    expect(res.success).toContain("0 released");
   });
 });
