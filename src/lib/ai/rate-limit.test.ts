@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   dailyWindowStart,
   buildWindows,
@@ -102,5 +102,57 @@ describe("formatRateLimitMessage", () => {
     const msg = formatRateLimitMessage("school_daily", 301, 300, "00:00");
     expect(msg).toContain("for your school");
     expect(msg).toContain("301/300");
+  });
+});
+
+import { enforceRateLimits, AiGatewayError } from "./gateway";
+
+describe("enforceRateLimits (gateway seam)", () => {
+  it("throws AiGatewayError with the used/limit message on an over-limit window", async () => {
+    const limiter = {
+      async checkAndIncrement(w: { key: string }) {
+        const blocked = w.key.startsWith("user:") && w.key.includes(":day:");
+        return blocked
+          ? { allowed: false, used: 16, limit: 15, resetAt: new Date("2026-08-13T00:00:00Z") }
+          : { allowed: true, used: 1, limit: 5, resetAt: new Date("2026-08-12T14:01:00Z") };
+      },
+    };
+    const log = vi.fn<() => Promise<void>>();
+    await expect(enforceRateLimits(
+      { taskType: "question_generation", userId: "u1", schoolId: "s1" },
+      {
+        now: new Date("2026-08-12T14:00:00Z"),
+        settings: DEFAULT_RATE_LIMIT_SETTINGS,
+        limiter,
+        log,
+      },
+    )).rejects.toThrow(AiGatewayError);
+    expect(log).toHaveBeenCalled();
+    const [msg] = (log as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(msg).toContain("you have used 16/15");
+  });
+
+  it("does nothing when rate limiting is disabled", async () => {
+    const limiter = { async checkAndIncrement() { throw new Error("must not be called"); } };
+    await expect(enforceRateLimits(
+      { taskType: "question_generation", userId: "u1", schoolId: "s1" },
+      {
+        now: new Date("2026-08-12T14:00:00Z"),
+        settings: { ...DEFAULT_RATE_LIMIT_SETTINGS, enabled: false },
+        limiter,
+      },
+    )).resolves.toBeUndefined();
+  });
+
+  it("does nothing when there are no windows (anonymous call)", async () => {
+    const limiter = { async checkAndIncrement() { throw new Error("must not be called"); } };
+    await expect(enforceRateLimits(
+      { taskType: "question_generation", userId: null, schoolId: null },
+      {
+        now: new Date("2026-08-12T14:00:00Z"),
+        settings: DEFAULT_RATE_LIMIT_SETTINGS,
+        limiter,
+      },
+    )).resolves.toBeUndefined();
   });
 });

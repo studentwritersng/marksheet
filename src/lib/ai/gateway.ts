@@ -14,6 +14,15 @@
  * /chat/completions interface, which OpenRouter and most modern providers do.
  */
 
+import {
+  DEFAULT_RATE_LIMIT_SETTINGS,
+  checkRateLimits,
+  formatRateLimitMessage,
+  type RateLimiter,
+  type RateLimitSettings,
+} from "./rate-limit";
+import { PostgresRateLimiter } from "./postgres-rate-limiter";
+
 export type AiTaskType =
   | "lesson_note_generation"
   | "question_generation"
@@ -33,6 +42,7 @@ export interface AiCompletionOptions {
   temperature?: number;
   maxTokens?: number;
   schoolId?: string; // for cost/usage attribution in AI Call Log
+  userId?: string;   // for per-user rate limiting
 }
 
 export interface AiCompletionResult {
@@ -1336,6 +1346,7 @@ function essayGeneric(cls: string, _topic: string, _subject: string, i: number, 
 async function logAiCall(opts: {
   taskType: string;
   schoolId?: string | null;
+  userId?: string | null;
   providerConfigId?: string | null;
   modelName: string;
   promptTokens?: number | null;
@@ -1349,6 +1360,7 @@ async function logAiCall(opts: {
     await prisma.aiCallLog.create({ data: {
       taskType: opts.taskType,
       schoolId: opts.schoolId ?? null,
+      userId: opts.userId ?? null,
       providerConfigId: opts.providerConfigId ?? null,
       modelName: opts.modelName,
       promptTokens: opts.promptTokens ?? null,
@@ -1391,6 +1403,71 @@ async function resolveProviderProfile(
   }
 }
 
+/**
+ * Owner-configured AI rate limiting. Enforced before any provider round-trip.
+ * Fails open on any counter/settings error — rate limiting must never block
+ * AI generation. `deps` are injectable for tests; production uses the DB.
+ */
+export async function enforceRateLimits(
+  opts: { taskType: AiTaskType; userId?: string | null; schoolId?: string | null },
+  deps: {
+    now?: Date;
+    settings?: RateLimitSettings;
+    limiter?: RateLimiter;
+    log?: (detail: string) => Promise<void>;
+  } = {},
+): Promise<void> {
+  try {
+    let settings = deps.settings;
+    if (!settings) {
+      const { prisma } = await import("@/lib/prisma");
+      const row = await prisma.aiRateLimitSetting.findFirst();
+      settings = row
+        ? {
+            enabled: row.enabled,
+            perUserDailyQuota: row.perUserDailyQuota,
+            perUserPerMinuteBurst: row.perUserPerMinuteBurst,
+            perSchoolDailyCap: row.perSchoolDailyCap,
+            resetsAtUtc: row.resetsAtUtc,
+          }
+        : DEFAULT_RATE_LIMIT_SETTINGS;
+      if (!settings.enabled) return;
+    } else if (!settings.enabled) {
+      return;
+    }
+
+    const limiter = deps.limiter ?? new PostgresRateLimiter();
+    const { failures } = await checkRateLimits({
+      userId: opts.userId,
+      schoolId: opts.schoolId,
+      settings,
+      now: deps.now ?? new Date(),
+      limiter,
+    });
+    if (failures.length === 0) return;
+
+    const { window: failedWindow, decision } = failures[0];
+    const msg = formatRateLimitMessage(failedWindow.kind, decision.used, decision.limit, settings.resetsAtUtc);
+
+    const log = deps.log ?? (async (detail: string) => {
+      await logAiCall({
+        taskType: opts.taskType,
+        schoolId: opts.schoolId,
+        userId: opts.userId,
+        providerConfigId: null,
+        modelName: "rate_limited",
+        status: "rate_limited",
+        errorDetail: detail,
+      });
+    });
+    await log(msg);
+    throw new AiGatewayError(msg);
+  } catch (e) {
+    if (e instanceof AiGatewayError) throw e;
+    // Any DB/counter failure fails open: let the call continue.
+  }
+}
+
 export async function createCompletion(
   opts: AiCompletionOptions,
 ): Promise<AiCompletionResult> {
@@ -1408,6 +1485,13 @@ export async function createCompletion(
     });
     return result;
   }
+
+  // Owner-configured rate limits: block before spending a provider call.
+  await enforceRateLimits({
+    taskType: opts.taskType,
+    userId: opts.userId,
+    schoolId: opts.schoolId,
+  });
 
   const stack = await loadProviderStack();
   if (stack.length === 0) {
