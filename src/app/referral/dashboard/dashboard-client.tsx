@@ -99,7 +99,7 @@ export function ReferralDashboardClient({
       <main className="mx-auto max-w-6xl px-5 py-8">
         {/* Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex gap-1 rounded-full border border-mk-border bg-mk-card p-1">
+          <div className="flex flex-wrap gap-1 rounded-full border border-mk-border bg-mk-card p-1">
             {tabs.map((t) => (
               <button
                 key={t.id}
