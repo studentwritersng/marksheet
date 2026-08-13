@@ -1771,7 +1771,7 @@ data/
 `hub/config.example.json`:
 ```json
 {
-  "cloudBaseUrl": "https://marksheet.sch.ng",
+  "cloudBaseUrl": "https://marksheet.top",
   "apiKey": "mk_hub_...",
   "signingSecret": "...",
   "port": 3210,

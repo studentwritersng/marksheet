@@ -108,7 +108,7 @@ export async function commitStudentCsvAction(
     const admissionNumber = `${school.shortcode}${padSeq(updated.studentSequence)}`;
 
     // Generate user account
-    const email = `${admissionNumber.toLowerCase()}@marksheet.sch.ng`;
+    const email = `${admissionNumber.toLowerCase()}@marksheet.top`;
     const dob = r.dateOfBirth ? new Date(r.dateOfBirth) : null;
     const passwordRaw = dob ? formatDob(dob) : `${r.firstName.toLowerCase().slice(0, 3)}${r.lastName.toLowerCase().slice(0, 3)}2026`;
     const passwordHash = await bcrypt.hash(passwordRaw, 10);
@@ -141,7 +141,7 @@ export async function commitStudentCsvAction(
     await sendEmail({
       to: email,
       subject: "Your Marksheet Portal Credentials",
-      text: `Hello ${r.firstName},\n\nYour student portal account has been created.\n\nEmail: ${email}\nPassword: ${passwordRaw}\n\nLogin at: https://marksheet.sch.ng/login\n\nRegards,\nSchool Admin`,
+      text: `Hello ${r.firstName},\n\nYour student portal account has been created.\n\nEmail: ${email}\nPassword: ${passwordRaw}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
     });
 
     // Create parent User if guardian email is provided
@@ -184,7 +184,7 @@ export async function commitStudentCsvAction(
         await sendEmail({
           to: r.guardianEmail,
           subject: `Your Parent Portal Credentials – ${(await prisma.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } }))?.name ?? "School"}`,
-          text: `Hello ${r.guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${r.guardianEmail}\nPassword: ${parentPasswordRaw}\n\nLogin at: https://marksheet.sch.ng/login\n\nRegards,\nSchool Admin`,
+          text: `Hello ${r.guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${r.guardianEmail}\nPassword: ${parentPasswordRaw}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
         });
       }
     }

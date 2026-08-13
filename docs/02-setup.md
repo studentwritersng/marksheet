@@ -83,8 +83,8 @@ The seed creates:
 
 - Super admin: `super@marksheet.dev` / `superadmin123`
 - Demo school **"Unity Model Secondary School"** (shortcode `UMS`)
-- School admin: `admin@marksheet.sch.ng` / `admin123`
-- Subject teacher: `j.bello@marksheet.sch.ng` / `teacher123`
+- School admin: `admin@marksheet.top` / `admin123`
+- Subject teacher: `j.bello@marksheet.top` / `teacher123`
 - 2 students, guardians, 3 terms, 6 classes, subjects, addons, timetable demo data, and JSS1 NERDC topics.
 
 > The seed is upsert-based, so running it again is safe and never duplicates.
@@ -119,8 +119,8 @@ Logins redirect by role:
 | Credential | Role | Lands on |
 |---|---|---|
 | `super@marksheet.dev` / `superadmin123` | super_admin | `/dashboard` (can manage schools) |
-| `admin@marksheet.sch.ng` / `admin123` | staff (school admin) | `/dashboard` |
-| `j.bello@marksheet.sch.ng` / `teacher123` | staff (teacher) | `/dashboard` |
+| `admin@marksheet.top` / `admin123` | staff (school admin) | `/dashboard` |
+| `j.bello@marksheet.top` / `teacher123` | staff (teacher) | `/dashboard` |
 
 - **Platform Owner console** login lives at `/console/login` (no seeded owner — create one, see [13-roles-consoles.md](./13-roles-consoles.md)).
 - **Proprietor login** at `/proprietor/login` (requires Multi-Branch addon + `proprietor` role).
@@ -131,7 +131,7 @@ Logins redirect by role:
 1. `npm run dev` starts without errors.
 2. `npx prisma studio` shows seeded schools, users, classes.
 3. Visit `/` — you should see the landing page (guest) and the 4 hero stats from `landing_stats`.
-4. Log in as `admin@marksheet.sch.ng` / `admin123` — you reach the dashboard.
+4. Log in as `admin@marksheet.top` / `admin123` — you reach the dashboard.
 
 ## 8. Common first-run problems
 

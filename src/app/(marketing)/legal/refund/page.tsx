@@ -31,7 +31,7 @@ export default function RefundPage() {
         },
         {
           heading: "How to request a refund",
-          body: "Email support@marksheet.sch.ng with your school name and the payment reference from your receipt. We will confirm receipt within two working days and process eligible refunds within seven working days.",
+          body: "Email support@marksheet.top with your school name and the payment reference from your receipt. We will confirm receipt within two working days and process eligible refunds within seven working days.",
         },
         {
           heading: "No automatic renewal",

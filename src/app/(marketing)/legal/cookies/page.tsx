@@ -43,7 +43,7 @@ export default function CookiesPage() {
         },
         {
           heading: "Contact",
-          body: "Questions about cookies can be sent to support@marksheet.sch.ng.",
+          body: "Questions about cookies can be sent to support@marksheet.top.",
         },
       ]}
     />

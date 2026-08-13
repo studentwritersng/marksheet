@@ -15,7 +15,7 @@ export default function AcceptableUsePage() {
       sections={[
         {
           heading: "Keep accounts private",
-          body: "Never share your login details or let someone else use your account. Do not log in as another user, and report suspected unauthorised access to support@marksheet.sch.ng.",
+          body: "Never share your login details or let someone else use your account. Do not log in as another user, and report suspected unauthorised access to support@marksheet.top.",
         },
         {
           heading: "Respect tenant boundaries",
@@ -43,7 +43,7 @@ export default function AcceptableUsePage() {
         },
         {
           heading: "Reporting misuse",
-          body: "If you see misuse, suspicious activity or a security issue, report it to support@marksheet.sch.ng as soon as possible. We will investigate and take appropriate action, which may include suspending access.",
+          body: "If you see misuse, suspicious activity or a security issue, report it to support@marksheet.top as soon as possible. We will investigate and take appropriate action, which may include suspending access.",
         },
         {
           heading: "Changes",

@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       sections={[
         {
           heading: "Who we are",
-          body: "Marksheet is operated for Nigerian secondary schools. A school that subscribes controls its own records, and we act on that school's instructions. Questions about this policy can be sent to support@marksheet.sch.ng.",
+          body: "Marksheet is operated for Nigerian secondary schools. A school that subscribes controls its own records, and we act on that school's instructions. Questions about this policy can be sent to support@marksheet.top.",
         },
         {
           heading: "What we collect",
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
         },
         {
           heading: "Your rights",
-          body: "You may request access to, correction of, or deletion of personal data we hold, and you may object to processing where a legal basis permits. Schools can request an export of their records at any time. Contact support@marksheet.sch.ng to exercise these rights.",
+          body: "You may request access to, correction of, or deletion of personal data we hold, and you may object to processing where a legal basis permits. Schools can request an export of their records at any time. Contact support@marksheet.top to exercise these rights.",
         },
         {
           heading: "Children's data",

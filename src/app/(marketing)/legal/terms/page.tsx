@@ -63,7 +63,7 @@ export default function TermsPage() {
         },
         {
           heading: "Contact",
-          body: "Questions about these terms can be sent to support@marksheet.sch.ng.",
+          body: "Questions about these terms can be sent to support@marksheet.top.",
         },
       ]}
     />
