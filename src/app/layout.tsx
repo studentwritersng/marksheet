@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import "./globals.css";
+import { pruneStaleRateLimitBuckets } from "@/lib/ai/prune-buckets";
 
 export const metadata: Metadata = {
   title: "Marksheet",
@@ -16,6 +18,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Post-render cleanup: prune stale AI rate-limit buckets without cron
+  // infrastructure. `after` runs after the response is flushed; the job is
+  // throttle-guarded to at most once per hour per process.
+  after(() => {
+    void pruneStaleRateLimitBuckets();
+  });
   return (
     <html lang="en" className="light h-full antialiased">
       <head>

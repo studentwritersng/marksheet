@@ -1,7 +1,5 @@
 import type { RateLimitDecision, RateLimiter, RateLimitWindow } from "./rate-limit";
-
-/** Buckets older than this stay too long and are lazily pruned after an increment. */
-const PRUNE_OLDER_THAN_MS = 2 * 24 * 60 * 60 * 1000;
+import { deleteStaleRateLimitBuckets } from "./prune-buckets";
 
 /**
  * Postgres-backed fixed-window rate limiter backed by the ai_rate_limit_buckets
@@ -21,12 +19,7 @@ export class PostgresRateLimiter implements RateLimiter {
         select: { count: true },
       });
       // Lazy prune so the bucket table stays bounded to ~2 days of traffic.
-      try {
-        const cutoff = new Date(Date.now() - PRUNE_OLDER_THAN_MS);
-        await prisma.aiRateLimitBucket.deleteMany({ where: { windowStart: { lt: cutoff } } });
-      } catch {
-        // prune is best-effort
-      }
+      await deleteStaleRateLimitBuckets();
       return {
         allowed: row.count <= w.limit,
         used: row.count,
