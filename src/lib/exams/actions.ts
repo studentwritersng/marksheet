@@ -40,7 +40,7 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
   const [subject, term, assessmentType, classCount] = await Promise.all([
     prisma.subject.findFirst({ where: { id: subjectId, schoolId: ctx.schoolId }, select: { id: true } }),
     prisma.term.findFirst({ where: { id: termId, session: { schoolId: ctx.schoolId } }, select: { id: true } }),
-    prisma.assessmentType.findFirst({ where: { id: assessmentTypeId, schoolId: ctx.schoolId }, select: { id: true } }),
+    prisma.assessmentType.findFirst({ where: { code: assessmentTypeId, schoolId: ctx.schoolId }, select: { id: true } }),
     prisma.class.count({ where: { id: { in: classIds }, schoolId: ctx.schoolId } }),
   ]);
   if (!subject) return { error: "Subject not found." };
