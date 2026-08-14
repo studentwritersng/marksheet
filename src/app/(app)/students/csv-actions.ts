@@ -71,15 +71,19 @@ export async function commitStudentCsvAction(
   if (valid.length === 0) return { error: "No valid rows to commit." };
 
   // Resolve class names + department to IDs.
+  // Matching is tolerant: whitespace, punctuation and letter case are ignored
+  // so CSV values like "JSS 1"/"JSS-1" still resolve to the school class "JSS1",
+  // and "Science" still matches the school's "science" department.
+  const normalizeKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
   const allClasses = await prisma.class.findMany({
     where: { schoolId: ctx.schoolId },
     select: { id: true, name: true, level: true, department: true, section: true },
   });
   const classMap = new Map<string, string>();
   for (const c of allClasses) {
-    classMap.set(`${c.name}||`, c.id);
-    if (c.department) classMap.set(`${c.name}||${c.department}`, c.id);
-    classMap.set(`${c.level}||${c.department}`, c.id);
+    classMap.set(`${normalizeKey(c.name)}||`, c.id);
+    if (c.department) classMap.set(`${normalizeKey(c.name)}||${normalizeKey(c.department)}`, c.id);
+    classMap.set(`${normalizeKey(c.level)}||${normalizeKey(c.department)}`, c.id);
   }
 
   // Get school for shortcode
@@ -92,9 +96,21 @@ export async function commitStudentCsvAction(
   let sequenceSkip = 0;
   const unresolvableClasses: string[] = [];
 
+  // Optional target class chosen by the admin: when present, every row is
+  // assigned to this class and the CSV className column is ignored.
+  const defaultClassIdRaw = String(formData.get("defaultClassId") ?? "").trim();
+  const defaultClass = defaultClassIdRaw
+    ? await prisma.class.findFirst({
+        where: { id: defaultClassIdRaw, schoolId: ctx.schoolId, archived: false },
+        select: { id: true },
+      })
+    : null;
+
   for (const r of valid) {
-    const classKey = `${r.className}||${r.department || ""}`;
-    const classId = r.className ? (classMap.get(classKey) ?? classMap.get(`${r.className}||`)) : null;
+    const classKey = `${normalizeKey(r.className)}||${normalizeKey(r.department || "")}`;
+    const classId = defaultClass
+      ? defaultClass.id
+      : (r.className ? (classMap.get(classKey) ?? classMap.get(`${normalizeKey(r.className)}||`)) : null);
     if (r.className && !classId) {
       unresolvableClasses.push(r.department ? `${r.className} (${r.department})` : r.className);
       continue;

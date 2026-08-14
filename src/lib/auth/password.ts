@@ -17,19 +17,15 @@ export function generateTemporaryPassword(length = 12): string {
 /**
  * Basic password policy check.
  * Returns an error string when the password is rejected, or null when valid.
+ *
+ * The only requirement is a minimum length of 8 characters. Letter-case and
+ * numeric rules were removed because student passwords are auto-generated from
+ * the student's date of birth (digits only) and admins need to be able to
+ * reset passwords without inventing letter combinations.
  */
 export function validatePasswordStrength(password: string): string | null {
   if (!password || password.length < 8) {
     return "Password must be at least 8 characters.";
-  }
-  if (!/[a-z]/.test(password)) {
-    return "Password must include a lowercase letter.";
-  }
-  if (!/[A-Z]/.test(password)) {
-    return "Password must include an uppercase letter.";
-  }
-  if (!/[0-9]/.test(password)) {
-    return "Password must include a number.";
   }
   return null;
 }

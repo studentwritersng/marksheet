@@ -10,7 +10,13 @@ import { downloadStudentCsvAction } from "./csv-download";
 
 const blank: CsvActionState = {};
 
-export function StudentCsvImport() {
+interface ClassVM {
+  id: string;
+  name: string;
+  department: string;
+}
+
+export function StudentCsvImport({ classes }: { classes: ClassVM[] }) {
   const [preview, previewAction, previewPending] = useActionState(
     previewStudentCsvAction,
     blank,
@@ -18,12 +24,14 @@ export function StudentCsvImport() {
   const [committing, startCommit] = useTransition();
   const [commitMsg, setCommitMsg] = useState("");
   const [templateDownloading, setTemplateDownloading] = useState(false);
+  const [targetClassId, setTargetClassId] = useState("");
 
   const rows = preview.preview?.rows ?? [];
 
   async function handleCommit() {
     const fd = new FormData();
     fd.set("rows", JSON.stringify(rows));
+    if (targetClassId) fd.set("defaultClassId", targetClassId);
     startCommit(async () => {
       const res = await commitStudentCsvAction(blank, fd);
       setCommitMsg(res.success ?? res.error ?? "Done.");
@@ -48,6 +56,31 @@ export function StudentCsvImport() {
       <h2 className="mb-3 font-headline-sm text-headline-sm text-on-surface font-semibold">
         Import Students (CSV)
       </h2>
+
+      {/* Target class — lets the admin decide where these students go */}
+      <div className="mb-3">
+        <label htmlFor="defaultClass" className="font-label-sm text-label-sm text-on-surface-variant block mb-1">
+          Import into class (optional)
+        </label>
+        <select
+          id="defaultClass"
+          value={targetClassId}
+          onChange={(e) => setTargetClassId(e.target.value)}
+          className="w-full border border-outline-variant rounded p-2.5 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
+        >
+          <option value="">Use class from each CSV row</option>
+          {classes.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}{c.department ? ` (${c.department})` : ""}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-on-surface-variant">
+          {targetClassId
+            ? "All rows will be assigned to this class — the CSV className column is ignored."
+            : "Each row needs a className that matches one of your classes (e.g. JSS1)."}
+        </p>
+      </div>
 
       <form action={previewAction} className="space-y-3">
         <input

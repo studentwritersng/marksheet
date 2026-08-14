@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
+import { prisma } from "@/lib/prisma";
 import { StudentCsvImport } from "../student-csv-import";
 
 export default async function ImportStudentsPage() {
@@ -12,6 +13,13 @@ export default async function ImportStudentsPage() {
   if (!admin || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
+
+  // Classes the admin can choose as the target class for the whole import
+  const classes = await prisma.class.findMany({
+    where: { schoolId: user.schoolId, archived: false },
+    select: { id: true, name: true, department: true },
+    orderBy: [{ level: "asc" }, { name: "asc" }],
+  });
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -27,7 +35,7 @@ export default async function ImportStudentsPage() {
           Bulk import students from a CSV file.
         </p>
       </div>
-      <StudentCsvImport />
+      <StudentCsvImport classes={classes} />
     </div>
   );
 }
