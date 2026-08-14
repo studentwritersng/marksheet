@@ -119,9 +119,11 @@ export default async function DashboardPage() {
           where: { classId: myStudent.currentClassId },
           include: { subject: { select: { id: true, name: true } } },
         });
+        // term.name is enum "First"/"Second"/"Third" — CurriculumTopic.term stores "FIRST"/"SECOND"/"THIRD"
+        const curriculumTermName = currentTerm.name.toUpperCase();
         for (const cs of classSubjects) {
           const total = await prisma.curriculumTopic.count({
-            where: { classLevel: myStudent.currentClass.level, subject: cs.subject.name, term: currentTerm.name },
+            where: { classLevel: myStudent.currentClass.level, subject: cs.subject.name, term: curriculumTermName },
           });
           if (total === 0) continue;
           const taught = await prisma.taughtTopic.count({
@@ -680,6 +682,9 @@ async function PeriodCoverageWidget({
   ]);
   if (!currentTerm) return null;
 
+  // term.name is enum "First"/"Second"/"Third" — CurriculumTopic.term stores "FIRST"/"SECOND"/"THIRD"
+  const curriculumTermName = currentTerm.name.toUpperCase();
+
   const rows: { className: string; subjectName: string; total: number; taught: number; pct: number }[] = [];
   for (const cls of classes) {
     const classSubjects = await prisma.classSubject.findMany({
@@ -688,7 +693,7 @@ async function PeriodCoverageWidget({
     });
     for (const cs of classSubjects) {
       const total = await prisma.curriculumTopic.count({
-        where: { classLevel: cls.level, subject: cs.subject.name, term: currentTerm.name },
+        where: { classLevel: cls.level, subject: cs.subject.name, term: curriculumTermName },
       });
       if (total === 0) continue;
       const taught = await prisma.taughtTopic.count({

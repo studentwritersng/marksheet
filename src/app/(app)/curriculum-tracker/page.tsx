@@ -113,6 +113,9 @@ export default async function CurriculumTrackerPage() {
 
   const trackerData: TrackerRow[] = [];
 
+  // term.name is enum "First"/"Second"/"Third" — CurriculumTopic.term stores "FIRST"/"SECOND"/"THIRD"
+  const curriculumTermName = currentTerm.name.toUpperCase();
+
   for (const cls of classes) {
     // For subject teachers, only show their assigned subjects
     const classSubjects = admin || studentClassId
@@ -128,7 +131,7 @@ export default async function CurriculumTrackerPage() {
     for (const cs of classSubjects) {
       // Get all curriculum topics for this class/subject/term
       const topics = await prisma.curriculumTopic.findMany({
-        where: { classLevel: cls.level, subject: cs.subject.name, term: currentTerm.name },
+        where: { classLevel: cls.level, subject: cs.subject.name, term: curriculumTermName },
         orderBy: [{ week: "asc" }, { weekSuffix: "asc" }],
         select: { id: true, topic: true, week: true },
       });

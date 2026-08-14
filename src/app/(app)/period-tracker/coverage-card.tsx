@@ -8,6 +8,9 @@ export async function SubjectCoverageCard({ schoolId }: { schoolId: string }) {
   });
   if (!currentTerm) return null;
 
+  // term.name is enum "First"/"Second"/"Third" — CurriculumTopic.term stores "FIRST"/"SECOND"/"THIRD"
+  const curriculumTermName = currentTerm.name.toUpperCase();
+
   const classes = await prisma.class.findMany({
     where: { schoolId, archived: false },
     select: { id: true, level: true, name: true },
@@ -22,7 +25,7 @@ export async function SubjectCoverageCard({ schoolId }: { schoolId: string }) {
     });
     for (const cs of classSubjects) {
       const total = await prisma.curriculumTopic.count({
-        where: { classLevel: cls.level, subject: cs.subject.name, term: currentTerm.name },
+        where: { classLevel: cls.level, subject: cs.subject.name, term: curriculumTermName },
       });
       if (total === 0) continue;
       const taught = await prisma.taughtTopic.count({
