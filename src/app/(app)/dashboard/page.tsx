@@ -7,6 +7,7 @@ import { isAddonActive } from "@/lib/addons/check";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { SchoolLicenseBanner } from "@/components/school-license-banner";
+import { resolveDisplayName } from "@/lib/auth/display-name";
 
 function greeting() {
   const h = new Date().getHours();
@@ -21,13 +22,14 @@ export default async function DashboardPage() {
   const perms = await resolvePermissions(user);
 
   const schoolId = user.schoolId!;
+  const displayName = await resolveDisplayName(user);
 
   if (user.role === "super_admin" || user.role === "platform_owner") {
     const [schools, configs] = await Promise.all([
       prisma.school.count(),
       prisma.aiProviderConfig.count(),
     ]);
-    const initial = user.email.charAt(0).toUpperCase();
+    const initial = displayName.charAt(0).toUpperCase();
     return (
       <section className="flex flex-col gap-stack-lg">
         <div className="flex items-center gap-4">
@@ -36,7 +38,7 @@ export default async function DashboardPage() {
           </div>
           <div>
             <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
-              {greeting()}, {user.email.split("@")[0]}
+              {greeting()}, {displayName}
             </h2>
             <p className="font-body-md text-body-md text-on-surface-variant mt-1">Super Admin — platform-level management</p>
           </div>
@@ -69,7 +71,7 @@ export default async function DashboardPage() {
   if (user.role === "student") {
     const myStudent = await prisma.student.findUnique({
       where: { userId: user.userId },
-      select: { id: true, firstName: true, lastName: true, passportPhoto: true, currentClassId: true, currentClass: { select: { name: true, level: true } } },
+      select: { id: true, firstName: true, lastName: true, passportPhoto: true, currentClassId: true, isClassCaptain: true, isViceClassCaptain: true, currentClass: { select: { name: true, level: true } } },
     });
     const termResultCount = myStudent
       ? await prisma.termResult.count({ where: { studentId: myStudent.id } })
@@ -148,12 +150,19 @@ export default async function DashboardPage() {
           </div>
           <div>
             <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
-              {greeting()}, {myStudent ? myStudent.firstName : "Student"}
+              {greeting()}, {myStudent ? `${myStudent.firstName} ${myStudent.lastName}` : displayName}
             </h2>
             <p className="font-body-md text-body-md text-on-surface-variant mt-1">
               {session ? `${session.label} · ${session.terms[0]?.name ?? ""} Term` : "No active session yet"}
               {myStudent?.currentClass ? ` · ${myStudent.currentClass.name}` : ""}
             </p>
+            {(myStudent?.isClassCaptain || myStudent?.isViceClassCaptain) && (
+              <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 px-3 py-1 font-label-sm text-label-sm font-semibold text-amber-950 shadow-sm">
+                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                {myStudent.isClassCaptain ? "Class Captain" : "Vice Captain"}
+                {myStudent.currentClass?.name ? ` — ${myStudent.currentClass.name}` : ""}
+              </span>
+            )}
           </div>
         </div>
 
@@ -262,14 +271,14 @@ export default async function DashboardPage() {
     );
   }
 
-  const initials = user.email.charAt(0).toUpperCase();
+  const initials = displayName.charAt(0).toUpperCase();
 
   // ── Teacher dashboard ────────────────────────────────────────────────
   if (!admin) {
     const myStaff = user.staffId
       ? await prisma.staff.findFirst({ where: { id: user.staffId }, select: { fullName: true, image: true } })
       : await prisma.staff.findFirst({ where: { email: user.email, schoolId }, select: { fullName: true, image: true } });
-    const myName = myStaff?.fullName ?? user.email.split("@")[0];
+    const myName = myStaff?.fullName ?? displayName;
 
     // All classes this teacher is involved with
     const myClassIds = [...new Set([...perms.classTeacherClassIds, ...perms.subjectTeacherClassIds])];
@@ -527,7 +536,7 @@ export default async function DashboardPage() {
         </div>
         <div>
           <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
-            {greeting()}, {user.email.split("@")[0]}
+            {greeting()}, {displayName}
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
             {school?.name ?? "Dashboard"} &middot;{" "}

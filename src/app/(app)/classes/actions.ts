@@ -230,22 +230,31 @@ export async function setClassCaptainAction(
   if (!student) return { error: "Student not found." };
   if (!student.currentClassId) return { error: "Student is not assigned to a class." };
 
-  // Clear existing captain/vice for this class
-  await prisma.student.updateMany({
-    where: { currentClassId: student.currentClassId, schoolId: ctx.schoolId },
-    data: { isClassCaptain: false, isViceClassCaptain: false },
-  });
-
-  // Set the new role
+  // Clear only the specific role being assigned, so assigning a captain does
+  // not wipe an existing vice captain (and vice versa).
   if (role === "captain") {
+    await prisma.student.updateMany({
+      where: { currentClassId: student.currentClassId, schoolId: ctx.schoolId },
+      data: { isClassCaptain: false },
+    });
     await prisma.student.update({
       where: { id: studentId },
-      data: { isClassCaptain: true },
+      data: { isClassCaptain: true, isViceClassCaptain: false },
     });
   } else if (role === "vice") {
+    await prisma.student.updateMany({
+      where: { currentClassId: student.currentClassId, schoolId: ctx.schoolId },
+      data: { isViceClassCaptain: false },
+    });
     await prisma.student.update({
       where: { id: studentId },
-      data: { isViceClassCaptain: true },
+      data: { isViceClassCaptain: true, isClassCaptain: false },
+    });
+  } else {
+    // role === "none": clear this student's roles only
+    await prisma.student.update({
+      where: { id: studentId },
+      data: { isClassCaptain: false, isViceClassCaptain: false },
     });
   }
 

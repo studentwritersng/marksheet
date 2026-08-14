@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { resolveDisplayName } from "@/lib/auth/display-name";
 import { resolvePermissions } from "@/lib/auth/permissions";
 import { buildNav } from "@/lib/nav";
 import { logoutAction } from "@/lib/auth/actions";
@@ -131,7 +132,7 @@ export default async function AppLayout({
               </button>
             </div>
             <div className="h-6 w-px bg-outline-variant mx-1" />
-            <UserDropdown email={user.email} roleLabel={roleLabel} initials={user.email.charAt(0).toUpperCase()} />
+            <UserDropdown displayName={await resolveDisplayName(user)} email={user.email} roleLabel={roleLabel} />
           </div>
         </header>
 
