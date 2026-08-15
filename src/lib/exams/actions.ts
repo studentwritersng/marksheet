@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { requireSchoolAdmin, requireExamReviewer, canReviewExams, canPublishExams } from "@/lib/auth/guards";
+import { requireSchoolAdmin, requireSchoolStaff, requireExamReviewer, canReviewExams, canPublishExams, canAccessSubject } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { notifyStudents } from "@/lib/notifications/actions";
@@ -15,9 +15,30 @@ export interface ActionState {
   success?: string;
 }
 
+/**
+ * Load an exam within the caller's school, scoping staff to exams whose subject
+ * they teach (or that they created). Admins always pass.
+ */
+async function loadScopedExam(
+  schoolId: string,
+  perms: Awaited<ReturnType<typeof requireSchoolStaff>>["perms"],
+  staffId: string | null,
+  examId: string,
+): Promise<{ id: string; subjectId: string; status: string } | null> {
+  const exam = await prisma.exam.findFirst({
+    where: { id: examId, schoolId },
+    select: { id: true, subjectId: true, createdBy: true, status: true },
+  });
+  if (!exam) return null;
+  if (canAccessSubject(perms, exam.subjectId) || (staffId && exam.createdBy === staffId)) {
+    return { id: exam.id, subjectId: exam.subjectId, status: exam.status };
+  }
+  return null;
+}
+
 export async function createExamAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const subjectId = formData.get("subjectId") as string;
@@ -34,6 +55,10 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
 
   if (!subjectId || !termId || !assessmentTypeId || !durationMinutes || classIds.length === 0) {
     return { error: "Missing required fields. Select at least one class." };
+  }
+
+  if (!canAccessSubject(ctx.perms, subjectId)) {
+    return { error: "Not authorised for this subject." };
   }
 
   // Verify every referenced entity belongs to the caller's school.
@@ -84,7 +109,7 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
 
 export async function updateExamAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const examId = formData.get("examId") as string;
@@ -103,11 +128,11 @@ export async function updateExamAction(_prev: ActionState, formData: FormData): 
     return { error: "Missing required fields." };
   }
 
-  const existing = await prisma.exam.findFirst({
-    where: { id: examId, schoolId: ctx.schoolId },
-    select: { id: true },
-  });
-  if (!existing) return { error: "Exam not found." };
+  const existing = await loadScopedExam(ctx.schoolId, ctx.perms, ctx.user.staffId ?? null, examId);
+  if (!existing) return { error: "Exam not found or not assigned to you." };
+  if (!canAccessSubject(ctx.perms, subjectId)) {
+    return { error: "Not authorised for this subject." };
+  }
 
   await prisma.exam.update({
     where: { id: examId },
@@ -131,12 +156,12 @@ export async function updateExamAction(_prev: ActionState, formData: FormData): 
 
 export async function deleteExamAction(examId: string): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   try {
-    const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId }, select: { id: true } });
-    if (!exam) return { error: "Exam not found." };
+    const exam = await loadScopedExam(ctx.schoolId, ctx.perms, ctx.user.staffId ?? null, examId);
+    if (!exam) return { error: "Exam not found or not assigned to you." };
     await prisma.exam.delete({ where: { id: examId } });
   } catch (e: any) {
     return { error: e.message ?? "Failed to delete exam." };
@@ -147,11 +172,11 @@ export async function deleteExamAction(examId: string): Promise<ActionState> {
 
 export async function toggleExamStatusAction(examId: string): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
-  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
-  if (!exam) return { error: "Exam not found." };
+  const exam = await loadScopedExam(ctx.schoolId, ctx.perms, ctx.user.staffId ?? null, examId);
+  if (!exam) return { error: "Exam not found or not assigned to you." };
 
   // Enforce state machine transitions
   let nextStatus: string | null = null;
@@ -210,18 +235,23 @@ export async function toggleExamStatusAction(examId: string): Promise<ActionStat
 }
 
 export async function submitExamForReviewAction(examId: string): Promise<ActionState> {
-  const ctx = await requireSchoolAdmin();
-  await guardActiveLicense(ctx.schoolId);
+  let ctx;
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised." }; }
+  try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
-  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
-  if (!exam) return { error: "Exam not found." };
+  const exam = await loadScopedExam(ctx.schoolId, ctx.perms, ctx.user.staffId ?? null, examId);
+  if (!exam) return { error: "Exam not found or not assigned to you." };
   if (exam.status !== "draft" && exam.status !== "rejected") {
     return { error: "Only draft or rejected exams can be submitted for review." };
   }
-  const isCreator = exam.createdBy && exam.createdBy === ctx.user.staffId;
-  const isAdmin = canPublishExams(ctx.perms);
-  if (!isCreator && !isAdmin) {
-    return { error: "Only the creator or an admin can submit this exam for review." };
+  if (!canPublishExams(ctx.perms)) {
+    const createdBy = await prisma.exam.findFirst({
+      where: { id: examId, schoolId: ctx.schoolId },
+      select: { createdBy: true },
+    });
+    if (!createdBy?.createdBy || createdBy.createdBy !== ctx.user.staffId) {
+      return { error: "Only the creator or an admin can submit this exam for review." };
+    }
   }
 
   await prisma.exam.update({
@@ -304,11 +334,11 @@ export async function isExamPublishedAction(examId: string): Promise<boolean> {
 
 export async function addQuestionsToExamAction(examId: string, questionIds: string[]): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
-  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId }, select: { id: true } });
-  if (!exam) return { error: "Exam not found." };
+  const exam = await loadScopedExam(ctx.schoolId, ctx.perms, ctx.user.staffId ?? null, examId);
+  if (!exam) return { error: "Exam not found or not assigned to you." };
 
   await prisma.examQuestion.createMany({
     data: questionIds.map((qId) => ({ examId, questionId: qId })),
@@ -321,11 +351,11 @@ export async function addQuestionsToExamAction(examId: string, questionIds: stri
 
 export async function removeQuestionFromExamAction(examId: string, questionId: string): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
-  const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId }, select: { id: true } });
-  if (!exam) return { error: "Exam not found." };
+  const exam = await loadScopedExam(ctx.schoolId, ctx.perms, ctx.user.staffId ?? null, examId);
+  if (!exam) return { error: "Exam not found or not assigned to you." };
 
   await prisma.examQuestion.deleteMany({
     where: { examId, questionId },

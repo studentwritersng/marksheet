@@ -13,14 +13,39 @@ export default async function ExamsPage() {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
-  const isAuthorized = canManageSchool(perms) || canReviewExams(perms);
+  const isTeacher =
+    perms.subjectTeacherSubjectIds.size > 0 ||
+    perms.classTeacherClassIds.size > 0 ||
+    perms.hodSubjectIds.size > 0;
+  const isAuthorized = canManageSchool(perms) || canReviewExams(perms) || isTeacher;
   if (!isAuthorized) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
+  const isAdmin = canManageSchool(perms);
+  const subjectIds = [...perms.visibleSubjectIds];
+  const classIds = [...perms.visibleClassIds];
+
+  const examWhere = isAdmin
+    ? { schoolId: user.schoolId }
+    : {
+        schoolId: user.schoolId,
+        OR: [
+          { subjectId: { in: subjectIds } },
+          { classId: { in: classIds } },
+          { createdBy: user.staffId ?? "__none__" },
+        ],
+      };
+  const subjectWhere = isAdmin
+    ? { schoolId: user.schoolId }
+    : { schoolId: user.schoolId, id: { in: subjectIds } };
+  const classWhere = isAdmin
+    ? { schoolId: user.schoolId, archived: false }
+    : { schoolId: user.schoolId, archived: false, id: { in: classIds } };
+
   const [exams, subjects, classes, terms, questions, classSubjects, assessmentTypes, weightings] = await Promise.all([
     prisma.exam.findMany({
-      where: { schoolId: user.schoolId },
+      where: examWhere,
       include: {
         subject: { select: { name: true } },
         class: { select: { name: true } },
@@ -31,20 +56,24 @@ export default async function ExamsPage() {
       },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.subject.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } }),
-    prisma.class.findMany({ where: { schoolId: user.schoolId, archived: false }, orderBy: { name: "asc" } }),
+    prisma.subject.findMany({ where: subjectWhere, orderBy: { name: "asc" } }),
+    prisma.class.findMany({ where: classWhere, orderBy: { name: "asc" } }),
     prisma.term.findMany({
       where: { session: { schoolId: user.schoolId } },
       include: { session: true },
       orderBy: [{ session: { label: "desc" } }, { name: "asc" }],
     }),
     prisma.question.findMany({
-      where: { schoolId: user.schoolId, status: "approved" },
+      where: {
+        schoolId: user.schoolId,
+        status: "approved",
+        ...(isAdmin ? {} : { subjectId: { in: subjectIds } }),
+      },
       include: { mcqOptions: { select: { id: true, optionText: true, isCorrect: true } }, subject: { select: { name: true } } },
       orderBy: [{ topic: "asc" }, { createdAt: "desc" }],
     }),
     prisma.classSubject.findMany({
-      where: { schoolId: user.schoolId },
+      where: isAdmin ? { schoolId: user.schoolId } : { schoolId: user.schoolId, classId: { in: classIds } },
       include: { subject: { select: { id: true, name: true } } },
     }),
     prisma.assessmentType.findMany({

@@ -233,6 +233,7 @@ export default async function ResultsPage(props: {
       <div className="mt-6">
         <ResultsView
           schoolId={user.schoolId}
+          isAdmin={canManageSchool(perms)}
           classes={classes.map((c) => ({ id: c.id, name: c.name }))}
           terms={terms.map((t) => ({ id: t.id, name: t.name }))}
           subjects={subjects}

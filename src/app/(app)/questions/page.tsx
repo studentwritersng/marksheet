@@ -12,14 +12,22 @@ export default async function QuestionsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
-  if (!canManageSchool(perms) || !user.schoolId) {
+  const isTeacher =
+    perms.subjectTeacherSubjectIds.size > 0 ||
+    perms.hodSubjectIds.size > 0;
+  if ((!canManageSchool(perms) && !isTeacher) || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
+  const isAdmin = canManageSchool(perms);
+  const subjectWhere = isAdmin
+    ? { schoolId: user.schoolId }
+    : { schoolId: user.schoolId, id: { in: [...perms.visibleSubjectIds] } };
+
   const [subjects, questions, classLevels] = await Promise.all([
-    prisma.subject.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } }),
+    prisma.subject.findMany({ where: subjectWhere, orderBy: { name: "asc" } }),
     prisma.question.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId: user.schoolId, ...(isAdmin ? {} : { subjectId: { in: [...perms.visibleSubjectIds] } }) },
       include: {
         subject: { select: { name: true } },
         mcqOptions: true,

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { requireSchoolStaff, canAccessSubject, canAccessClass } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { createCompletion } from "@/lib/ai/gateway";
@@ -22,7 +22,7 @@ export async function createLessonNoteAction(
 ): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -35,6 +35,9 @@ export async function createLessonNoteAction(
 
   if (!subjectId || !classId || !termId || !topic) {
     return { error: "Subject, class, term, and topic are required." };
+  }
+  if (!canAccessSubject(ctx.perms, subjectId) || !canAccessClass(ctx.perms, classId)) {
+    return { error: "Not authorised for this subject or class." };
   }
 
   const previousKnowledge = String(formData.get("previousKnowledge") ?? "").trim() || null;
@@ -85,7 +88,7 @@ export async function aiGenerateNoteAction(
 ): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -98,6 +101,9 @@ export async function aiGenerateNoteAction(
 
   if (!subjectId || !classId || !termId || !topic) {
     return { error: "Subject, class, term, and topic are required." };
+  }
+  if (!canAccessSubject(ctx.perms, subjectId) || !canAccessClass(ctx.perms, classId)) {
+    return { error: "Not authorised for this subject or class." };
   }
 
   const subject = await prisma.subject.findUnique({ where: { id: subjectId } });
@@ -357,8 +363,9 @@ export async function getSubjectsWithNotesAction(
   termId: string,
 ): Promise<{ id: string; name: string }[]> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return []; }
+  try { ctx = await requireSchoolStaff(); } catch { return []; }
   await guardActiveLicense(ctx.schoolId).catch(() => null);
+  if (!canAccessClass(ctx.perms, classId)) return [];
 
   const distinct = await prisma.lessonNote.findMany({
     where: { classId, termId, schoolId: ctx.schoolId },
@@ -435,8 +442,9 @@ export async function getExistingNotesAction(
   termId: string,
 ): Promise<{ id: string; topic: string; duration: string | null; source: string; status: string; createdAt: string; week: number | null; weekSuffix: string }[]> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return []; }
+  try { ctx = await requireSchoolStaff(); } catch { return []; }
   await guardActiveLicense(ctx.schoolId).catch(() => null);
+  if (!canAccessClass(ctx.perms, classId) || !canAccessSubject(ctx.perms, subjectId)) return [];
 
   const [notes, cls, term, subject] = await Promise.all([
     prisma.lessonNote.findMany({
@@ -553,7 +561,7 @@ export async function updateLessonNoteAction(
 ): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -574,6 +582,9 @@ export async function updateLessonNoteAction(
     where: { id: noteId, schoolId: ctx.schoolId },
   });
   if (!existing) return { error: "Note not found." };
+  if (!canAccessSubject(ctx.perms, existing.subjectId) && !canAccessClass(ctx.perms, existing.classId)) {
+    return { error: "Not authorised for this note." };
+  }
 
   await prisma.lessonNote.update({
     where: { id: noteId },
@@ -605,7 +616,7 @@ export async function updateLessonNoteAction(
 export async function deleteLessonNoteAction(noteId: string): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -615,6 +626,9 @@ export async function deleteLessonNoteAction(noteId: string): Promise<ActionStat
     where: { id: noteId, schoolId: ctx.schoolId },
   });
   if (!note) return { error: "Note not found." };
+  if (!canAccessSubject(ctx.perms, note.subjectId) && !canAccessClass(ctx.perms, note.classId)) {
+    return { error: "Not authorised for this note." };
+  }
 
   await prisma.lessonNote.delete({ where: { id: noteId } });
 
@@ -635,7 +649,7 @@ export async function deleteLessonNoteAction(noteId: string): Promise<ActionStat
 export async function publishNoteAction(noteId: string): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -645,6 +659,9 @@ export async function publishNoteAction(noteId: string): Promise<ActionState> {
     where: { id: noteId, schoolId: ctx.schoolId },
   });
   if (!note) return { error: "Note not found." };
+  if (!canAccessSubject(ctx.perms, note.subjectId) && !canAccessClass(ctx.perms, note.classId)) {
+    return { error: "Not authorised for this note." };
+  }
 
   await prisma.lessonNote.update({
     where: { id: noteId },

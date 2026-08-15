@@ -8,12 +8,28 @@ export default async function EssayGradingPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
-  if (!canManageSchool(perms) || !user.schoolId) {
+  const isTeacher =
+    perms.subjectTeacherSubjectIds.size > 0 ||
+    perms.classTeacherClassIds.size > 0 ||
+    perms.hodSubjectIds.size > 0;
+  if ((!canManageSchool(perms) && !isTeacher) || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
+  const isAdmin = canManageSchool(perms);
+
+  const examWhere = isAdmin
+    ? { schoolId: user.schoolId }
+    : {
+        schoolId: user.schoolId,
+        OR: [
+          { subjectId: { in: [...perms.visibleSubjectIds] } },
+          { classId: { in: [...perms.visibleClassIds] } },
+        ],
+      };
+
   const exams = await prisma.exam.findMany({
-    where: { schoolId: user.schoolId },
+    where: examWhere,
     include: { subject: { select: { name: true } }, class: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });

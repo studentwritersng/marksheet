@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { requireSchoolStaff, canManageSchool } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import type { Prisma } from "@prisma/client";
 
@@ -11,12 +11,31 @@ export interface ActionState {
   success?: string;
 }
 
+/**
+ * Ensures all given student ids belong to classes the caller may act within.
+ * Admins always pass; other staff are limited to their assigned classes.
+ */
+async function assertStudentsInScope(
+  schoolId: string,
+  perms: Awaited<ReturnType<typeof requireSchoolStaff>>["perms"],
+  studentIds: string[],
+): Promise<boolean> {
+  if (canManageSchool(perms)) return true;
+  const ids = [...new Set(studentIds)];
+  if (ids.length === 0) return true;
+  const students = await prisma.student.findMany({
+    where: { id: { in: ids }, schoolId },
+    select: { currentClassId: true },
+  });
+  return students.every((s) => !!s.currentClassId && perms.visibleClassIds.has(s.currentClassId));
+}
+
 export async function saveAffectiveRatingsAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); }
+  try { ctx = await requireSchoolStaff(); }
   catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
@@ -25,6 +44,10 @@ export async function saveAffectiveRatingsAction(
   if (!termId || !raw) return { error: "Missing term or ratings." };
 
   const ratings: Record<string, Record<string, number>> = JSON.parse(raw);
+
+  if (!(await assertStudentsInScope(ctx.schoolId, ctx.perms, Object.keys(ratings)))) {
+    return { error: "Not authorised for one or more students." };
+  }
 
   for (const [studentId, scores] of Object.entries(ratings)) {
     const existing = await prisma.termResult.findUnique({
@@ -57,7 +80,7 @@ export async function saveAttendanceAction(
   formData: FormData,
 ): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); }
+  try { ctx = await requireSchoolStaff(); }
   catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
@@ -66,6 +89,10 @@ export async function saveAttendanceAction(
   if (!termId || !raw) return { error: "Missing term or attendance data." };
 
   const attendance: Record<string, Record<string, number | string>> = JSON.parse(raw);
+
+  if (!(await assertStudentsInScope(ctx.schoolId, ctx.perms, Object.keys(attendance)))) {
+    return { error: "Not authorised for one or more students." };
+  }
 
   for (const [studentId, data] of Object.entries(attendance)) {
     const existing = await prisma.termResult.findUnique({
@@ -98,7 +125,7 @@ export async function saveRemarksAction(
   formData: FormData,
 ): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); }
+  try { ctx = await requireSchoolStaff(); }
   catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
@@ -107,6 +134,10 @@ export async function saveRemarksAction(
   if (!termId || !raw) return { error: "Missing term or remarks." };
 
   const remarks: Record<string, { teacherComment?: string; principalComment?: string }> = JSON.parse(raw);
+
+  if (!(await assertStudentsInScope(ctx.schoolId, ctx.perms, Object.keys(remarks)))) {
+    return { error: "Not authorised for one or more students." };
+  }
 
   for (const [studentId, data] of Object.entries(remarks)) {
     const existing = await prisma.termResult.findUnique({

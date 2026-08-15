@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { requireSchoolStaff, requireSchoolAdmin, canAccessClass } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications/actions";
@@ -23,11 +23,15 @@ export async function computeResultsAction(
 ): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
+
+  if (!canAccessClass(ctx.perms, classId)) {
+    return { error: "Not authorised for this class." };
+  }
 
   const results = await computeClassResults({
     schoolId: ctx.schoolId,

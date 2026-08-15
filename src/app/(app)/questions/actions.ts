@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { requireSchoolAdmin } from "@/lib/auth/guards";
+import { requireSchoolStaff, canAccessSubject, canManageSchool } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { createCompletion } from "@/lib/ai/gateway";
 import { fixJson } from "@/lib/json-utils";
 import { classLevelGuidance } from "@/lib/ai/class-level-guidance";
+import type { Prisma } from "@prisma/client";
 
 export interface ActionState {
   error?: string;
@@ -22,7 +23,7 @@ export async function createQuestionAction(
 ): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -47,6 +48,10 @@ export async function createQuestionAction(
   if (!subjectId || !text) return { error: "Subject and question text are required." };
   if (type === "mcq" && !correctAnswer) return { error: "Select the correct answer for MCQ." };
   if (type === "essay" && !modelAnswer) return { error: "Model answer is required for essay questions." };
+
+  if (!canAccessSubject(ctx.perms, subjectId)) {
+    return { error: "Not authorised for this subject." };
+  }
 
   const subject = await prisma.subject.findFirst({
     where: { id: subjectId, schoolId: ctx.schoolId },
@@ -150,7 +155,7 @@ export async function updateQuestionAction(
 ): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -177,8 +182,15 @@ export async function updateQuestionAction(
   if (type === "mcq" && !correctAnswer) return { error: "Select the correct answer for MCQ." };
   if (type === "essay" && !modelAnswer) return { error: "Model answer is required for essay questions." };
 
+  if (!canAccessSubject(ctx.perms, subjectId)) {
+    return { error: "Not authorised for this subject." };
+  }
+
   const existing = await prisma.question.findUnique({ where: { id: questionId } });
   if (!existing || existing.schoolId !== ctx.schoolId) return { error: "Question not found." };
+  if (!canAccessSubject(ctx.perms, existing.subjectId)) {
+    return { error: "Not authorised for this question." };
+  }
 
   let rubricPoints = [];
   if (rubricJson) {
@@ -240,7 +252,7 @@ export async function aiGenerateQuestionsAction(
 ): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -251,6 +263,9 @@ export async function aiGenerateQuestionsAction(
     include: { subject: true, class: true },
   });
   if (!note) return { error: "Lesson note not found." };
+  if (!canAccessSubject(ctx.perms, note.subjectId)) {
+    return { error: "Not authorised for this subject." };
+  }
 
   const noteContent = note.content ? `Student's Note:\n${note.content}` : "";
   const noteClassLevel = note.class?.level ?? note.class?.name ?? "JSS1";
@@ -413,6 +428,9 @@ Difficulty distribution: 1 Easy, 1 Medium, 1 Hard`,
 export async function getLessonNotesBySubjectAction(subjectId: string, classLevel?: string): Promise<{ id: string; topic: string; class: string }[]> {
   const user = await getCurrentUser();
   if (!user || !user.schoolId) return [];
+  const { resolvePermissions } = await import("@/lib/auth/permissions");
+  const perms = await resolvePermissions(user);
+  if (!canManageSchool(perms) && !perms.visibleSubjectIds.has(subjectId)) return [];
   const where: Record<string, unknown> = { subjectId, status: "published", schoolId: user.schoolId };
   if (classLevel) {
     where.class = { level: classLevel };
@@ -431,9 +449,9 @@ export async function aiGenerateQuestionsMultiAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  let ctx: Awaited<ReturnType<typeof requireSchoolAdmin>>;
+  let ctx: Awaited<ReturnType<typeof requireSchoolStaff>>;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -442,6 +460,9 @@ export async function aiGenerateQuestionsMultiAction(
   const subjectId = String(formData.get("subjectId") ?? "");
   const noteIdsRaw = formData.getAll("lessonNoteIds") as string[];
   if (!subjectId || noteIdsRaw.length === 0) return { error: "Select a subject and at least one lesson note." };
+  if (!canAccessSubject(ctx.perms, subjectId)) {
+    return { error: "Not authorised for this subject." };
+  }
 
   const topic = String(formData.get("topic") ?? "").trim() || "Untitled";
   const questionType = String(formData.get("questionType") ?? "essay"); // mcq | essay
@@ -877,7 +898,7 @@ Remember: the "questions" array must have exactly ${chunkCount} item${chunkCount
 export async function approveQuestionAction(questionId: string): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -887,6 +908,9 @@ export async function approveQuestionAction(questionId: string): Promise<ActionS
     where: { id: questionId, schoolId: ctx.schoolId },
   });
   if (!q) return { error: "Question not found." };
+  if (!canAccessSubject(ctx.perms, q.subjectId)) {
+    return { error: "Not authorised for this question." };
+  }
 
   await prisma.question.update({ where: { id: questionId }, data: { status: "approved" } });
 
@@ -906,7 +930,7 @@ export async function approveQuestionAction(questionId: string): Promise<ActionS
 export async function rejectQuestionAction(questionId: string, comment?: string): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -916,6 +940,9 @@ export async function rejectQuestionAction(questionId: string, comment?: string)
     where: { id: questionId, schoolId: ctx.schoolId },
   });
   if (!q) return { error: "Question not found." };
+  if (!canAccessSubject(ctx.perms, q.subjectId)) {
+    return { error: "Not authorised for this question." };
+  }
 
   await prisma.question.update({ where: { id: questionId }, data: { status: "draft" } });
 
@@ -936,7 +963,7 @@ export async function rejectQuestionAction(questionId: string, comment?: string)
 export async function bulkApproveQuestionsAction(questionIds: string[]): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -944,8 +971,15 @@ export async function bulkApproveQuestionsAction(questionIds: string[]): Promise
 
   if (!questionIds.length) return { error: "No questions selected." };
 
+  const where: Prisma.QuestionWhereInput = {
+    id: { in: questionIds },
+    schoolId: ctx.schoolId,
+    status: { not: "approved" },
+    ...(canManageSchool(ctx.perms) ? {} : { subjectId: { in: [...ctx.perms.visibleSubjectIds] } }),
+  };
+
   await prisma.question.updateMany({
-    where: { id: { in: questionIds }, schoolId: ctx.schoolId, status: { not: "approved" } },
+    where,
     data: { status: "approved" },
   });
 
@@ -965,7 +999,7 @@ export async function bulkApproveQuestionsAction(questionIds: string[]): Promise
 export async function bulkDeleteQuestionsAction(questionIds: string[]): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -974,7 +1008,11 @@ export async function bulkDeleteQuestionsAction(questionIds: string[]): Promise<
   if (!questionIds.length) return { error: "No questions selected." };
 
   await prisma.question.deleteMany({
-    where: { id: { in: questionIds }, schoolId: ctx.schoolId },
+    where: {
+      id: { in: questionIds },
+      schoolId: ctx.schoolId,
+      ...(canManageSchool(ctx.perms) ? {} : { subjectId: { in: [...ctx.perms.visibleSubjectIds] } }),
+    },
   });
 
   await recordAudit({
@@ -993,7 +1031,7 @@ export async function bulkDeleteQuestionsAction(questionIds: string[]): Promise<
 export async function bulkEditTopicAction(questionIds: string[], newTopic: string): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -1003,7 +1041,11 @@ export async function bulkEditTopicAction(questionIds: string[], newTopic: strin
   if (!newTopic.trim()) return { error: "New topic name is required." };
 
   await prisma.question.updateMany({
-    where: { id: { in: questionIds }, schoolId: ctx.schoolId },
+    where: {
+      id: { in: questionIds },
+      schoolId: ctx.schoolId,
+      ...(canManageSchool(ctx.perms) ? {} : { subjectId: { in: [...ctx.perms.visibleSubjectIds] } }),
+    },
     data: { topic: newTopic.trim() },
   });
 
@@ -1023,7 +1065,7 @@ export async function bulkEditTopicAction(questionIds: string[], newTopic: strin
 export async function deleteQuestionAction(questionId: string): Promise<ActionState> {
   let ctx;
   try {
-    ctx = await requireSchoolAdmin();
+    ctx = await requireSchoolStaff();
   } catch {
     return { error: "Not authorised." };
   }
@@ -1033,6 +1075,9 @@ export async function deleteQuestionAction(questionId: string): Promise<ActionSt
     where: { id: questionId, schoolId: ctx.schoolId },
   });
   if (!q) return { error: "Question not found." };
+  if (!canAccessSubject(ctx.perms, q.subjectId)) {
+    return { error: "Not authorised for this question." };
+  }
 
   await prisma.question.delete({ where: { id: questionId } });
 
@@ -1053,12 +1098,15 @@ export async function csvImportQuestionsAction(
   formData: FormData,
 ): Promise<ActionState & { imported?: number; errors?: string[] }> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised.", imported: 0 }; }
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised.", imported: 0 }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message, imported: 0 }; }
 
   const subjectId = String(formData.get("subjectId") ?? "");
   const csvContent = String(formData.get("csvContent") ?? "");
   if (!subjectId || !csvContent) return { error: "Subject and CSV content are required.", imported: 0 };
+  if (!canAccessSubject(ctx.perms, subjectId)) {
+    return { error: "Not authorised for this subject.", imported: 0 };
+  }
 
   const { parseQuestionCsv } = await import("@/lib/csv/question-import");
   const { rows, summary } = parseQuestionCsv(csvContent);
@@ -1167,7 +1215,7 @@ export async function createQuestionGroupAction(
   formData: FormData,
 ): Promise<ActionState & { groupId?: string }> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const subjectId = String(formData.get("subjectId") ?? "");
@@ -1177,6 +1225,9 @@ export async function createQuestionGroupAction(
 
   if (!subjectId) return { error: "Subject is required." };
   if (!stimulusContent) return { error: "Stimulus content is required." };
+  if (!canAccessSubject(ctx.perms, subjectId)) {
+    return { error: "Not authorised for this subject." };
+  }
 
   const stimulus = await prisma.stimulus.create({
     data: { type: stimulusType, content: stimulusContent, subjectId },

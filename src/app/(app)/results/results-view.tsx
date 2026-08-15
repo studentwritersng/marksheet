@@ -25,6 +25,7 @@ export interface ExamScoreRow {
 
 export function ResultsView({
   schoolId,
+  isAdmin,
   classes,
   terms,
   subjects,
@@ -37,6 +38,7 @@ export function ResultsView({
   examScoreRows,
 }: {
   schoolId: string;
+  isAdmin: boolean;
   classes: ClassVM[];
   terms: TermVM[];
   subjects: SubjectVM[];
@@ -166,7 +168,7 @@ export function ResultsView({
             >
               {computing ? "Computing…" : "Compute results"}
             </button>
-            {termResults.some((tr) => tr.status === "computed") && (
+            {isAdmin && termResults.some((tr) => tr.status === "computed") && (
               <button
                 onClick={handleFinalize}
                 disabled={finalizing}
