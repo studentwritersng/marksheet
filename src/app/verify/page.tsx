@@ -7,13 +7,14 @@ export default async function VerifyPage() {
   const host = (await headers()).get("host") ?? "";
   const school = await getSchoolByRequestHost(host);
 
-  if (school && school.shortcode) {
+  if (school) {
     return (
       <VerifyClient
         schoolName={school.name}
         schoolLogo={school.logo}
         schoolMotto={school.motto}
-        shortcode={school.shortcode}
+        shortcode={school.shortcode ?? undefined}
+        schoolId={school.id}
         initialCode=""
       />
     );

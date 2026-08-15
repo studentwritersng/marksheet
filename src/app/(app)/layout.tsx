@@ -35,11 +35,13 @@ export default async function AppLayout({
 
   // White-label guard: on a school's custom domain, only that school's users may stay.
   // Cross-school users and platform owners are sent to the main domain.
-  const host = (await headers()).get("host") ?? "";
+  const hdrs = await headers();
+  const host = hdrs.get("host") ?? "";
   const hostSchool = await getSchoolByRequestHost(host);
   if (hostSchool && (!user.schoolId || user.schoolId !== hostSchool.id)) {
     const main = process.env.MAIN_DOMAIN || "localhost:3000";
-    redirect(`https://${main}/dashboard`);
+    const proto = main.startsWith("localhost") ? "http" : (hdrs.get("x-forwarded-proto") || "https");
+    redirect(`${proto}://${main}/dashboard`);
   }
 
   // Proprietors use a separate console and must never see school-facing routes

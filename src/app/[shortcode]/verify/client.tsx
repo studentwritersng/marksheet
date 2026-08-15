@@ -6,11 +6,12 @@ interface Props {
   schoolName: string;
   schoolLogo: string | null;
   schoolMotto: string | null;
-  shortcode: string;
+  shortcode?: string;
+  schoolId?: string;
   initialCode: string;
 }
 
-export function VerifyClient({ schoolName, schoolLogo, schoolMotto, shortcode, initialCode }: Props) {
+export function VerifyClient({ schoolName, schoolLogo, schoolMotto, shortcode, schoolId, initialCode }: Props) {
   const [code, setCode] = useState(initialCode.toUpperCase());
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
@@ -22,7 +23,8 @@ export function VerifyClient({ schoolName, schoolLogo, schoolMotto, shortcode, i
     setError("");
     setResult(null);
 
-    const res = await fetch(`/api/verify/${shortcode}?code=${encodeURIComponent(code.trim())}`);
+    const endpoint = schoolId ? `/api/verify/school/${schoolId}` : `/api/verify/${shortcode}`;
+    const res = await fetch(`${endpoint}?code=${encodeURIComponent(code.trim())}`);
     const data = await res.json();
     setLoading(false);
 
