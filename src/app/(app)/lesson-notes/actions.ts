@@ -62,7 +62,7 @@ export async function createLessonNoteAction(
       assignment,
       source: "manual",
       status: "published",
-      createdBy: ctx.user.userId,
+      createdBy: ctx.user.staffId ?? "",
     },
   });
 
@@ -341,7 +341,7 @@ Write a complete lesson note following the structure above. Ensure all content i
       assignment: (parsed.assignment_homework as string) ?? null,
       source: "ai_generated",
       status: "draft",
-      createdBy: ctx.user.userId,
+      createdBy: ctx.user.staffId ?? "",
     },
   });
 
