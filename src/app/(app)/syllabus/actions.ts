@@ -9,6 +9,7 @@ import { recordAudit } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { assignWeekSuffixes } from "@/lib/syllabus/week-suffix";
 
 export interface ActionState {
   error?: string;
@@ -105,9 +106,18 @@ export async function createSyllabusAction(
   if (parsedTopics.length > 0 && term) {
     const subject = await prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } });
     if (subject) {
-      for (const t of parsedTopics) {
-        const row = t as { week: number; weekSuffix?: string; topic: string; subTopics?: string[]; objectives?: string[] };
-        const weekSuffix = row.weekSuffix ?? "";
+      // Assign a distinct weekSuffix per topic so multiple topics sharing a week
+      // each become their own curriculum row (the unique constraint only allows one
+      // row per week+weekSuffix).
+      const rowsToInsert = assignWeekSuffixes(
+        parsedTopics.map((t) => {
+          const row = t as { week: number; weekSuffix?: unknown; topic: string; subTopics?: string[]; objectives?: string[] };
+          return { week: row.week, weekSuffix: row.weekSuffix, topic: row.topic, subTopics: row.subTopics, objectives: row.objectives };
+        }),
+      );
+
+      for (const row of rowsToInsert) {
+        const weekSuffix = row.weekSuffix;
 
         // Look only for a school-specific record to update (never mutate NERDC/system rows)
         const schoolOwnedCurriculum = await prisma.curriculumTopic.findFirst({
