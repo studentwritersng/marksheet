@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { requireSchoolAdmin, requireSchoolStaff, requireExamReviewer, canReviewExams, canPublishExams, canAccessSubject } from "@/lib/auth/guards";
+import { requireSchoolAdmin, requireSchoolStaff, requireExamReviewer, canManageSchool, canReviewExams, canPublishExams, canAccessSubject } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { notifyStudents } from "@/lib/notifications/actions";
@@ -656,11 +656,24 @@ export async function upsertManualScoresAction(
   scores: ManualScoreInput[],
 ): Promise<ActionState> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return { error: "Not authorised." }; }
+  try { ctx = await requireSchoolStaff(); } catch { return { error: "Not authorised." }; }
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
   if (!exam) return { error: "Exam not found." };
+
+  const isTeacher =
+    ctx.perms.subjectTeacherSubjectIds.size > 0 ||
+    ctx.perms.classTeacherClassIds.size > 0 ||
+    ctx.perms.hodSubjectIds.size > 0;
+  const teacherOwnsExam =
+    isTeacher &&
+    (ctx.perms.visibleSubjectIds.has(exam.subjectId) ||
+      (exam.classId != null && ctx.perms.visibleClassIds.has(exam.classId)) ||
+      exam.createdBy === ctx.user.staffId);
+  if (!canManageSchool(ctx.perms) && !canReviewExams(ctx.perms) && !teacherOwnsExam) {
+    return { error: "Not authorised to grade this exam." };
+  }
 
   if (scores.length === 0) return { error: "No scores provided." };
 
@@ -716,7 +729,7 @@ export async function getExamManualScoresAction(
   examId: string,
 ): Promise<{ studentId: string; subAssessmentTypeCode: string; rawScore: number; maxRawScore: number; note: string | null }[]> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return []; }
+  try { ctx = await requireSchoolStaff(); } catch { return []; }
 
   const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
   if (!exam) return [];
@@ -732,7 +745,7 @@ export async function getExamStudentsAction(
   examId: string,
 ): Promise<{ id: string; admissionNumber: string; fullName: string }[]> {
   let ctx;
-  try { ctx = await requireSchoolAdmin(); } catch { return []; }
+  try { ctx = await requireSchoolStaff(); } catch { return []; }
 
   const exam = await prisma.exam.findFirst({
     where: { id: examId, schoolId: ctx.schoolId },
