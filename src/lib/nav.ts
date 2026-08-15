@@ -132,6 +132,7 @@ export function buildNav(
         children: [
           { label: "My Question Bank", href: "/questions", icon: "quiz" },
           { label: "My Exams", href: "/exams", icon: "assignment" },
+          { label: "Essay Grading", href: "/essay-grading", icon: "rate_review" },
         ],
       });
     }
