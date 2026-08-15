@@ -44,7 +44,10 @@ export function buildNav(
       { label: "Teaching Resources", icon: "menu_book", children: [
         { label: "Period Tracker", href: "/period-tracker", icon: "checklist" },
         { label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" },
-        { label: "Lesson Notes", href: "/lesson-notes", icon: "note" },
+        { label: "Lesson Notes", icon: "note", children: [
+          { label: "Generate", href: "/lesson-notes", icon: "note_add" },
+          { label: "My Lesson Notes", href: "/lesson-notes/mine", icon: "note" },
+        ]},
         { label: "Question Bank", href: "/questions", icon: "quiz" },
       ]},
       { label: "Assessments", icon: "quiz", children: [
@@ -113,9 +116,24 @@ export function buildNav(
       items.push({ label: "My Classes", href: "/my-classes", icon: "school" });
     }
     if (perms.subjectTeacherSubjectIds.size > 0) {
-      items.push({ label: "Lesson Notes", href: "/lesson-notes", icon: "note" });
+      items.push({
+        label: "Lesson Notes",
+        icon: "note",
+        children: [
+          { label: "Generate", href: "/lesson-notes", icon: "note_add" },
+          { label: "My Lesson Notes", href: "/lesson-notes/mine", icon: "note" },
+        ],
+      });
       items.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });
       items.push({ label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" });
+      items.push({
+        label: "Assessments",
+        icon: "quiz",
+        children: [
+          { label: "My Question Bank", href: "/questions", icon: "quiz" },
+          { label: "My Exams", href: "/exams", icon: "assignment" },
+        ],
+      });
     }
     if (perms.subjectTeacherSubjectIds.size > 0 || perms.isReceptionist || perms.classTeacherClassIds.size > 0) {
       items.push({ label: "Daily Attendance", href: "/attendance", icon: "fact_check" });
