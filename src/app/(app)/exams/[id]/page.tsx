@@ -13,7 +13,11 @@ export default async function ExamDetailPage(props: {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
-  if ((!canManageSchool(perms) && !canReviewExams(perms)) || !user.schoolId) {
+  const isTeacher =
+    perms.subjectTeacherSubjectIds.size > 0 ||
+    perms.classTeacherClassIds.size > 0 ||
+    perms.hodSubjectIds.size > 0;
+  if ((!canManageSchool(perms) && !canReviewExams(perms) && !isTeacher) || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
   }
 
@@ -31,6 +35,15 @@ export default async function ExamDetailPage(props: {
     },
   });
   if (!exam) notFound();
+
+  const teacherOwnsExam =
+    isTeacher &&
+    (perms.visibleSubjectIds.has(exam.subjectId) ||
+      (exam.classId != null && perms.visibleClassIds.has(exam.classId)) ||
+      exam.createdBy === user.staffId);
+  if (!canManageSchool(perms) && !canReviewExams(perms) && !teacherOwnsExam) {
+    notFound();
+  }
 
   // Parse sub-assessment component config
   type SubWeight = { subAssessmentTypeId: string; weightPercentage: number };
