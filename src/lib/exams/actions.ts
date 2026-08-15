@@ -734,6 +734,19 @@ export async function getExamManualScoresAction(
   const exam = await prisma.exam.findFirst({ where: { id: examId, schoolId: ctx.schoolId } });
   if (!exam) return [];
 
+  const isTeacher =
+    ctx.perms.subjectTeacherSubjectIds.size > 0 ||
+    ctx.perms.classTeacherClassIds.size > 0 ||
+    ctx.perms.hodSubjectIds.size > 0;
+  const teacherOwnsExam =
+    isTeacher &&
+    (ctx.perms.visibleSubjectIds.has(exam.subjectId) ||
+      (exam.classId != null && ctx.perms.visibleClassIds.has(exam.classId)) ||
+      exam.createdBy === ctx.user.staffId);
+  if (!canManageSchool(ctx.perms) && !canReviewExams(ctx.perms) && !teacherOwnsExam) {
+    return [];
+  }
+
   const scores = await prisma.manualScore.findMany({
     where: { examId },
     select: { studentId: true, subAssessmentTypeCode: true, rawScore: true, maxRawScore: true, note: true },
@@ -752,6 +765,19 @@ export async function getExamStudentsAction(
     include: { classes: { include: { class: true } } },
   });
   if (!exam) return [];
+
+  const isTeacher =
+    ctx.perms.subjectTeacherSubjectIds.size > 0 ||
+    ctx.perms.classTeacherClassIds.size > 0 ||
+    ctx.perms.hodSubjectIds.size > 0;
+  const teacherOwnsExam =
+    isTeacher &&
+    (ctx.perms.visibleSubjectIds.has(exam.subjectId) ||
+      (exam.classId != null && ctx.perms.visibleClassIds.has(exam.classId)) ||
+      exam.createdBy === ctx.user.staffId);
+  if (!canManageSchool(ctx.perms) && !canReviewExams(ctx.perms) && !teacherOwnsExam) {
+    return [];
+  }
 
   const classIds = exam.classes.map((ec) => ec.classId);
   if (classIds.length === 0) return [];
