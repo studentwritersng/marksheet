@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveLandingStats } from "@/lib/landing-stats";
 import { MarketingLandingPage } from "./(marketing)/landing-page";
+import { getSchoolByRequestHost } from "@/lib/school-domain";
 
 export const metadata = {
   title: "Marksheet: Run the Whole School Term in One Place",
@@ -16,6 +18,10 @@ export const metadata = {
 };
 
 export default async function Home() {
+  const host = (await headers()).get("host") ?? "";
+  const school = await getSchoolByRequestHost(host);
+  if (school) redirect("/login");
+
   const user = await getCurrentUser();
   if (user) {
     if (user.role === "platform_owner") redirect("/console");
