@@ -80,10 +80,12 @@ export async function commitStudentCsvAction(
     select: { id: true, name: true, level: true, department: true, section: true },
   });
   const classMap = new Map<string, string>();
+  const classInfo = new Map<string, { department: string; level: string }>();
   for (const c of allClasses) {
     classMap.set(`${normalizeKey(c.name)}||`, c.id);
     if (c.department) classMap.set(`${normalizeKey(c.name)}||${normalizeKey(c.department)}`, c.id);
     classMap.set(`${normalizeKey(c.level)}||${normalizeKey(c.department)}`, c.id);
+    classInfo.set(c.id, { department: c.department, level: c.level });
   }
 
   // Get school for shortcode
@@ -102,19 +104,27 @@ export async function commitStudentCsvAction(
   const defaultClass = defaultClassIdRaw
     ? await prisma.class.findFirst({
         where: { id: defaultClassIdRaw, schoolId: ctx.schoolId, archived: false },
-        select: { id: true },
+        select: { id: true, level: true, department: true },
       })
     : null;
 
   for (const r of valid) {
     const classKey = `${normalizeKey(r.className)}||${normalizeKey(r.department || "")}`;
-    const classId = defaultClass
+    let resolvedClassId = defaultClass
       ? defaultClass.id
       : (r.className ? (classMap.get(classKey) ?? classMap.get(`${normalizeKey(r.className)}||`)) : null);
-    if (r.className && !classId) {
+    if (r.className && !resolvedClassId && !defaultClass) {
       unresolvableClasses.push(r.department ? `${r.className} (${r.department})` : r.className);
       continue;
     }
+    if (!resolvedClassId) {
+      unresolvableClasses.push("No class specified for a row and no target class chosen.");
+      continue;
+    }
+
+    // Department is only stored for classes that have SSS departments
+    const classMeta = defaultClass ?? classInfo.get(resolvedClassId);
+    const studentDepartment = classMeta && classMeta.department ? r.department.toLowerCase() || classMeta.department : "";
 
     // Atomically increment sequence
     const updated = await prisma.school.update({
@@ -145,7 +155,8 @@ export async function commitStudentCsvAction(
         religion: r.religion || null,
         email: r.email || null,
         gender: r.gender || null,
-        currentClassId: classId,
+        currentClassId: resolvedClassId,
+        department: studentDepartment,
         userId: user.id,
         guardians: r.guardianName
           ? { create: [{ fullName: r.guardianName, phone: r.guardianPhone || "", email: r.guardianEmail || null, relationship: r.guardianRelation || "father" }] }

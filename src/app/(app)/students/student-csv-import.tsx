@@ -29,6 +29,10 @@ export function StudentCsvImport({ classes }: { classes: ClassVM[] }) {
   const rows = preview.preview?.rows ?? [];
 
   async function handleCommit() {
+    if (!targetClassId) {
+      setCommitMsg("Please select the class to import into before committing.");
+      return;
+    }
     const fd = new FormData();
     fd.set("rows", JSON.stringify(rows));
     if (targetClassId) fd.set("defaultClassId", targetClassId);
@@ -60,7 +64,7 @@ export function StudentCsvImport({ classes }: { classes: ClassVM[] }) {
       {/* Target class — lets the admin decide where these students go */}
       <div className="mb-3">
         <label htmlFor="defaultClass" className="font-label-sm text-label-sm text-on-surface-variant block mb-1">
-          Import into class (optional)
+          Import into class
         </label>
         <select
           id="defaultClass"
@@ -68,7 +72,7 @@ export function StudentCsvImport({ classes }: { classes: ClassVM[] }) {
           onChange={(e) => setTargetClassId(e.target.value)}
           className="w-full border border-outline-variant rounded p-2.5 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors"
         >
-          <option value="">Use class from each CSV row</option>
+          <option value="">— Select class —</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}{c.department ? ` (${c.department})` : ""}
@@ -76,9 +80,8 @@ export function StudentCsvImport({ classes }: { classes: ClassVM[] }) {
           ))}
         </select>
         <p className="mt-1 text-xs text-on-surface-variant">
-          {targetClassId
-            ? "All rows will be assigned to this class — the CSV className column is ignored."
-            : "Each row needs a className that matches one of your classes (e.g. JSS1)."}
+          All rows in the CSV are imported into this class. The template no longer includes a class column.
+          The <code>department</code> column is only used for classes that have departments (e.g. SSS), and is ignored for other classes.
         </p>
       </div>
 
@@ -126,7 +129,6 @@ export function StudentCsvImport({ classes }: { classes: ClassVM[] }) {
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Name</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">DOB</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Gender</th>
-                  <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Class</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Dept</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Guardian</th>
                   <th className="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant">Status</th>
@@ -146,7 +148,6 @@ export function StudentCsvImport({ classes }: { classes: ClassVM[] }) {
                     </td>
                     <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.dateOfBirth || "—"}</td>
                     <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.gender || "—"}</td>
-                    <td className="px-2 py-1">{r.className || "—"}</td>
                     <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.department || "—"}</td>
                     <td className="px-2 py-1 text-on-surface-variant text-[10px]">{r.guardianName || "—"}</td>
                     <td className="px-2 py-1">

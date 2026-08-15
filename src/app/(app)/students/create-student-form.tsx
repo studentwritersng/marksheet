@@ -39,9 +39,9 @@ export function CreateStudentForm({ classes }: { classes: ClassOption[] }) {
           <input name="firstName" placeholder="First name" required className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
           <input name="lastName" placeholder="Last name" required className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
         </div>
-        <input name="email" placeholder="Student email (optional)" type="email" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
+        <input name="email" placeholder="Student email" type="email" required className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
         <div className="flex gap-2">
-          <select name="gender" className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
+          <select name="gender" required className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
             <option value="">— Gender —</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
@@ -49,7 +49,7 @@ export function CreateStudentForm({ classes }: { classes: ClassOption[] }) {
           <select name="classId" onChange={(e) => {
             const cls = classes.find((c) => c.id === e.target.value);
             setSelectedLevel(cls?.level ?? "");
-          }} className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
+          }} required className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
             <option value="">— Class —</option>
             {Object.entries(grouped).map(([level, cls]) => (
               <optgroup key={level} label={level}>
@@ -63,7 +63,7 @@ export function CreateStudentForm({ classes }: { classes: ClassOption[] }) {
           </select>
         </div>
         {isSSS && (
-          <select name="department" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
+          <select name="department" required className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
             <option value="">— Department —</option>
             <option value="science">Science</option>
             <option value="art">Art</option>
@@ -71,18 +71,25 @@ export function CreateStudentForm({ classes }: { classes: ClassOption[] }) {
           </select>
         )}
         <div className="flex gap-2">
-          <input name="dateOfBirth" type="date" placeholder="Date of birth" className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
-          <input name="ethnicity" placeholder="Ethnicity (optional)" className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
-          <input name="religion" placeholder="Religion (optional)" className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
+          <input name="dateOfBirth" type="date" placeholder="Date of birth" required className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
+          <input name="ethnicity" placeholder="Ethnicity" required className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
+          <input name="religion" placeholder="Religion" required className="flex-1 border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
         </div>
         <hr className="border-outline-variant" />
         <ImageUploader currentUrl={photoUrl} onUploaded={(url) => setPhotoUrl(url)} label="Passport Photo (optional)" />
         <input type="hidden" name="passportPhoto" value={photoUrl} />
         <hr className="border-outline-variant" />
-        <p className="font-label-sm text-label-sm text-on-surface-variant">Guardian (optional)</p>
-        <input name="guardianName" placeholder="Full name" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
-        <input name="guardianPhone" placeholder="Phone" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
-        <input name="guardianEmail" placeholder="Guardian email (optional)" type="email" className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
+        <p className="font-label-sm text-label-sm text-on-surface-variant">Guardian</p>
+        <select name="guardianRelation" required className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors">
+          <option value="">— Relationship with student —</option>
+          <option value="father">Father</option>
+          <option value="mother">Mother</option>
+          <option value="guardian">Guardian</option>
+          <option value="other">Other</option>
+        </select>
+        <input name="guardianName" placeholder="Full name" required className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
+        <input name="guardianPhone" placeholder="Phone" required className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
+        <input name="guardianEmail" placeholder="Guardian email" type="email" required className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-colors" />
         <hr className="border-outline-variant" />
         <label className="flex items-start gap-2 cursor-pointer">
           <input type="checkbox" name="dataConsent" value="true" required className="mt-1 rounded border-outline-variant text-primary focus:ring-primary" />

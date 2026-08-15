@@ -53,20 +53,44 @@ export async function createStudentAction(
   const guardianEmail = String(formData.get("guardianEmail") ?? "").trim().toLowerCase() || null;
   const guardianRelation = String(formData.get("guardianRelation") ?? "").trim() || "father";
   const passportPhoto = String(formData.get("passportPhoto") ?? "").trim() || null;
-  const department = String(formData.get("department") ?? "").trim() || "";
+  let department = String(formData.get("department") ?? "").trim() || "";
   const dataConsent = formData.get("dataConsent") === "true";
 
   if (!firstName || !lastName) {
     return { error: "First name and last name are required." };
+  }
+  if (!classId) {
+    return { error: "Class is required." };
+  }
+  if (!gender) {
+    return { error: "Gender is required." };
+  }
+  if (!dobRaw) {
+    return { error: "Date of birth is required." };
+  }
+  if (!guardianName || !guardianPhone) {
+    return { error: "Guardian full name and phone are required." };
+  }
+  if (!["father", "mother", "guardian", "other"].includes(guardianRelation)) {
+    return { error: "Guardian relationship is required." };
   }
 
   // Validate class belongs to the caller's school
   if (classId) {
     const cls = await prisma.class.findFirst({
       where: { id: classId, schoolId: ctx.schoolId },
-      select: { id: true },
+      select: { id: true, level: true },
     });
     if (!cls) return { error: "Class not found for this school." };
+
+    // Department is required when the target class has SSS departments
+    const hasDepartments = cls.level.startsWith("SSS") && (await prisma.class.count({ where: { schoolId: ctx.schoolId, level: cls.level, department: { not: "" } } })) > 0;
+    if (hasDepartments && !department) {
+      return { error: "Department is required for this class." };
+    }
+    if (!hasDepartments && department) {
+      department = "";
+    }
   }
 
   // Parse date of birth; if invalid, return error early
