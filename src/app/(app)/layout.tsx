@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { getSchoolByRequestHost } from "@/lib/school-domain";
 import { resolveDisplayName } from "@/lib/auth/display-name";
 import { resolvePermissions } from "@/lib/auth/permissions";
 import { buildNav } from "@/lib/nav";
@@ -30,6 +32,15 @@ export default async function AppLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  // White-label guard: on a school's custom domain, only that school's users may stay.
+  // Cross-school users and platform owners are sent to the main domain.
+  const host = (await headers()).get("host") ?? "";
+  const hostSchool = await getSchoolByRequestHost(host);
+  if (hostSchool && (!user.schoolId || user.schoolId !== hostSchool.id)) {
+    const main = process.env.MAIN_DOMAIN || "localhost:3000";
+    redirect(`https://${main}/dashboard`);
+  }
 
   // Proprietors use a separate console and must never see school-facing routes
   if (user.role === "proprietor") redirect("/proprietor");
