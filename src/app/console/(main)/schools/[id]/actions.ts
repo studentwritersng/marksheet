@@ -1,5 +1,7 @@
 "use server";
 
+import dns from "node:dns";
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
@@ -204,4 +206,48 @@ export async function exportSchoolBackupConsoleAction(schoolId: string, mode: "c
   } catch (e: any) {
     return { error: `Export failed: ${e.message}` };
   }
+}
+
+function randomToken(): string {
+  return randomBytes(16).toString("hex");
+}
+
+export async function configureCustomDomainAction(
+  schoolId: string,
+  formData: FormData,
+): Promise<SchoolActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const raw = (formData.get("domain") as string || "").trim().toLowerCase();
+  const domain = raw.replace(/^https?:\/\//, "").split("/")[0].split(":")[0];
+  if (!domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) return { error: "Enter a valid domain, e.g. portal.school.com" };
+  const token = randomToken();
+  await prisma.school.update({
+    where: { id: schoolId },
+    data: { customDomain: domain, customDomainToken: token, customDomainVerified: false },
+  });
+  revalidatePath(`/console/schools/${schoolId}`);
+  return { success: `Add the TXT record _marksheet-challenge.${domain} = ${token}, then click Verify.` };
+}
+
+export async function verifyCustomDomainAction(schoolId: string): Promise<SchoolActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { customDomain: true, customDomainToken: true } });
+  if (!school?.customDomain || !school.customDomainToken) return { error: "Configure the domain first." };
+  try {
+    const records = await dns.promises.resolveTxt(`_marksheet-challenge.${school.customDomain}`);
+    const flat = records.flat().join("");
+    if (flat !== school.customDomainToken) return { error: "TXT record not found or does not match. Wait for DNS propagation and retry." };
+  } catch {
+    return { error: "TXT record not found. Wait for DNS propagation and retry." };
+  }
+  await prisma.school.update({ where: { id: schoolId }, data: { customDomainVerified: true } });
+  revalidatePath(`/console/schools/${schoolId}`);
+  return { success: "Domain verified. Point DNS (CNAME/ALIAS) to the platform and add it in Vercel." };
+}
+
+export async function clearCustomDomainAction(schoolId: string): Promise<SchoolActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  await prisma.school.update({ where: { id: schoolId }, data: { customDomain: null, customDomainVerified: false, customDomainToken: null } });
+  revalidatePath(`/console/schools/${schoolId}`);
+  return { success: "Custom domain cleared." };
 }

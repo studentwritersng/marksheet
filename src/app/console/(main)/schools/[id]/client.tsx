@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction, updateSchoolAction, toggleSuspendSchoolAction, setSchoolStageAction, exportSchoolBackupConsoleAction } from "./actions";
+import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction, updateSchoolAction, toggleSuspendSchoolAction, setSchoolStageAction, exportSchoolBackupConsoleAction, configureCustomDomainAction, verifyCustomDomainAction, clearCustomDomainAction } from "./actions";
 
 interface SchoolVM {
   id: string;
@@ -14,6 +14,9 @@ interface SchoolVM {
   maintenanceMode: boolean;
   suspended: boolean;
   stage: string;
+  customDomain: string | null;
+  customDomainVerified: boolean;
+  customDomainToken: string | null;
   createdAt: string;
   _count: { students: number; staff: number; sessions: number; subjects: number };
 }
@@ -55,6 +58,16 @@ export function SchoolDetailClient({
   const [stageValue, setStageValue] = useState(school.stage);
   const [stageState, stageAction, stagePending] = useActionState(
     async () => setSchoolStageAction(school.id, stageValue), {},
+  );
+
+  const [domainState, domainAction, domainPending] = useActionState(
+    async (_prev: any, fd: FormData) => configureCustomDomainAction(school.id, fd), {},
+  );
+  const [verifyState, verifyAction, verifyPending] = useActionState(
+    async () => verifyCustomDomainAction(school.id), {},
+  );
+  const [clearState, clearAction, clearPending] = useActionState(
+    async () => clearCustomDomainAction(school.id), {},
   );
 
   const now = new Date();
@@ -183,6 +196,50 @@ export function SchoolDetailClient({
           <a href={`/console/schools/${school.id}/backup`}
             className="text-xs text-white/70 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30"
           >Restore Backup</a>
+        </div>
+      </div>
+
+      {/* Custom domain */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Custom Domain</h2>
+        <div className="space-y-3 text-sm">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-white/70">Current domain:</span>
+            <span className="font-mono text-white">{school.customDomain ?? "—"}</span>
+            {school.customDomainVerified && (
+              <span className="rounded-full bg-emerald-900/50 text-emerald-300 text-[11px] px-2.5 py-0.5 font-medium border border-emerald-800/30">Verified</span>
+            )}
+          </div>
+
+          {school.customDomainToken && school.customDomain && (
+            <p className="text-xs text-white/40">
+              Add TXT record: <span className="font-mono text-amber-300">_marksheet-challenge.{school.customDomain} = {school.customDomainToken}</span>
+            </p>
+          )}
+
+          <form action={domainAction} className="flex items-center gap-2 flex-wrap">
+            <input name="domain" placeholder="portal.school.com" defaultValue={school.customDomain ?? ""}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30 flex-1 min-w-[200px]" />
+            <button type="submit" disabled={domainPending}
+              className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg disabled:opacity-60"
+            >{domainPending ? "Saving..." : "Configure / Update"}</button>
+          </form>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button type="button" disabled={verifyPending} onClick={() => verifyAction()}
+              className="text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30 transition-colors disabled:opacity-60"
+            >{verifyPending ? "Verifying..." : "Verify"}</button>
+            <button type="button" disabled={clearPending} onClick={() => clearAction()}
+              className="text-xs text-red-400 border border-red-800/30 hover:bg-red-900/20 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+            >{clearPending ? "..." : "Clear"}</button>
+          </div>
+
+          {domainState.error && <p className="text-red-400 text-sm">{domainState.error}</p>}
+          {domainState.success && <p className="text-emerald-400 text-sm">{domainState.success}</p>}
+          {verifyState.error && <p className="text-red-400 text-sm">{verifyState.error}</p>}
+          {verifyState.success && <p className="text-emerald-400 text-sm">{verifyState.success}</p>}
+          {clearState.error && <p className="text-red-400 text-sm">{clearState.error}</p>}
+          {clearState.success && <p className="text-emerald-400 text-sm">{clearState.success}</p>}
         </div>
       </div>
 
