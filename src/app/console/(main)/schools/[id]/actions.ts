@@ -225,6 +225,14 @@ export async function configureCustomDomainAction(
     where: { id: schoolId },
     data: { customDomain: domain, customDomainToken: token, customDomainVerified: false },
   });
+  await recordAudit({
+    actorId: (await getCurrentUser())!.userId,
+    action: "configure_custom_domain",
+    entityType: "school",
+    entityId: schoolId,
+    afterValue: { customDomain: domain, customDomainVerified: false },
+    schoolId,
+  });
   revalidatePath(`/console/schools/${schoolId}`);
   return { success: `Add the TXT record _marksheet-challenge.${domain} = ${token}, then click Verify.` };
 }
@@ -241,6 +249,14 @@ export async function verifyCustomDomainAction(schoolId: string): Promise<School
     return { error: "TXT record not found. Wait for DNS propagation and retry." };
   }
   await prisma.school.update({ where: { id: schoolId }, data: { customDomainVerified: true } });
+  await recordAudit({
+    actorId: (await getCurrentUser())!.userId,
+    action: "verify_custom_domain",
+    entityType: "school",
+    entityId: schoolId,
+    afterValue: { customDomain: school.customDomain, customDomainVerified: true },
+    schoolId,
+  });
   revalidatePath(`/console/schools/${schoolId}`);
   return { success: "Domain verified. Point DNS (CNAME/ALIAS) to the platform and add it in Vercel." };
 }
@@ -248,6 +264,14 @@ export async function verifyCustomDomainAction(schoolId: string): Promise<School
 export async function clearCustomDomainAction(schoolId: string): Promise<SchoolActionResult> {
   try { await guard(); } catch { return { error: "Not authorised." }; }
   await prisma.school.update({ where: { id: schoolId }, data: { customDomain: null, customDomainVerified: false, customDomainToken: null } });
+  await recordAudit({
+    actorId: (await getCurrentUser())!.userId,
+    action: "clear_custom_domain",
+    entityType: "school",
+    entityId: schoolId,
+    afterValue: { customDomain: null, customDomainVerified: false },
+    schoolId,
+  });
   revalidatePath(`/console/schools/${schoolId}`);
   return { success: "Custom domain cleared." };
 }
