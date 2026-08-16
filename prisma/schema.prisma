@@ -1923,6 +1923,10 @@ model SchoolRegistration {
   schoolPhone        String?
   schoolEmail        String?
   schoolLogo         String?
+  // School profile (size bands)
+  studentCountBand   String?
+  branchCountBand    String?
+  teacherCountBand   String?
   // Principal / owner details
   principalFirstName String
   principalLastName  String
@@ -1937,6 +1941,8 @@ model SchoolRegistration {
   paymentReference   String?
   paymentProofUrl    String?
   paymentStatus      String   @default("unpaid") // unpaid | pending | verified | rejected
+  invoiceNumber      String?
+  invoiceAmount      Decimal?
   // Status: pending | reviewed | approved | rejected
   status             String   @default("pending")
   notes              String?
@@ -1946,9 +1952,29 @@ model SchoolRegistration {
   referral      Referral?            @relation(fields: [referralId], references: [id])
   paymentMethod PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
   commissions   ReferralCommission[]
+  invoices      Invoice[]
 
   @@index([status])
   @@map("school_registrations")
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  registrationId String
+  invoiceNumber  String   @unique
+  amount         Decimal
+  currency       String   @default("NGN")
+  status         String   @default("pending") // pending | paid | verified | failed
+  method         String?  // paystack | bank
+  paystackRef    String?  @unique
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  registration SchoolRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@map("invoices")
 }
 
 model ReferralCommissionSetting {

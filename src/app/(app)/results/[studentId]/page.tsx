@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { PrintButton } from "./print-button";
@@ -84,6 +85,20 @@ export default async function ReportCardPage(props: {
     user.schoolId ? prisma.school.findUnique({ where: { id: user.schoolId } }) : null,
   ]);
   if (!student || !term) notFound();
+
+  // ── Build the verification URL (current host, or the school's custom domain) ──
+  const hdrs = await headers();
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
+  const proto = hdrs.get("x-forwarded-proto") ?? "https";
+  const origin = host ? `${proto}://${host}` : "";
+
+  let verificationUrl: string;
+  if (school?.customDomainVerified && school?.customDomain) {
+    verificationUrl = `https://${school.customDomain}/verify`;
+  } else {
+    const verifyPath = school?.shortcode ? `/${school.shortcode.toLowerCase()}/verify` : "/verify";
+    verificationUrl = origin ? `${origin}${verifyPath}` : verifyPath;
+  }
 
   // Fetch class-subject links for department filtering
   const classSubjects = student.currentClassId
@@ -534,11 +549,7 @@ export default async function ReportCardPage(props: {
                   </p>
                   <p className="text-[9px] text-gray-500">
                     Verify this result at:{" "}
-                    <span className="font-semibold text-gray-700">
-                      {school?.shortcode
-                        ? `[your-domain]/${school.shortcode.toLowerCase()}/verify`
-                        : "[your-domain]/verify"}
-                    </span>
+                    <span className="font-semibold text-gray-700">{verificationUrl}</span>
                     {" "}or use the school&apos;s portal and enter the code above.
                   </p>
                 </div>

@@ -24,8 +24,8 @@ const marquee = [
 const steps = [
   {
     n: "01",
-    title: "We review your application",
-    body: "Our team checks your registration within one working day and reaches out on the contact details you provide.",
+    title: "We review & call you",
+    body: "Our team reviews your application and calls you within 24 hours on the contact details you provide.",
   },
   {
     n: "02",
@@ -35,7 +35,7 @@ const steps = [
   {
     n: "03",
     title: "We activate your licence personally",
-    body: "No online checkout and no surprise renewals. We arrange your licence with your school and turn on the addons you need.",
+    body: "No surprise renewals. Pay by invoice or Paystack and we turn on the addons your school needs.",
   },
 ];
 
