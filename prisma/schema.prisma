@@ -473,7 +473,7 @@ model AuditLog {
   afterValue             Json?
   timestamp              DateTime @default(now())
 
-  school School? @relation(fields: [schoolId], references: [id])
+  school School? @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([schoolId])
   @@index([entityType, entityId])
@@ -496,7 +496,7 @@ model ConsentRecord {
 
   student  Student?  @relation(fields: [studentId], references: [id])
   guardian Guardian? @relation(fields: [guardianId], references: [id], onDelete: SetNull)
-  school   School?   @relation(fields: [schoolId], references: [id])
+  school   School?   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
   @@index([guardianId])
@@ -974,7 +974,7 @@ model AssessmentWeighting {
   assessmentTypeId String // references AssessmentType.code
   weightPercentage Float // percentage of total term score (all types must sum to 100)
 
-  school School @relation(fields: [schoolId], references: [id])
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@unique([schoolId, subjectId, assessmentTypeId])
   @@map("assessment_weightings")
@@ -1063,7 +1063,7 @@ model ReportCardTemplate {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  school School @relation(fields: [schoolId], references: [id])
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([schoolId])
   @@map("report_card_templates")
@@ -1876,9 +1876,9 @@ model GroupStudentTransferRecord {
   notes                String?
 
   group              SchoolGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  originSchool       School      @relation("TransferOriginSchool", fields: [originSchoolId], references: [id])
+  originSchool       School      @relation("TransferOriginSchool", fields: [originSchoolId], references: [id], onDelete: Cascade)
   originStudent      Student     @relation("TransferOriginStudent", fields: [originStudentId], references: [id])
-  destinationSchool  School      @relation("TransferDestinationSchool", fields: [destinationSchoolId], references: [id])
+  destinationSchool  School      @relation("TransferDestinationSchool", fields: [destinationSchoolId], references: [id], onDelete: Cascade)
   destinationStudent Student     @relation("TransferDestinationStudent", fields: [destinationStudentId], references: [id])
 
   @@index([groupId])
@@ -2001,7 +2001,7 @@ model ReferralCommission {
 
   referral     Referral            @relation(fields: [referralId], references: [id])
   registration SchoolRegistration? @relation(fields: [registrationId], references: [id])
-  school       School?             @relation(fields: [schoolId], references: [id])
+  school       School?             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([referralId])
   @@index([status])

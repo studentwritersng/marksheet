@@ -275,3 +275,27 @@ export async function clearCustomDomainAction(schoolId: string): Promise<SchoolA
   revalidatePath(`/console/schools/${schoolId}`);
   return { success: "Custom domain cleared." };
 }
+
+export async function deleteSchoolAction(schoolId: string): Promise<SchoolActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+  const user = await getCurrentUser();
+  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } });
+  if (!school) return { error: "School not found." };
+
+  // Log the deletion WITHOUT tying it to the school, so the audit entry survives
+  // the cascade delete of the school and its related rows.
+  await recordAudit({
+    actorId: user!.userId,
+    action: "delete_school",
+    entityType: "school",
+    entityId: schoolId,
+    beforeValue: { name: school.name },
+    afterValue: { deleted: true },
+  });
+
+  await prisma.school.delete({ where: { id: schoolId } });
+
+  revalidatePath("/console/schools");
+  revalidatePath(`/console/schools/${schoolId}`);
+  return { success: `School "${school.name}" permanently deleted.` };
+}

@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
-import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction, updateSchoolAction, toggleSuspendSchoolAction, setSchoolStageAction, exportSchoolBackupConsoleAction, configureCustomDomainAction, verifyCustomDomainAction, clearCustomDomainAction } from "./actions";
+import { useActionState, useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction, updateSchoolAction, toggleSuspendSchoolAction, setSchoolStageAction, exportSchoolBackupConsoleAction, configureCustomDomainAction, verifyCustomDomainAction, clearCustomDomainAction, deleteSchoolAction } from "./actions";
 
 interface SchoolVM {
   id: string;
@@ -69,6 +70,16 @@ export function SchoolDetailClient({
   const [clearState, clearAction, clearPending] = useActionState(
     async () => clearCustomDomainAction(school.id), {},
   );
+
+  const router = useRouter();
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
+  const [deleteState, deleteAction, deletePending] = useActionState(
+    async () => deleteSchoolAction(school.id), {},
+  );
+  useEffect(() => {
+    if (deleteState.success) router.push("/console/schools");
+  }, [deleteState.success, router]);
 
   const now = new Date();
   const currentLicense = licenses[0];
@@ -334,6 +345,45 @@ export function SchoolDetailClient({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Danger zone — permanent delete */}
+      <div className="bg-red-900/10 border border-red-800/30 rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">Danger Zone</h2>
+        <p className="text-xs text-white/40 mb-4">
+          Permanently delete this school and <strong className="text-red-300">all</strong> of its data —
+          students, staff, classes, results, licenses, invoices and more. This action cannot be undone.
+        </p>
+        {!showDelete ? (
+          <button type="button" onClick={() => setShowDelete(true)}
+            className="text-xs text-red-400 border border-red-800/30 hover:bg-red-900/20 px-3 py-1.5 rounded-lg transition-colors"
+          >Delete School</button>
+        ) : (
+          <div className="space-y-3">
+            <label className="text-xs text-white/60 block">
+              Type <span className="font-mono text-red-300">confirm delete</span> to enable deletion:
+            </label>
+            <input
+              value={deleteText}
+              onChange={(e) => setDeleteText(e.target.value)}
+              placeholder="confirm delete"
+              autoFocus
+              className="w-full bg-white/5 border border-red-800/30 rounded-lg p-2.5 text-sm text-white font-mono focus:outline-none focus:border-red-500"
+            />
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { setShowDelete(false); setDeleteText(""); }}
+                className="text-xs text-white/70 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 transition-colors"
+              >Cancel</button>
+              <form action={deleteAction}>
+                <button type="submit" disabled={deletePending || deleteText !== "confirm delete"}
+                  className="text-xs bg-red-700 hover:bg-red-600 text-white px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >{deletePending ? "Deleting…" : "Permanently Delete"}</button>
+              </form>
+            </div>
+            {deleteState.error && <p className="text-red-400 text-sm">{deleteState.error}</p>}
+            {deleteState.success && <p className="text-emerald-400 text-sm">{deleteState.success}</p>}
+          </div>
+        )}
       </div>
     </div>
   );
