@@ -140,7 +140,7 @@ export async function commitStudentCsvAction(
     const passwordHash = await bcrypt.hash(passwordRaw, 10);
 
     const user = await prisma.user.create({
-      data: { email, passwordHash, role: "student", schoolId: ctx.schoolId, isActive: true },
+      data: { email, passwordHash, role: "student", schoolId: ctx.schoolId, isActive: true, mustChangePassword: false },
     });
 
     const student = await prisma.student.create({

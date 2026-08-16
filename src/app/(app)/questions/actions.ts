@@ -471,10 +471,14 @@ export async function aiGenerateQuestionsMultiAction(
   const marksPerQuestion = Math.max(1, Number(formData.get("marksPerQuestion") ?? 5));
   const groundingPercentage = Math.max(0, Math.min(100, Number(formData.get("groundingPercentage") ?? 75)));
 
-  // 40-40-20 difficulty distribution
-  const easyCount = Math.round(questionCount * 0.4);
-  const mediumCount = Math.round(questionCount * 0.4);
-  const hardCount = questionCount - easyCount - mediumCount;
+  // Difficulty distribution — controllable via easyPct/mediumPct/hardPct (default 40/40/20)
+  const easyPct = Math.max(0, Number(formData.get("easyPct") ?? 40));
+  const mediumPct = Math.max(0, Number(formData.get("mediumPct") ?? 40));
+  const hardPct = Math.max(0, Number(formData.get("hardPct") ?? 20));
+  const distTotal = easyPct + mediumPct + hardPct;
+  const easyCount = Math.round(questionCount * (distTotal > 0 ? easyPct / distTotal : 0.4));
+  const mediumCount = Math.round(questionCount * (distTotal > 0 ? mediumPct / distTotal : 0.4));
+  const hardCount = Math.max(0, questionCount - easyCount - mediumCount);
 
   const notes = await prisma.lessonNote.findMany({
     where: { id: { in: noteIdsRaw }, schoolId: ctx.schoolId, status: "published" },
@@ -808,9 +812,9 @@ Remember: the "questions" array must have exactly ${chunkCount} item${chunkCount
 
     while (remaining > 0 && attempts < maxAttempts) {
       const chunkCount = Math.min(CHUNK_SIZE, remaining);
-      const eC = Math.round(chunkCount * 0.4);
-      const mC = Math.round(chunkCount * 0.4);
-      const hC = chunkCount - eC - mC;
+      const eC = Math.round(chunkCount * (distTotal > 0 ? easyPct / distTotal : 0.4));
+      const mC = Math.round(chunkCount * (distTotal > 0 ? mediumPct / distTotal : 0.4));
+      const hC = Math.max(0, chunkCount - eC - mC);
       attempts++;
 
       const result = await generateChunk(chunkCount, eC, mC, hC);

@@ -31,6 +31,7 @@ export function CreateQuestionForm({
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [groundingSlider, setGroundingSlider] = useState(75);
+  const [dist, setDist] = useState({ easy: 40, medium: 40, hard: 20 });
 
   function addRubricPoint() {
     setRubricPoints([...rubricPoints, { description: "", mark: 0 }]);
@@ -422,8 +423,48 @@ export function CreateQuestionForm({
               </div>
             </div>
             <div className="col-span-3">
-              <p className="font-label-sm text-label-sm text-on-surface-variant">
-                Questions auto-distributed: 40% Easy · 40% Medium · 20% Hard
+              <label className="mb-1 block font-label-md text-label-md text-on-surface">Difficulty distribution (Easy / Medium / Hard)</label>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Easy %</label>
+                  <input
+                    type="number"
+                    name="easyPct"
+                    value={dist.easy}
+                    min={0}
+                    max={100}
+                    onChange={(e) => setDist({ ...dist, easy: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Medium %</label>
+                  <input
+                    type="number"
+                    name="mediumPct"
+                    value={dist.medium}
+                    min={0}
+                    max={100}
+                    onChange={(e) => setDist({ ...dist, medium: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block font-label-sm text-label-sm text-on-surface-variant">Hard %</label>
+                  <input
+                    type="number"
+                    name="hardPct"
+                    value={dist.hard}
+                    min={0}
+                    max={100}
+                    onChange={(e) => setDist({ ...dist, hard: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full border border-outline-variant rounded p-2 font-body-sm bg-surface-container-lowest focus:outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+              <p className="mt-1 font-label-sm text-label-sm text-on-surface-variant">
+                Current split: {dist.easy}% Easy · {dist.medium}% Medium · {dist.hard}% Hard
+                {dist.easy + dist.medium + dist.hard !== 100 && " (normalised to total 100 automatically)"}
               </p>
             </div>
           </div>

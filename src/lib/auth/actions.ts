@@ -144,10 +144,6 @@ async function handleStudentLogin(
   const store = await cookies();
   store.set(SESSION_COOKIE, token, sessionCookieOptions());
 
-  if (forcePasswordChange) {
-    redirect("/change-password");
-  }
-
   redirect("/dashboard");
 }
 

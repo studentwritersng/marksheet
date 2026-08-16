@@ -124,6 +124,7 @@ export async function createStudentAction(
       role: "student",
       schoolId: ctx.schoolId,
       isActive: true,
+      mustChangePassword: false,
     },
   });
 
@@ -414,6 +415,7 @@ export async function transferStudentFromBranchAction(
       role: "student",
       schoolId: ctx.schoolId,
       isActive: true,
+      mustChangePassword: false,
     },
   });
 
