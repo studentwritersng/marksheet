@@ -107,17 +107,6 @@ export function AddonsClient({ addons, activeAddons, schoolStage, methods }: {
         <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Extend your school&apos;s platform with additional features.</p>
       </div>
 
-      <div className="relative overflow-hidden rounded-2xl border border-outline-variant">
-        <Image
-          src="/addons-illustration.webp"
-          alt="Addons illustration"
-          width={1920}
-          height={1080}
-          priority
-          className="h-auto w-full"
-        />
-      </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {activeAddonsList.map((addon, index) => {
           const theme = THEMES[index % THEMES.length];

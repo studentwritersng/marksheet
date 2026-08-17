@@ -134,7 +134,7 @@ export function SchoolSettingsForm({
       </div>
 
       {/* Appearance & Login Screen */}
-      <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-6">
+      <div id="appearance" className="bg-white border border-outline-variant rounded-xl p-6 space-y-6">
         <div>
           <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Appearance &amp; Login Screen</h3>
           <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Customise the portal&apos;s primary colour and choose a login screen layout. Changes apply to this school only.</p>

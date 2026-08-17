@@ -19,10 +19,13 @@ export async function generateMetadata(): Promise<Metadata> {
   if (!user?.schoolId) return {};
   const school = await prisma.school.findUnique({
     where: { id: user.schoolId },
-    select: { logo: true },
+    select: { name: true, logo: true },
   });
-  if (!school?.logo) return {};
-  return { icons: { icon: school.logo, apple: school.logo } };
+  if (!school) return {};
+  return {
+    title: school.name,
+    icons: school.logo ? { icon: school.logo, apple: school.logo } : undefined,
+  };
 }
 
 export default async function AppLayout({

@@ -77,6 +77,7 @@ export function buildNav(
         { label: "Announcements", href: "/announcements", icon: "campaign" },
         { label: "Audit Log", href: "/audit-log", icon: "history" },
         { label: "Offline Hubs", href: "/offline-hubs", icon: "router" },
+        { label: "Appearance", href: "/settings/school#appearance", icon: "palette" },
         { label: "Settings", href: "/settings/school", icon: "settings" },
       ]},
       { label: "Addons", href: "/addons", icon: "extension" },
