@@ -307,7 +307,7 @@ Write a complete lesson note following the structure above. Ensure all content i
     });
   } catch (e: any) {
     const msg = e?.message ?? "AI generation failed.";
-    return { error: msg.includes("not configured") ? "AI provider is not configured. Go to Console → AI Config to set one up." : msg };
+    return { error: msg.includes("not configured") ? "The AI lesson note service is currently unavailable. Please try again in a few minutes, or contact support if it keeps failing." : msg };
   }
 
   // Parse the JSON response (with markdown fence / truncation resilience)
@@ -317,7 +317,7 @@ Write a complete lesson note following the structure above. Ensure all content i
   // instead of storing raw AI text as the lesson note content
   const hasStructuredFields = parsed.students_note || parsed.previous_knowledge || parsed.presentation_steps;
   if (!hasStructuredFields && result.content.trim().length > 0) {
-    return { error: "AI did not return a valid lesson note structure. Please try again — you can also try a different AI model in Console → AI Config." };
+    return { error: "The AI model didn't return a usable response. Please try again in a couple of minutes — it may be busy right now. If it keeps failing, contact your school administrator." };
   }
 
   await prisma.lessonNote.create({

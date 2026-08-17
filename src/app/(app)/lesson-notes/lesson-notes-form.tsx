@@ -282,6 +282,17 @@ export function LessonNotesForm({
         {activeTab === "manual" && (
           <div className="space-y-4">
             <div>
+              <label className="mb-1 block font-label-md text-label-md text-on-surface">Subject</label>
+              <select required value={subjectId}
+                onChange={(e) => handleSubjectSelect(e.target.value)}
+                className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary">
+                <option value="">{classId ? "Select subject…" : "Select class first…"}</option>
+                {(filteredSubjects.length ? filteredSubjects : subjects).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="mb-1 block font-label-md text-label-md text-on-surface">Topic</label>
               <input name="topic" placeholder="e.g. Introduction to Cells" required
                 className="w-full border border-outline-variant rounded p-3 font-body-md bg-surface-container-lowest focus:outline-none focus:border-primary"
