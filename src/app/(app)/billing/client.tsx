@@ -167,7 +167,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
               <div>
                 <label className="font-body-sm text-body-sm text-on-surface block mb-1">Upload Receipt (optional)</label>
                 <input ref={fileRef} type="file" accept="image/*" onChange={handleFile}
-                  className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-[#002046] file:text-white hover:file:bg-[#003366]" />
+                  className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-primary file:text-white hover:file:bg-primary-container" />
                 {proofBase64 && <img src={proofBase64} alt="Receipt preview" className="mt-2 max-h-32 rounded-lg border border-outline-variant object-contain" />}
               </div>
             </>
@@ -181,7 +181,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={pending}
-              className="bg-[#002046] hover:bg-[#003366] text-white text-sm px-5 py-2 rounded-lg disabled:opacity-60 font-label-md text-label-md"
+              className="bg-primary hover:bg-primary-container text-white text-sm px-5 py-2 rounded-lg disabled:opacity-60 font-label-md text-label-md"
             >{pending ? "Submitting..." : chosenMethod?.type === "cash" ? "Activate with Code" : `Pay ${formatPrice(effectivePrice) ?? ""}`}</button>
           </div>
           {state.error && <p className="text-red-600 text-xs">{state.error}</p>}

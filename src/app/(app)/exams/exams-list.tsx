@@ -79,7 +79,7 @@ export function ExamsList({
         ><option value="">All classes</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         {!isExamOfficer && (
           <button onClick={() => setShowCreate(!showCreate)}
-            className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366]"
+            className="bg-primary text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container"
           >{showCreate ? "Cancel" : "Create Exam"}</button>
         )}
       </div>
@@ -546,7 +546,7 @@ function CreateExamForm({
       {state.error && <p className="bg-red-50 text-red-700 font-body-sm text-body-sm px-3 py-2 rounded">{state.error}</p>}
       {state.success && <p className="bg-green-50 text-green-700 font-body-sm text-body-sm px-3 py-2 rounded">{state.success}</p>}
       <button type="submit" disabled={pending || (hasSubAssessments && !weightValid)}
-        className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366] disabled:opacity-60"
+        className="bg-primary text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60"
       >{pending ? "Creating..." : "Create Exam"}</button>
     </form>
   );
@@ -695,7 +695,7 @@ function EditExamForm({ exam, action, pending, state, subjects, classes, terms, 
       {state.success && <p className="text-sm text-green-600">{state.success}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={pending || (editHasSub && !editWeightValid)}
-          className="bg-[#002046] text-white text-sm px-3 py-1.5 rounded hover:bg-[#003366] disabled:opacity-60"
+          className="bg-primary text-white text-sm px-3 py-1.5 rounded hover:bg-primary-container disabled:opacity-60"
         >{pending ? "Saving..." : "Save"}</button>
         <button type="button" onClick={onCancel}
           className="text-sm text-on-surface-variant px-3 py-1.5">Cancel</button>
@@ -850,7 +850,7 @@ function QuestionsModal({ examId, exam, allQuestions, onClose }: {
           <button type="button" onClick={onClose}
             className="px-4 py-2 text-sm border border-outline-variant rounded">Close</button>
           <button type="button" onClick={handleAdd} disabled={selectedIds.length === 0}
-            className="px-4 py-2 text-sm bg-[#002046] text-white rounded hover:bg-[#003366] disabled:opacity-60"
+            className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary-container disabled:opacity-60"
           >Add Selected ({selectedIds.length})</button>
         </div>
       </div>

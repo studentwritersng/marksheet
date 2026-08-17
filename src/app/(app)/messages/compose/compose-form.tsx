@@ -52,7 +52,7 @@ export function ComposeMessageForm({ recipients }: { recipients: { userId: strin
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button type="submit" disabled={sending}
-        className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366] disabled:opacity-60">
+        className="bg-primary text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60">
         {sending ? "Sending..." : "Send Message"}
       </button>
     </form>

@@ -63,7 +63,7 @@ export function ConversationsList({ conversations }: { conversations: Conversati
         </div>
         <button
           onClick={() => setComposing(true)}
-          className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366] flex items-center gap-2"
+          className="bg-primary text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container flex items-center gap-2"
         >
           <span className="material-symbols-outlined text-[18px]">edit</span>
           New Message
@@ -222,7 +222,7 @@ function ComposeInline({ onSent }: { onSent: () => void }) {
         <button type="button" onClick={onSent} disabled={sending}
           className="px-4 py-2 text-sm border border-outline-variant rounded hover:bg-surface-container-low">Cancel</button>
         <button type="submit" disabled={sending || !recipientId}
-          className="px-4 py-2 text-sm bg-[#002046] text-white rounded hover:bg-[#003366] disabled:opacity-60">
+          className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary-container disabled:opacity-60">
           {sending ? "Sending..." : "Send"}
         </button>
       </div>

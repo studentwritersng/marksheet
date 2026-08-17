@@ -38,7 +38,7 @@ export function MobileSidebar({
 
       {/* Mobile sidebar panel */}
       <aside
-        className={`fixed top-0 left-0 h-full w-72 bg-[#002046] z-40 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col ${
+        className={`fixed top-0 left-0 h-full w-72 bg-primary z-40 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -99,7 +99,7 @@ function MobileNavItem({ item, onNavigate, nested, openLabel, onToggle }: { item
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
             nested
               ? "text-blue-300 bg-white/5 hover:bg-white/10 hover:text-white font-label-sm text-label-sm"
-              : "text-blue-200 hover:bg-white/10 hover:text-white font-label-md text-label-md"
+              : "text-primary-fixed hover:bg-white/10 hover:text-white font-label-md text-label-md"
           }`}
         >
           <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
@@ -130,7 +130,7 @@ function MobileNavItem({ item, onNavigate, nested, openLabel, onToggle }: { item
           ? "bg-white/15 text-white"
           : nested
             ? "text-blue-300 bg-white/5 hover:bg-white/10 hover:text-white font-label-sm text-label-sm"
-            : "text-blue-200 hover:bg-white/10 hover:text-white font-label-md text-label-md"
+            : "text-primary-fixed hover:bg-white/10 hover:text-white font-label-md text-label-md"
       }`}
     >
       <span className="material-symbols-outlined text-[20px]">{item.icon}</span>

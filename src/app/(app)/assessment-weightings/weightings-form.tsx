@@ -153,7 +153,7 @@ function AssessmentTypesSection({ types }: { types: { id: string; name: string; 
             className="border border-outline-variant rounded-lg p-2.5 font-body-md text-body-md w-24 uppercase" />
         </div>
         <button type="submit" disabled={pending}
-          className="bg-[#002046] text-white font-label-md text-label-md py-2.5 px-4 rounded-lg hover:bg-[#003366] disabled:opacity-60"
+          className="bg-primary text-white font-label-md text-label-md py-2.5 px-4 rounded-lg hover:bg-primary-container disabled:opacity-60"
         >Add Type</button>
       </form>
       {state.error && <p className="text-sm text-red-600 mt-2">{state.error}</p>}
@@ -178,7 +178,7 @@ function SubAssessmentForm({ parentId, parentCode, onClose }: { parentId: string
           className="border border-outline-variant rounded p-2 font-body-md text-body-md w-24 text-sm uppercase" />
       </div>
       <button type="submit" disabled={pending}
-        className="bg-[#002046] text-white text-sm px-3 py-2 rounded hover:bg-[#003366] disabled:opacity-60"
+        className="bg-primary text-white text-sm px-3 py-2 rounded hover:bg-primary-container disabled:opacity-60"
       >{pending ? "..." : "Add"}</button>
       <button type="button" onClick={onClose}
         className="text-sm text-on-surface-variant px-2 py-2">Cancel</button>
@@ -221,10 +221,10 @@ function WeightingsSection({
     <div>
       <div className="flex gap-2 mb-4">
         <button onClick={() => setMode("default")}
-          className={`rounded-full px-3 py-1 text-sm ${mode === "default" ? "bg-[#002046] text-white" : "bg-surface-container text-on-surface-variant"}`}
+          className={`rounded-full px-3 py-1 text-sm ${mode === "default" ? "bg-primary text-white" : "bg-surface-container text-on-surface-variant"}`}
         >School-wide defaults</button>
         <button onClick={() => setMode("per-subject")}
-          className={`rounded-full px-3 py-1 text-sm ${mode === "per-subject" ? "bg-[#002046] text-white" : "bg-surface-container text-on-surface-variant"}`}
+          className={`rounded-full px-3 py-1 text-sm ${mode === "per-subject" ? "bg-primary text-white" : "bg-surface-container text-on-surface-variant"}`}
         >Per subject</button>
       </div>
 
@@ -276,7 +276,7 @@ function WeightingsSection({
               />
             </div>
             <button type="submit" disabled={pending}
-              className="bg-[#002046] text-white font-label-md text-label-md py-2.5 px-4 rounded-lg hover:bg-[#003366] disabled:opacity-60"
+              className="bg-primary text-white font-label-md text-label-md py-2.5 px-4 rounded-lg hover:bg-primary-container disabled:opacity-60"
             >Add</button>
           </form>
         </div>
@@ -328,7 +328,7 @@ function WeightingsSection({
                     />
                   </div>
                   <button type="submit" disabled={pending}
-                    className="bg-[#002046] text-white rounded hover:bg-[#003366] disabled:opacity-60 px-3 py-2 text-sm font-label-md text-label-md"
+                    className="bg-primary text-white rounded hover:bg-primary-container disabled:opacity-60 px-3 py-2 text-sm font-label-md text-label-md"
                   >Add</button>
                 </form>
               </div>

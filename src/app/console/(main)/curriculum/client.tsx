@@ -119,7 +119,7 @@ export function ImportCurriculumClient({ subjectsByClass }: { subjectsByClass: R
             <input type="hidden" name="term" value={term} />
             <input type="hidden" name="subject" value={effectiveSubject} />
             <button type="submit" disabled={parsePending || !effectiveSubject}
-              className="bg-[#002046] hover:bg-[#003366] text-white px-5 py-2 rounded-lg font-label-md text-label-md disabled:opacity-60"
+              className="bg-primary hover:bg-primary-container text-white px-5 py-2 rounded-lg font-label-md text-label-md disabled:opacity-60"
             >{parsePending ? "Parsing..." : "Parse from NERDC"}</button>
           </form>
 

@@ -33,7 +33,7 @@ export default async function DashboardPage() {
     return (
       <section className="flex flex-col gap-stack-lg">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#002046] flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0">
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0">
             {initial}
           </div>
           <div>
@@ -147,7 +147,7 @@ export default async function DashboardPage() {
     return (
       <section className="flex flex-col gap-stack-lg">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#002046] flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0 overflow-hidden">
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0 overflow-hidden">
             {myStudent?.passportPhoto ? <img src={myStudent.passportPhoto} alt="" className="w-full h-full object-cover" /> : initial}
           </div>
           <div>
@@ -368,7 +368,7 @@ export default async function DashboardPage() {
       <section className="flex flex-col gap-stack-lg">
         {/* Greeting */}
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#002046] flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0 overflow-hidden">
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0 overflow-hidden">
             {myStaff?.image ? <img src={myStaff.image} alt="" className="w-full h-full object-cover" /> : myName.charAt(0).toUpperCase()}
           </div>
           <div>
@@ -395,7 +395,7 @@ export default async function DashboardPage() {
                   <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">{cls._count.students} student{cls._count.students !== 1 ? "s" : ""}</p>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {isClassTeacher && perms.classTeacherClassIds.has(cls.id) && (
-                      <span className="text-[10px] font-semibold bg-[#002046] text-white px-2 py-0.5 rounded-full">Class Teacher</span>
+                      <span className="text-[10px] font-semibold bg-primary text-white px-2 py-0.5 rounded-full">Class Teacher</span>
                     )}
                     {perms.subjectTeacherClassIds.has(cls.id) && (
                       <span className="text-[10px] font-semibold bg-primary-container text-on-primary-container px-2 py-0.5 rounded-full">Subject Teacher</span>
@@ -533,7 +533,7 @@ export default async function DashboardPage() {
     <section className="flex flex-col gap-stack-lg">
       {/* Greeting */}
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-[#002046] flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0">
+        <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0">
           {initials}
         </div>
         <div>
@@ -629,7 +629,7 @@ function MiniCalendar() {
     const isToday = d === today;
     cells.push(
       <div key={d} className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-medium
-        ${isToday ? "bg-[#002046] text-white" : "text-on-surface hover:bg-surface-container"}`}>
+        ${isToday ? "bg-primary text-white" : "text-on-surface hover:bg-surface-container"}`}>
         {d}
       </div>
     );

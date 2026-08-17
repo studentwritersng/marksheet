@@ -58,7 +58,7 @@ export function ClassRow({ classItem }: { classItem: ClassVM }) {
         </div>
         <div className="flex gap-2">
           <button type="submit" disabled={pending}
-            className="text-sm bg-[#002046] text-white px-2 py-1 rounded disabled:opacity-60"
+            className="text-sm bg-primary text-white px-2 py-1 rounded disabled:opacity-60"
           >Save</button>
           <button type="button" onClick={() => setEditing(false)}
             className="text-sm text-on-surface-variant px-2 py-1"

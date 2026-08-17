@@ -41,6 +41,10 @@ export default async function SchoolSettingsPage() {
               phone: school.phone ?? "",
               email: school.email ?? "",
               motto: school.motto ?? "",
+              portalTheme: school.portalTheme,
+              loginDesign: school.loginDesign,
+              loginImage: school.loginImage ?? "",
+              loginTexts: (school.loginTexts as Record<string, string> | null) ?? null,
             }}
           />
       </div>

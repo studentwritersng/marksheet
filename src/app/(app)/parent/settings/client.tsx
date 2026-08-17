@@ -101,7 +101,7 @@ export function ParentSettingsClient({ parentAccountId, initialPrefs, phone }: P
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] disabled:opacity-50 transition-colors"
+          className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container disabled:opacity-50 transition-colors"
         >
           {saving ? "Saving&hellip;" : "Save Preferences"}
         </button>

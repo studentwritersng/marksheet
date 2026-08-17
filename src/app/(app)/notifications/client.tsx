@@ -174,7 +174,7 @@ function SchoolSettingsTab({ schoolId }: { schoolId: string }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] disabled:opacity-50 transition-colors"
+          className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container disabled:opacity-50 transition-colors"
         >
           {saving ? "Saving&hellip;" : "Save Settings"}
         </button>
@@ -390,7 +390,7 @@ function ProvidersTab() {
         <div className="flex gap-2 justify-end">
           {editing && <button onClick={resetForm} className="px-4 py-2 border border-outline-variant rounded-lg text-sm">Cancel</button>}
           <button onClick={handleSave}
-            className="px-6 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] transition-colors">
+            className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container transition-colors">
             {editing ? "Update" : "Add Provider"}
           </button>
         </div>
@@ -554,7 +554,7 @@ function TemplatesTab() {
         <div className="flex gap-2 justify-end">
           {editing && <button onClick={resetForm} className="px-4 py-2 border border-outline-variant rounded-lg text-sm">Cancel</button>}
           <button onClick={handleSave}
-            className="px-6 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] transition-colors">
+            className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container transition-colors">
             {editing ? "Update" : "Add Template"}
           </button>
         </div>
@@ -585,7 +585,7 @@ function LogsTab({ schoolId, isPlatformOwner }: { schoolId: string; isPlatformOw
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-headline-sm text-headline-sm text-on-surface">Send Log</h2>
         <button onClick={reload} disabled={loading}
-          className="px-4 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] disabled:opacity-50 transition-colors">
+          className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container disabled:opacity-50 transition-colors">
           {loading ? "Loading&hellip;" : "Refresh"}
         </button>
       </div>
@@ -667,7 +667,7 @@ function QueueTab() {
         <h2 className="font-headline-sm text-headline-sm text-on-surface">Notification Queue</h2>
         <div className="flex gap-2">
           <button onClick={handleProcess} disabled={processing}
-            className="px-4 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] disabled:opacity-50 transition-colors">
+            className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container disabled:opacity-50 transition-colors">
             {processing ? "Processing&hellip;" : "Process Queue"}
           </button>
           <button onClick={reload} disabled={loading}

@@ -83,7 +83,7 @@ export function ManualCurriculumClient({
             className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm"
           >Load</button>
           <button onClick={() => setShowAdd(true)}
-            className="bg-[#002046] hover:bg-[#003366] text-white px-4 py-2 rounded-lg text-sm"
+            className="bg-primary hover:bg-primary-container text-white px-4 py-2 rounded-lg text-sm"
           >+ Add New</button>
         </div>
       </div>

@@ -186,7 +186,7 @@ export function SpreadsheetView({ schoolId, classes, today, isAdmin }: { schoolI
               className="border border-outline-variant rounded px-3 py-2 font-body-sm text-body-sm" />
           </div>
           <button onClick={loadData} disabled={loading}
-            className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366] disabled:opacity-60">
+            className="bg-primary text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container disabled:opacity-60">
             {loading ? "Loading…" : "Load"}
           </button>
           {rows.length > 0 && (

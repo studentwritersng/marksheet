@@ -280,7 +280,7 @@ export default async function ReportCardPage(props: {
           </div>
 
           {/* ── SESSION / TERM BANNER ── */}
-          <div className="bg-[#002046] text-white px-6 py-1.5 flex justify-between items-center text-xs font-semibold uppercase tracking-wide">
+          <div className="bg-primary text-white px-6 py-1.5 flex justify-between items-center text-xs font-semibold uppercase tracking-wide">
             <span>Session: {term.session.label}</span>
             <span>{term.name} Term</span>
             <span>Class: {student.currentClass?.name ?? "—"}</span>
@@ -322,7 +322,7 @@ export default async function ReportCardPage(props: {
           <div className="px-6 py-3">
             <table className="w-full text-xs border-collapse border border-gray-400">
               <thead>
-                <tr className="bg-[#002046] text-white">
+                <tr className="bg-primary text-white">
                   <th className="border border-gray-500 px-2 py-1.5 text-left">Subject</th>
                   {assessmentCols.map((code) => (
                     <th key={code} className="border border-gray-500 px-2 py-1.5 text-center whitespace-nowrap">
@@ -572,7 +572,7 @@ export default async function ReportCardPage(props: {
           </div>
 
           {/* ── FOOTER ── */}
-          <div className="bg-[#002046] text-white px-6 py-2 text-center text-[10px]">
+          <div className="bg-primary text-white px-6 py-2 text-center text-[10px]">
             {school?.name ?? "Marksheet School"} · Result generated on Marksheet Platform
           </div>
 

@@ -86,7 +86,7 @@ export function SchoolSearchForm() {
           </a>
           <a
             href="/proprietor/login"
-            className="block w-full bg-[#002046] text-white font-label-md text-label-md py-2.5 px-4 rounded-lg text-center hover:bg-[#003366] transition-colors"
+            className="block w-full bg-primary text-white font-label-md text-label-md py-2.5 px-4 rounded-lg text-center hover:bg-primary-container transition-colors"
           >
             Proprietor Login
           </a>

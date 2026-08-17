@@ -526,7 +526,7 @@ function EditQuestionForm({ question, onSaved, onCancel }: { question: QuestionV
       {state.success && <p className="text-sm text-green-600">{state.success}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={saving}
-          className="bg-[#002046] text-white text-sm px-3 py-1.5 rounded hover:bg-[#003366] disabled:opacity-60">
+          className="bg-primary text-white text-sm px-3 py-1.5 rounded hover:bg-primary-container disabled:opacity-60">
           {saving ? "Saving…" : "Save"}
         </button>
         <button type="button" onClick={onCancel}

@@ -44,6 +44,14 @@ model School {
   customDomain         String? @unique
   customDomainVerified Boolean @default(false)
   customDomainToken    String?
+  // Appearance — portal primary colour theme (blue/green/purple/black/gold)
+  portalTheme          String  @default("blue")
+  // Selected login screen layout (minimalist/illustrative/classic/split/secure/dark)
+  loginDesign          String  @default("classic")
+  // Custom image for image-based login designs (illustrative/split/secure)
+  loginImage           String?
+  // Editable login-screen copy (heading/subheading/brandLine/footerText) as JSON
+  loginTexts           Json?
   // Fee gating configuration (PRD 12 §3.2)
   feeGateExams            Boolean          @default(false) // block exam access if fee not cleared
   feeGateResults          Boolean          @default(false) // block result release if fee not cleared

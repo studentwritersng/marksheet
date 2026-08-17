@@ -92,7 +92,7 @@ export function BatchReleasePanel({ hubs, exams }: { hubs: HubRow[]; exams: Exam
           <button
             onClick={submit}
             disabled={!canSubmit}
-            className="mt-3 rounded-lg bg-[#002046] hover:bg-[#003366] text-white text-sm px-4 py-2 disabled:opacity-50"
+            className="mt-3 rounded-lg bg-primary hover:bg-primary-container text-white text-sm px-4 py-2 disabled:opacity-50"
           >
             {pending ? "Releasing…" : `Release ${selected.size} exam${selected.size === 1 ? "" : "s"} to hub`}
           </button>

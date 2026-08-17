@@ -70,11 +70,11 @@ export default async function AppLayout({
   const nav = buildNav(user, perms, isStudentCaptain);
 
   // Fetch school info for sidebar branding
-  let schoolInfo: { name: string; logo: string | null; motto: string | null; shortcode: string | null } | null = null;
+  let schoolInfo: { name: string; logo: string | null; motto: string | null; shortcode: string | null; portalTheme: string } | null = null;
   if (user.schoolId) {
     const school = await prisma.school.findUnique({
       where: { id: user.schoolId },
-      select: { name: true, logo: true, motto: true, shortcode: true },
+      select: { name: true, logo: true, motto: true, shortcode: true, portalTheme: true },
     });
     schoolInfo = school;
   }
@@ -95,9 +95,9 @@ export default async function AppLayout({
                 : user.role;
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-surface text-on-surface font-body-md antialiased">
+    <div data-portal-theme={schoolInfo?.portalTheme || "blue"} className="flex h-screen w-full overflow-hidden bg-surface text-on-surface font-body-md antialiased">
       {/* Sidebar */}
-      <aside className="hidden md:flex flex-col h-full p-stack-md gap-stack-sm bg-[#002046] w-64 shrink-0 z-20">
+      <aside className="hidden md:flex flex-col h-full p-stack-md gap-stack-sm bg-primary w-64 shrink-0 z-20">
         {/* Branding */}
         <div className="flex items-center gap-3 px-3 py-4 mb-4">
           <div className="w-10 h-10 rounded bg-white/20 flex items-center justify-center text-white shrink-0 overflow-hidden">
@@ -109,7 +109,7 @@ export default async function AppLayout({
           </div>
           <div className="flex flex-col min-w-0">
             <span className="font-headline-sm text-headline-sm font-bold text-white truncate">{schoolInfo?.name ?? "Marksheet"}</span>
-            <span className="font-label-sm text-label-sm text-blue-200 uppercase tracking-wider truncate">{schoolInfo?.motto ?? "Academic Portal"}</span>
+            <span className="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider truncate">{schoolInfo?.motto ?? "Academic Portal"}</span>
           </div>
         </div>
 

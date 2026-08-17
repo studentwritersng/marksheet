@@ -51,7 +51,7 @@ export function OfflineSyncCard({ examId, hubs, offlineStatus, canRegister = fal
           <button
             onClick={submit}
             disabled={pending || !hubId}
-            className="rounded-lg bg-[#002046] hover:bg-[#003366] text-white text-sm px-4 py-2 disabled:opacity-50"
+            className="rounded-lg bg-primary hover:bg-primary-container text-white text-sm px-4 py-2 disabled:opacity-50"
           >
             {pending ? "Releasing…" : "Release to hub"}
           </button>

@@ -54,7 +54,7 @@ export function ProfileForm({ staff }: ProfileFormProps) {
       {state.success && <p className="bg-green-50 text-green-700 font-body-sm text-body-sm px-4 py-3 rounded-lg border border-green-200">{state.success}</p>}
 
       <div className="flex justify-end">
-        <button type="submit" disabled={pending} className="bg-[#002046] text-white font-label-md text-label-md py-2.5 px-6 rounded-lg hover:bg-[#003366] disabled:opacity-60">
+        <button type="submit" disabled={pending} className="bg-primary text-white font-label-md text-label-md py-2.5 px-6 rounded-lg hover:bg-primary-container disabled:opacity-60">
           {pending ? "Saving…" : "Save Profile"}
         </button>
       </div>

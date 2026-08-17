@@ -89,7 +89,7 @@ export function AttendanceForm({
 
           <div className="mt-4 flex items-center gap-4">
             <button type="submit" disabled={pending}
-              className="bg-[#002046] text-white font-label-md text-label-md py-2 px-6 rounded hover:bg-[#003366] disabled:opacity-60"
+              className="bg-primary text-white font-label-md text-label-md py-2 px-6 rounded hover:bg-primary-container disabled:opacity-60"
             >{pending ? "Saving..." : "Save All Attendance"}</button>
             {state.success && <p className="text-green-700 font-body-sm text-body-sm">{state.success}</p>}
             {state.error && <p className="text-red-600 font-body-sm text-body-sm">{state.error}</p>}

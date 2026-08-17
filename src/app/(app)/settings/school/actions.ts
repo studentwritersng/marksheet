@@ -41,9 +41,38 @@ export async function updateSchoolSettingsAction(
   const attendancePeriodEnabled = formData.get("attendancePeriodEnabled") === "on";
   const attendanceLateCutoff = String(formData.get("attendanceLateCutoff") ?? "").trim() || null;
 
+  const portalTheme = String(formData.get("portalTheme") ?? "blue").trim() || "blue";
+  const loginDesign = String(formData.get("loginDesign") ?? "classic").trim() || "classic";
+  const loginImage = String(formData.get("loginImage") ?? "").trim() || null;
+  const loginTexts = {
+    heading: String(formData.get("loginHeading") ?? "").trim(),
+    subheading: String(formData.get("loginSubheading") ?? "").trim(),
+    brandLine: String(formData.get("loginBrandLine") ?? "").trim(),
+    footerText: String(formData.get("loginFooterText") ?? "").trim(),
+  };
+
   await prisma.school.update({
     where: { id: ctx.schoolId },
-    data: { name, shortcode, address, logo, signature, stamp, phone, email, motto, maintenanceMode, feeGateExams, feeGateResults, attendancePeriodEnabled, attendanceLateCutoff },
+    data: {
+      name,
+      shortcode,
+      address,
+      logo,
+      signature,
+      stamp,
+      phone,
+      email,
+      motto,
+      maintenanceMode,
+      feeGateExams,
+      feeGateResults,
+      attendancePeriodEnabled,
+      attendanceLateCutoff,
+      portalTheme,
+      loginDesign,
+      loginImage,
+      loginTexts,
+    },
   });
 
   await recordAudit({

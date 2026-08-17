@@ -89,7 +89,7 @@ export function ReportCardSettingsClient({ config }: { config: ReportCardConfig 
         <button
           type="submit"
           disabled={pending}
-          className="bg-[#002046] text-white font-label-md text-label-md py-2.5 px-8 rounded-lg hover:bg-[#003366] disabled:opacity-60 transition-colors"
+          className="bg-primary text-white font-label-md text-label-md py-2.5 px-8 rounded-lg hover:bg-primary-container disabled:opacity-60 transition-colors"
         >
           {pending ? "Saving…" : "Save Settings"}
         </button>

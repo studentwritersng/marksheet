@@ -121,7 +121,7 @@ export function EssayGradingView({
                   className="w-full flex items-center justify-between px-5 py-4 hover:bg-surface-container-low transition-colors text-left"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#002046] flex items-center justify-center text-white font-label-sm text-label-sm shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-label-sm text-label-sm shrink-0">
                       {studentName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
                     </div>
                     <div>

@@ -58,7 +58,7 @@ export function BackupClient({ schoolId, schoolName }: { schoolId: string; schoo
               type="file"
               accept=".json"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-white file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-[#002046] file:text-white file:text-sm hover:file:bg-[#003366]"
+              className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-white file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary file:text-white file:text-sm hover:file:bg-primary-container"
             />
           </div>
 
@@ -66,7 +66,7 @@ export function BackupClient({ schoolId, schoolName }: { schoolId: string; schoo
             type="button"
             onClick={handleImport}
             disabled={!file || pending}
-            className="bg-[#002046] text-white text-sm py-2.5 px-6 rounded-lg hover:bg-[#003366] disabled:opacity-60 transition-colors"
+            className="bg-primary text-white text-sm py-2.5 px-6 rounded-lg hover:bg-primary-container disabled:opacity-60 transition-colors"
           >
             {pending ? "Restoring…" : "Restore Backup"}
           </button>

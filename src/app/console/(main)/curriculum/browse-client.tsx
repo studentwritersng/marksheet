@@ -76,7 +76,7 @@ export function BrowseCurriculumClient({
           </select>
         </div>
         <button onClick={load}
-          className="bg-[#002046] hover:bg-[#003366] text-white px-4 py-2 rounded-lg text-sm"
+          className="bg-primary hover:bg-primary-container text-white px-4 py-2 rounded-lg text-sm"
         >Load</button>
       </div>
 

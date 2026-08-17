@@ -54,7 +54,7 @@ export function ProprietorChangePasswordForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full bg-[#002046] text-white font-label-md text-label-md py-2.5 px-4 rounded-lg hover:bg-[#003366] transition-colors disabled:opacity-60"
+        className="w-full bg-primary text-white font-label-md text-label-md py-2.5 px-4 rounded-lg hover:bg-primary-container transition-colors disabled:opacity-60"
       >
         {pending ? "Saving..." : "Change Password"}
       </button>

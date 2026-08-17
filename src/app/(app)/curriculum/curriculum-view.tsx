@@ -69,7 +69,7 @@ export function CurriculumView({
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCustomClassSubmit())}
               />
               <button onClick={handleCustomClassSubmit}
-                className="bg-[#002046] text-white text-xs px-2 rounded-lg">Set</button>
+                className="bg-primary text-white text-xs px-2 rounded-lg">Set</button>
               <button onClick={() => setShowCustomClass(false)}
                 className="text-on-surface-variant text-xs">Cancel</button>
             </div>
@@ -95,7 +95,7 @@ export function CurriculumView({
           </select>
         </div>
         <button onClick={() => setShowAddNew(true)}
-          className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded-lg hover:bg-[#003366] flex items-center gap-1"
+          className="bg-primary text-white font-label-md text-label-md py-2 px-4 rounded-lg hover:bg-primary-container flex items-center gap-1"
         >+ Add New</button>
         <form action={deleteAction} className="flex items-center gap-2">
           <input type="hidden" name="classLevel" value={selectedClass} />
@@ -298,7 +298,7 @@ function EditTopicForm({
       {state.success && <p className="text-sm text-green-600">{state.success}</p>}
 
       <div className="flex gap-2">
-        <button type="submit" disabled={pending} className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded-lg hover:bg-[#003366] disabled:opacity-60">
+        <button type="submit" disabled={pending} className="bg-primary text-white font-label-md text-label-md py-2 px-4 rounded-lg hover:bg-primary-container disabled:opacity-60">
           {pending ? "Saving…" : isNew ? "Add Topic" : "Save"}
         </button>
         <button type="button" onClick={onCancel} className="text-on-surface-variant font-label-md text-label-md py-2 px-4 hover:bg-surface-container-low rounded-lg">

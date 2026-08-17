@@ -5,7 +5,7 @@ export default function MaintenancePage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface px-4">
       <div className="mx-auto max-w-md text-center">
         <div className="mb-6 flex justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#002046]/10">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
             <span className="material-symbols-outlined text-4xl text-[#002046]" style={{ fontVariationSettings: "'FILL' 1" }}>
               engineering
             </span>
@@ -19,7 +19,7 @@ export default function MaintenancePage() {
         <div className="mt-8">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#002046] px-6 py-2.5 font-label-md text-label-md text-white hover:bg-[#003366] transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 font-label-md text-label-md text-white hover:bg-primary-container transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">refresh</span>
             Try Again

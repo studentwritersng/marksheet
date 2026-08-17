@@ -238,7 +238,7 @@ export function AddonsClient({ addons, activeAddons, schoolStage, methods }: {
                          <div>
                            <label className="font-body-sm text-body-sm text-on-surface block mb-1">Upload Proof of Payment</label>
                            <input ref={fileRef} type="file" accept="image/*" onChange={handleFile}
-                             className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-[#002046] file:text-white hover:file:bg-[#003366]" />
+                             className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-primary file:text-white hover:file:bg-primary-container" />
                            {proofBase64 && <img src={proofBase64} alt="Receipt preview" className="mt-2 max-h-32 rounded-lg border border-outline-variant object-contain" />}
                          </div>
                          <input name="notes" placeholder="Optional notes"

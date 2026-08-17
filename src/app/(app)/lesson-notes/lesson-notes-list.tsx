@@ -223,7 +223,7 @@ function NoteCard({
           {n.status === "draft" && (
             <button
               onClick={(e) => onPublish(n.id, e)}
-              className="rounded bg-[#002046] px-2 py-1 font-label-sm text-label-sm text-white hover:bg-[#003366]"
+              className="rounded bg-primary px-2 py-1 font-label-sm text-label-sm text-white hover:bg-primary-container"
             >
               Publish
             </button>
@@ -324,7 +324,7 @@ function EditForm({ note, onSave }: { note: NoteVM; onSave: (fd: FormData) => vo
       <Textarea label="Summary / Conclusion" value={summary} onChange={setSummary} />
       <Textarea label="Assignment / Homework" value={assignment} onChange={setAssignment} />
       <button type="submit"
-        className="rounded bg-[#002046] px-3 py-1.5 font-label-sm text-label-sm text-white hover:bg-[#003366]">
+        className="rounded bg-primary px-3 py-1.5 font-label-sm text-label-sm text-white hover:bg-primary-container">
         Save Changes
       </button>
     </form>

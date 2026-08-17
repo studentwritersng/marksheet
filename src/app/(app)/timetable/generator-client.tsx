@@ -114,7 +114,7 @@ function TemplateTab({ templates }: { templates: TemplateVM[] }) {
           <label className="text-xs text-on-surface-variant block mb-1">Applies To (levels, comma-separated)</label>
           <input name="appliesTo" placeholder="JSS1,JSS2 (leave empty = all)" className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface" />
         </div>
-        <button type="submit" disabled={tPending} className="bg-[#002046] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Create</button>
+        <button type="submit" disabled={tPending} className="bg-primary text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Create</button>
       </form>
 
       {templates.length > 0 && (
@@ -193,7 +193,7 @@ function TemplateTab({ templates }: { templates: TemplateVM[] }) {
                       <option value="fixed_other">Fixed</option>
                     </select>
                   </div>
-                  <button type="submit" disabled={pPending} className="bg-[#002046] text-white text-xs px-3 py-1.5 rounded disabled:opacity-60">Add</button>
+                  <button type="submit" disabled={pPending} className="bg-primary text-white text-xs px-3 py-1.5 rounded disabled:opacity-60">Add</button>
                 </form>
               </div>
             </>
@@ -257,7 +257,7 @@ function RequirementsTab({ subjects, classes, requirements, classSubjects }: { s
             <input type="checkbox" name="isPractical" value="true" /> Is practical
           </label>
         </div>
-        <button type="submit" disabled={pending} className="bg-[#002046] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Save</button>
+        <button type="submit" disabled={pending} className="bg-primary text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Save</button>
       </form>
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
@@ -338,7 +338,7 @@ function StaffTab({ staff, staffAvail }: { staff: StaffVM[]; staffAvail: StaffAv
             <input name="maxPeriodsPerWeek" type="number" min={1} defaultValue={40} className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface" />
           </div>
         </div>
-        <button type="submit" disabled={pending || selDays.length === 0} className="bg-[#002046] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Save</button>
+        <button type="submit" disabled={pending || selDays.length === 0} className="bg-primary text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Save</button>
       </form>
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
@@ -403,7 +403,7 @@ function RulesTab({ rules }: { rules: RuleVM[] }) {
             <input name="weight" type="number" min={1} defaultValue={100} className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface" />
           </div>
         </div>
-        <button type="submit" disabled={pending} className="bg-[#002046] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Add Rule</button>
+        <button type="submit" disabled={pending} className="bg-primary text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Add Rule</button>
       </form>
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
@@ -450,7 +450,7 @@ function RoomsTab({ roomTypes, rooms }: { roomTypes: RoomTypeVM[]; rooms: RoomVM
           <label className="text-xs text-on-surface-variant block mb-1">Room Type Name</label>
           <input name="name" required placeholder="e.g. Physics Lab" className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface" />
         </div>
-        <button type="submit" disabled={rtPending} className="bg-[#002046] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Add Type</button>
+        <button type="submit" disabled={rtPending} className="bg-primary text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Add Type</button>
       </form>
 
       <form action={rAction} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 flex items-end gap-3">
@@ -469,7 +469,7 @@ function RoomsTab({ roomTypes, rooms }: { roomTypes: RoomTypeVM[]; rooms: RoomVM
           <label className="text-xs text-on-surface-variant block mb-1">Capacity</label>
           <input name="capacity" type="number" min={1} defaultValue={40} className="w-full border border-outline-variant rounded-lg p-2 text-sm bg-surface" />
         </div>
-        <button type="submit" disabled={rPending} className="bg-[#002046] text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Add Room</button>
+        <button type="submit" disabled={rPending} className="bg-primary text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">Add Room</button>
       </form>
 
       {rooms.length > 0 && (
@@ -579,7 +579,7 @@ function GenerateTab({
       </div>
 
       <button onClick={handleGenerate} disabled={generating || selectedClasses.length === 0}
-        className="bg-[#002046] hover:bg-[#003366] text-white text-sm px-6 py-3 rounded-lg disabled:opacity-60 font-semibold">
+        className="bg-primary hover:bg-primary-container text-white text-sm px-6 py-3 rounded-lg disabled:opacity-60 font-semibold">
         {generating ? "Generating..." : "Generate Timetable"}
       </button>
 

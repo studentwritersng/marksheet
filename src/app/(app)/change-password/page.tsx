@@ -11,7 +11,7 @@ export default async function ChangePasswordPage() {
       <div className="w-full max-w-md mx-auto">
         <div className="bg-white border border-outline-variant rounded-xl p-8 shadow-sm">
           <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-full bg-[#002046] flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center mx-auto mb-4">
               <span className="material-symbols-outlined text-white text-[28px]">lock</span>
             </div>
             <h1 className="font-headline-md text-headline-md text-on-surface">Change Your Password</h1>

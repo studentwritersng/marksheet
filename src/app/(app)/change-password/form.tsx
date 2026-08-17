@@ -50,7 +50,7 @@ export function ChangePasswordForm({ forceChange = false }: { forceChange?: bool
       <button
         type="submit"
         disabled={pending}
-        className="w-full bg-[#002046] text-white font-label-md text-label-md py-3 rounded-lg hover:bg-[#003366] disabled:opacity-60 transition-colors"
+        className="w-full bg-primary text-white font-label-md text-label-md py-3 rounded-lg hover:bg-primary-container disabled:opacity-60 transition-colors"
       >
         {pending ? "Changing…" : "Change Password & Continue"}
       </button>

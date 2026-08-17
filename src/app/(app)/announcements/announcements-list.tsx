@@ -27,7 +27,7 @@ export function AnnouncementsList({ announcements: initial }: { announcements: A
   return (
     <div className="space-y-6">
       <button onClick={() => setShowForm(!showForm)}
-        className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[#003366]"
+        className="bg-primary text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-primary-container"
       >{showForm ? "Cancel" : "New Announcement"}</button>
 
       {showForm && (
@@ -141,7 +141,7 @@ function CreateAnnouncementForm({ action, pending, state }: {
       {state.success && <p className="text-green-700 font-body-sm text-body-sm">{state.success}</p>}
 
       <button type="submit" disabled={pending}
-        className="bg-[#002046] text-white font-label-md text-label-md py-2 px-6 rounded hover:bg-[#003366] disabled:opacity-60"
+        className="bg-primary text-white font-label-md text-label-md py-2 px-6 rounded hover:bg-primary-container disabled:opacity-60"
       >{pending ? "Publishing..." : "Create Announcement"}</button>
     </form>
   );

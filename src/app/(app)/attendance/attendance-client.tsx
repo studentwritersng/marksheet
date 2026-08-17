@@ -333,7 +333,7 @@ function StudentAttendanceTab({
         <button
           onClick={onLoad}
           disabled={loading}
-          className="px-4 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] disabled:opacity-50 transition-colors"
+          className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container disabled:opacity-50 transition-colors"
         >
           {loading ? "Loading…" : "Load"}
         </button>
@@ -386,7 +386,7 @@ function StudentAttendanceTab({
             <button
               onClick={onSave}
               disabled={saving || !dirty}
-              className="px-6 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] disabled:opacity-50 transition-colors"
+              className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container disabled:opacity-50 transition-colors"
             >
               {saving ? "Saving…" : dirty ? "Save Attendance" : "No Changes"}
             </button>
@@ -472,7 +472,7 @@ function StaffAttendanceTab({
             <button
               onClick={onLoad}
               disabled={loading}
-              className="px-4 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container disabled:opacity-50 transition-colors"
             >
               {loading ? "Loading…" : "Refresh"}
             </button>
@@ -646,7 +646,7 @@ function ScannerTab({
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             scannerActive
               ? "bg-red-600 text-white hover:bg-red-700"
-              : "bg-[#002046] text-white hover:bg-[#001a33]"
+              : "bg-primary text-white hover:bg-primary-container"
           }`}
         >
           {scannerActive ? "Stop Scanner" : `Start ${mode === "sign_in" ? "Sign In" : "Sign Out"}`}
@@ -709,7 +709,7 @@ function ReportTab({
         <button
           onClick={onLoad}
           disabled={loading}
-          className="px-4 py-2 bg-[#002046] text-white rounded-lg text-sm font-medium hover:bg-[#001a33] disabled:opacity-50 transition-colors"
+          className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-container disabled:opacity-50 transition-colors"
         >
           {loading ? "Loading…" : "Load Report"}
         </button>

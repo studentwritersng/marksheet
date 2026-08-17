@@ -353,7 +353,7 @@ export function ScoreEntryTable({
               <button
                 onClick={handleSave}
                 disabled={pending}
-                className="bg-[#002046] text-white font-label-md text-label-md py-2 px-5 rounded hover:bg-[#003366] disabled:opacity-60 transition-colors"
+                className="bg-primary text-white font-label-md text-label-md py-2 px-5 rounded hover:bg-primary-container disabled:opacity-60 transition-colors"
               >
                 {pending ? "Saving…" : `Save ${activeComp.name} Scores`}
               </button>

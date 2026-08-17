@@ -98,7 +98,7 @@ export function BroadsheetView({
           className="border border-outline-variant rounded-xl overflow-hidden shadow-sm"
         >
           {/* Header bar */}
-          <div className="px-5 py-3 border-b border-outline-variant bg-[#002046] text-white flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-outline-variant bg-primary text-white flex items-center justify-between">
             <div>
               <p className="font-label-sm text-label-sm opacity-70 uppercase tracking-widest">{schoolName}</p>
               <h1 className="font-headline-sm text-headline-sm font-bold tracking-wide">TERM RESULT BROADSHEET</h1>

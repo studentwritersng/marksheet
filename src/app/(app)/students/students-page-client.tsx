@@ -93,7 +93,7 @@ export function StudentsPageClient({
         <div className="flex gap-2">
           <Link
             href="/students/register"
-            className="inline-flex items-center gap-1.5 bg-[#002046] hover:bg-[#003366] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-container text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm"
           >
             <span className="material-symbols-outlined text-[18px]">person_add</span>
             Register Student

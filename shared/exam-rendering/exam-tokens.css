@@ -1,16 +1,16 @@
 @theme inline {
   --font-sans: "IBM Plex Sans", sans-serif;
 
-  /* Primary */
-  --color-primary: #002046;
-  --color-primary-container: #1b365d;
-  --color-on-primary: #ffffff;
-  --color-on-primary-container: #87a0cd;
-  --color-primary-fixed: #d6e3ff;
-  --color-primary-fixed-dim: #aec7f7;
-  --color-on-primary-fixed: #001b3d;
-  --color-on-primary-fixed-variant: #2e476f;
-  --color-inverse-primary: #aec7f7;
+  /* Primary — resolved from per-school runtime vars so the portal theme can be swapped */
+  --color-primary: var(--portal-primary, #002046);
+  --color-primary-container: var(--portal-primary-container, #1b365d);
+  --color-on-primary: var(--portal-on-primary, #ffffff);
+  --color-on-primary-container: var(--portal-on-primary-container, #87a0cd);
+  --color-primary-fixed: var(--portal-primary-fixed, #d6e3ff);
+  --color-primary-fixed-dim: var(--portal-primary-fixed-dim, #aec7f7);
+  --color-on-primary-fixed: var(--portal-on-primary-fixed, #001b3d);
+  --color-on-primary-fixed-variant: var(--portal-on-primary-fixed-variant, #2e476f);
+  --color-inverse-primary: var(--portal-inverse-primary, #aec7f7);
 
   /* Secondary */
   --color-secondary: #3f683e;
@@ -118,4 +118,57 @@
   --font-size-headline-lg-mobile: 24px;
   --font-size-headline-lg-mobile--line-height: 32px;
   --font-size-headline-lg-mobile--font-weight: 600;
+}
+
+/*
+ * Per-school portal themes. The primary palette above resolves from these
+ * vars; setting `data-portal-theme` on an ancestor swaps the whole palette.
+ * "blue" is the default (fallback values above), so no override block needed.
+ */
+[data-portal-theme="green"] {
+  --portal-primary: #0b4a37;
+  --portal-primary-container: #1f6b53;
+  --portal-on-primary: #ffffff;
+  --portal-on-primary-container: #b8e6d2;
+  --portal-primary-fixed: #b8e6d2;
+  --portal-primary-fixed-dim: #8fd0b6;
+  --portal-on-primary-fixed: #002116;
+  --portal-on-primary-fixed-variant: #14503c;
+  --portal-inverse-primary: #8fd0b6;
+}
+
+[data-portal-theme="purple"] {
+  --portal-primary: #4a1d6e;
+  --portal-primary-container: #6d3fa0;
+  --portal-on-primary: #ffffff;
+  --portal-on-primary-container: #e7d4ff;
+  --portal-primary-fixed: #e7d4ff;
+  --portal-primary-fixed-dim: #cbb0f0;
+  --portal-on-primary-fixed: #2a0a4d;
+  --portal-on-primary-fixed-variant: #5a2e85;
+  --portal-inverse-primary: #cbb0f0;
+}
+
+[data-portal-theme="black"] {
+  --portal-primary: #111111;
+  --portal-primary-container: #2a2a2a;
+  --portal-on-primary: #ffffff;
+  --portal-on-primary-container: #cfcfcf;
+  --portal-primary-fixed: #e6e6e6;
+  --portal-primary-fixed-dim: #c4c4c4;
+  --portal-on-primary-fixed: #000000;
+  --portal-on-primary-fixed-variant: #2a2a2a;
+  --portal-inverse-primary: #c4c4c4;
+}
+
+[data-portal-theme="gold"] {
+  --portal-primary: #8a5a00;
+  --portal-primary-container: #b07d12;
+  --portal-on-primary: #ffffff;
+  --portal-on-primary-container: #fff0cf;
+  --portal-primary-fixed: #ffeec2;
+  --portal-primary-fixed-dim: #f0d089;
+  --portal-on-primary-fixed: #2e1c00;
+  --portal-on-primary-fixed-variant: #6e4600;
+  --portal-inverse-primary: #f0d089;
 }

@@ -3,19 +3,44 @@
 import { useActionState, useState, useTransition } from "react";
 import { updateSchoolSettingsAction, exportSchoolBackupAction } from "./actions";
 import { ImageUploader } from "@/components/image-uploader";
+import { PORTAL_THEMES, LOGIN_DESIGNS } from "@/lib/portal-theme";
 
 export function SchoolSettingsForm({
   school,
 }: {
-  school: { name: string; address: string; logo: string; phone: string; email: string; motto: string; signature: string; stamp: string; shortcode: string; maintenanceMode: boolean; feeGateExams: boolean; feeGateResults: boolean; attendancePeriodEnabled: boolean; attendanceLateCutoff: string | null };
+  school: {
+    name: string;
+    address: string;
+    logo: string;
+    phone: string;
+    email: string;
+    motto: string;
+    signature: string;
+    stamp: string;
+    shortcode: string;
+    maintenanceMode: boolean;
+    feeGateExams: boolean;
+    feeGateResults: boolean;
+    attendancePeriodEnabled: boolean;
+    attendanceLateCutoff: string | null;
+    portalTheme: string;
+    loginDesign: string;
+    loginImage: string;
+    loginTexts: Record<string, string> | null;
+  };
 }) {
   const [state, action, pending] = useActionState(updateSchoolSettingsAction, {});
   const [logoUrl, setLogoUrl] = useState(school.logo);
   const [sigUrl, setSigUrl] = useState(school.signature);
   const [stampUrl, setStampUrl] = useState(school.stamp);
 
+  const [portalTheme, setPortalTheme] = useState(school.portalTheme || "blue");
+  const [loginDesign, setLoginDesign] = useState(school.loginDesign || "classic");
+  const [loginImgUrl, setLoginImgUrl] = useState(school.loginImage);
+  const selectedDesign = LOGIN_DESIGNS.find((d) => d.key === loginDesign);
+
   return (
-    <form action={action} className="space-y-6">
+    <form action={action} data-portal-theme={portalTheme} className="space-y-6">
       <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-5">
         <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">General Information</h3>
 
@@ -57,7 +82,7 @@ export function SchoolSettingsForm({
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="maintenanceMode" defaultChecked={school.maintenanceMode} className="sr-only peer" />
-            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
           </label>
         </div>
       </div>
@@ -73,7 +98,7 @@ export function SchoolSettingsForm({
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="feeGateExams" defaultChecked={school.feeGateExams} className="sr-only peer" />
-            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
           </label>
         </div>
         <div className="flex items-center justify-between">
@@ -83,7 +108,7 @@ export function SchoolSettingsForm({
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="feeGateResults" defaultChecked={school.feeGateResults} className="sr-only peer" />
-            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
           </label>
         </div>
       </div>
@@ -98,13 +123,99 @@ export function SchoolSettingsForm({
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="attendancePeriodEnabled" defaultChecked={school.attendancePeriodEnabled} className="sr-only peer" />
-            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-[#002046] peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+            <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
           </label>
         </div>
         <div>
           <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Late Cut-off Time</label>
           <p className="font-body-sm text-body-sm text-on-surface-variant mb-2">Sign-ins after this time are automatically marked as &quot;late&quot;. Leave empty to disable.</p>
           <input type="time" name="attendanceLateCutoff" defaultValue={school.attendanceLateCutoff ?? ""} className="w-full max-w-xs border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary" />
+        </div>
+      </div>
+
+      {/* Appearance & Login Screen */}
+      <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-6">
+        <div>
+          <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Appearance &amp; Login Screen</h3>
+          <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Customise the portal&apos;s primary colour and choose a login screen layout. Changes apply to this school only.</p>
+        </div>
+
+        {/* Theme colour */}
+        <div>
+          <label className="font-label-md text-label-md text-on-surface font-medium block mb-2">Primary Colour Theme</label>
+          <div className="flex flex-wrap gap-3">
+            {PORTAL_THEMES.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setPortalTheme(t.key)}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  portalTheme === t.key ? "border-primary ring-2 ring-primary text-on-surface" : "border-outline-variant text-on-surface-variant hover:bg-surface-container-low"
+                }`}
+              >
+                <span className="h-5 w-5 rounded-full border border-black/10" style={{ background: t.swatch }} />
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <input type="hidden" name="portalTheme" value={portalTheme} />
+        </div>
+
+        {/* Login design */}
+        <div>
+          <label className="font-label-md text-label-md text-on-surface font-medium block mb-2">Login Screen Design</label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {LOGIN_DESIGNS.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                onClick={() => setLoginDesign(d.key)}
+                className={`overflow-hidden rounded-lg border text-left transition-colors ${
+                  loginDesign === d.key ? "border-primary ring-2 ring-primary" : "border-outline-variant hover:bg-surface-container-low"
+                }`}
+              >
+                <div className="aspect-[4/3] bg-surface-container-highest">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={d.preview} alt={d.label} className="h-full w-full object-cover" />
+                </div>
+                <div className="px-3 py-2 text-sm font-medium text-on-surface">{d.label}</div>
+              </button>
+            ))}
+          </div>
+          <input type="hidden" name="loginDesign" value={loginDesign} />
+        </div>
+
+        {/* Login image (only for image-based designs) */}
+        {selectedDesign?.hasImage && (
+          <div>
+            <label className="font-label-md text-label-md text-on-surface font-medium block mb-2">Login Image</label>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mb-2">Shown on the {selectedDesign.label} login screen. If left empty, a branded gradient is used.</p>
+            <ImageUploader currentUrl={loginImgUrl} onUploaded={(url) => setLoginImgUrl(url)} label="Login Image" />
+            <input type="hidden" name="loginImage" value={loginImgUrl} />
+          </div>
+        )}
+
+        {/* Editable login text */}
+        <div>
+          <label className="font-label-md text-label-md text-on-surface font-medium block mb-2">Login Screen Text</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Heading</label>
+              <input name="loginHeading" defaultValue={school.loginTexts?.heading ?? ""} placeholder="e.g. Student Portal" className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Subheading</label>
+              <input name="loginSubheading" defaultValue={school.loginTexts?.subheading ?? ""} placeholder="e.g. Sign in to the Academic Portal" className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Brand Line (split / secure)</label>
+              <input name="loginBrandLine" defaultValue={school.loginTexts?.brandLine ?? ""} placeholder="e.g. Empowering Scholarship" className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Footer Text</label>
+              <input name="loginFooterText" defaultValue={school.loginTexts?.footerText ?? ""} placeholder="© Your School" className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -141,7 +252,7 @@ export function SchoolSettingsForm({
       </div>
 
       <div className="flex justify-end">
-        <button type="submit" disabled={pending} className="bg-[#002046] text-white font-label-md text-label-md py-2.5 px-6 rounded-lg hover:bg-[#003366] disabled:opacity-60 transition-colors">
+        <button type="submit" disabled={pending} className="bg-primary text-on-primary font-label-md text-label-md py-2.5 px-6 rounded-lg hover:bg-primary-container disabled:opacity-60 transition-colors">
           {pending ? "Saving…" : "Save Settings"}
         </button>
       </div>

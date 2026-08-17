@@ -3,6 +3,13 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { SchoolLoginForm } from "./login-form";
+import { LoginDesignRenderer } from "./designs";
+import {
+  resolveLoginTexts,
+  isLoginDesign,
+  type LoginDesign,
+  type LoginTexts,
+} from "@/lib/portal-theme";
 
 export default async function SchoolLoginPage({
   params,
@@ -16,31 +23,54 @@ export default async function SchoolLoginPage({
 
   const school = await prisma.school.findUnique({
     where: { shortcode: shortcode.toUpperCase() },
-    select: { id: true, name: true, logo: true, motto: true },
+    select: {
+      id: true,
+      name: true,
+      logo: true,
+      motto: true,
+      portalTheme: true,
+      loginDesign: true,
+      loginImage: true,
+      loginTexts: true,
+    },
   });
 
   if (!school) notFound();
 
+  const design: LoginDesign = isLoginDesign(school.loginDesign) ? school.loginDesign : "classic";
+  const texts: LoginTexts = resolveLoginTexts(design, school.loginTexts as LoginTexts | null);
+
+  const now = new Date();
+  const allAnnouncements = await prisma.announcement.findMany({
+    where: { schoolId: school.id },
+    orderBy: { publishedAt: "desc" },
+    take: 10,
+  });
+  const announcements = allAnnouncements
+    .filter(
+      (a) =>
+        (!a.publishedAt || a.publishedAt <= now) &&
+        (!a.expiresAt || a.expiresAt > now),
+    )
+    .slice(0, 4)
+    .map((a) => ({
+      id: a.id,
+      title: a.title,
+      content: a.content,
+      publishedAt: a.publishedAt ? a.publishedAt.toISOString() : null,
+    }));
+
   return (
-    <main className="flex flex-1 items-center justify-center p-margin-mobile bg-surface">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 w-14 h-14 rounded bg-primary-container flex items-center justify-center overflow-hidden">
-            {school.logo ? (
-              <img src={school.logo} alt="" className="w-full h-full object-contain" />
-            ) : (
-              <span className="material-symbols-outlined text-[32px] text-on-primary-container" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
-            )}
-          </div>
-          <h1 className="font-headline-lg text-headline-lg text-on-surface">{school.name}</h1>
-          {school.motto && (
-            <p className="font-body-md text-body-md text-on-surface-variant mt-1">{school.motto}</p>
-          )}
-        </div>
-        <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5">
-          <SchoolLoginForm schoolId={school.id} schoolName={school.name} />
-        </div>
-      </div>
-    </main>
+    <div data-portal-theme={school.portalTheme || "blue"}>
+      <LoginDesignRenderer
+        design={design}
+        school={{ name: school.name, logo: school.logo, motto: school.motto }}
+        texts={texts}
+        image={school.loginImage}
+        announcements={announcements}
+      >
+        <SchoolLoginForm schoolId={school.id} schoolName={school.name} />
+      </LoginDesignRenderer>
+    </div>
   );
 }

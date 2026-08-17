@@ -39,7 +39,7 @@ export function NerdcUploadClient({ hasExisting }: { hasExisting: boolean }) {
             Select <code>nerdc.md</code> file
           </label>
           <input ref={fileRef} type="file" accept=".md,.txt" onChange={handleFile}
-            className="w-full text-sm text-white/50 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-[#002046] file:text-white hover:file:bg-[#003366]" />
+            className="w-full text-sm text-white/50 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-container" />
           {fileName && (
             <p className="text-xs text-emerald-400 mt-1">Selected: {fileName} ({(fileContent.length / 1024).toFixed(0)} KB)</p>
           )}
@@ -54,7 +54,7 @@ export function NerdcUploadClient({ hasExisting }: { hasExisting: boolean }) {
         <form action={action}>
           <input type="hidden" name="content" value={fileContent} />
           <button type="submit" disabled={pending || !fileContent}
-            className="bg-[#002046] hover:bg-[#003366] text-white px-6 py-2 rounded-lg font-label-md text-label-md disabled:opacity-60"
+            className="bg-primary hover:bg-primary-container text-white px-6 py-2 rounded-lg font-label-md text-label-md disabled:opacity-60"
           >{pending ? "Uploading..." : "Upload to Database"}</button>
         </form>
 

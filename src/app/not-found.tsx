@@ -17,7 +17,7 @@ export default function NotFoundPage() {
         <div className="mt-8 flex items-center justify-center gap-3">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#002046] px-6 py-2.5 font-label-md text-label-md text-white hover:bg-[#003366] transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 font-label-md text-label-md text-white hover:bg-primary-container transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">home</span>
             Go Home

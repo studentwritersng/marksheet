@@ -327,7 +327,7 @@ export function LessonNotesForm({
         )}
 
         <button type="submit" disabled={pending}
-          className="bg-[#002046] text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[003366] disabled:opacity-60"
+          className="bg-primary text-white font-label-md text-label-md py-2 px-4 rounded hover:bg-[003366] disabled:opacity-60"
         >
           {pending ? (activeTab === "manual" ? "Saving…" : "Generating draft…")
             : activeTab === "manual" ? "Save note" : "AI generate note"
