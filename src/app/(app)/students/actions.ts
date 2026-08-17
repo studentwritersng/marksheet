@@ -165,8 +165,12 @@ export async function createStudentAction(
         where: { email: guardianEmail, role: "parent", schoolId: ctx.schoolId },
       });
 
+      // Always write the generated password hash so the credentials we
+      // communicate actually authenticate — including when the parent account
+      // was created during an earlier registration.
+      let parentUser;
       if (!existingParent) {
-        await prisma.user.create({
+        parentUser = await prisma.user.create({
           data: {
             email: guardianEmail,
             passwordHash: parentHash,
@@ -175,11 +179,17 @@ export async function createStudentAction(
             isActive: true,
           },
         });
+      } else {
+        parentUser = await prisma.user.update({
+          where: { id: existingParent.id },
+          data: {
+            passwordHash: parentHash,
+            isActive: true,
+            role: "parent",
+            schoolId: ctx.schoolId,
+          },
+        });
       }
-
-      const parentUser = await prisma.user.findFirstOrThrow({
-        where: { email: guardianEmail, role: "parent", schoolId: ctx.schoolId },
-      });
 
       await prisma.guardian.update({
         where: { id: guardianRecord.id },
