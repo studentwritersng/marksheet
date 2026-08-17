@@ -8,6 +8,7 @@ import { isGroupAddonActive } from "@/lib/addons/group-check";
 import { recordAudit } from "@/lib/audit";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "@/lib/email/send";
+import { formatPrismaError } from "@/lib/prisma-error";
 
 export interface ActionState {
   error?: string;
@@ -106,117 +107,139 @@ export async function createStudentAction(
     return { error: "School shortcode not set. Go to Settings → School to configure it first." };
   }
 
-  const updated = await prisma.school.update({
-    where: { id: ctx.schoolId },
-    data: { studentSequence: { increment: 1 } },
-  });
-  const admissionNumber = `${shortcode}${padSeq(updated.studentSequence)}`;
+  // All database writes happen in a single transaction so a failure (e.g. a
+  // duplicate email) rolls everything back instead of leaving a half-created
+  // student or an orphaned user account behind.
+  type CreatedStudent = {
+    admissionNumber: string;
+    email: string;
+    passwordRaw: string;
+    firstName: string;
+    lastName: string;
+    parentCreds?: { email: string; password: string };
+  };
+  let created: CreatedStudent;
 
-  // Auto-generate student login
-  const email = `${admissionNumber.toLowerCase()}@marksheet.top`;
-  const passwordRaw = dateOfBirth ? formatDob(dateOfBirth) : `${firstName.toLowerCase().slice(0, 3)}${lastName.toLowerCase().slice(0, 3)}2026`;
-  const passwordHash = await bcrypt.hash(passwordRaw, 10);
-
-  const user = await prisma.user.create({
-    data: {
-      email,
-      passwordHash,
-      role: "student",
-      schoolId: ctx.schoolId,
-      isActive: true,
-      mustChangePassword: false,
-    },
-  });
-
-  const student = await prisma.student.create({
-    data: {
-      schoolId: ctx.schoolId,
-      admissionNumber,
-      firstName,
-      lastName,
-      email: studentEmail,
-      dateOfBirth,
-      ethnicity,
-      religion,
-      passportPhoto,
-      gender,
-      currentClassId: classId,
-      department,
-      userId: user.id,
-      guardians: guardianName
-        ? { create: [{ fullName: guardianName, phone: guardianPhone || "", email: guardianEmail, relationship: guardianRelation }] }
-        : undefined,
-    },
-  });
-
-  // Create parent User account if guardian email is provided
-  let parentCreds: { email: string; password: string } | undefined;
-  if (guardianEmail && guardianName) {
-    const guardianRecord = await prisma.guardian.findFirst({
-      where: { studentId: student.id, email: guardianEmail },
-      select: { id: true },
-    });
-
-    if (guardianRecord) {
-      const parentPasswordRaw = (guardianPhone ?? "").replace(/\D/g, "").slice(0, 8) || Math.random().toString(36).slice(2, 10);
-      const parentHash = await bcrypt.hash(parentPasswordRaw, 10);
-
-      const existingParent = await prisma.user.findFirst({
-        where: { email: guardianEmail, role: "parent", schoolId: ctx.schoolId },
+  try {
+    created = await prisma.$transaction(async (tx) => {
+      const updated = await tx.school.update({
+        where: { id: ctx.schoolId },
+        data: { studentSequence: { increment: 1 } },
       });
+      const admissionNumber = `${shortcode}${padSeq(updated.studentSequence)}`;
 
-      // Always write the generated password hash so the credentials we
-      // communicate actually authenticate — including when the parent account
-      // was created during an earlier registration.
-      let parentUser;
-      if (!existingParent) {
-        parentUser = await prisma.user.create({
+      // Auto-generate student login
+      const email = `${admissionNumber.toLowerCase()}@marksheet.top`;
+      const passwordRaw = dateOfBirth ? formatDob(dateOfBirth) : `${firstName.toLowerCase().slice(0, 3)}${lastName.toLowerCase().slice(0, 3)}2026`;
+
+      let user;
+      try {
+        user = await tx.user.create({
           data: {
-            email: guardianEmail,
-            passwordHash: parentHash,
-            role: "parent",
+            email,
+            passwordHash: await bcrypt.hash(passwordRaw, 10),
+            role: "student",
             schoolId: ctx.schoolId,
             isActive: true,
+            mustChangePassword: false,
           },
         });
-      } else {
-        parentUser = await prisma.user.update({
-          where: { id: existingParent.id },
-          data: {
-            passwordHash: parentHash,
-            isActive: true,
-            role: "parent",
-            schoolId: ctx.schoolId,
-          },
-        });
+      } catch (e) {
+        throw new Error(formatPrismaError(e, `creating the student account ${email}`));
       }
 
-      await prisma.guardian.update({
-        where: { id: guardianRecord.id },
-        data: { parentUserId: parentUser.id },
+      const student = await tx.student.create({
+        data: {
+          schoolId: ctx.schoolId,
+          admissionNumber,
+          firstName,
+          lastName,
+          email: studentEmail,
+          dateOfBirth,
+          ethnicity,
+          religion,
+          passportPhoto,
+          gender,
+          currentClassId: classId,
+          department,
+          userId: user.id,
+          guardians: guardianName
+            ? { create: [{ fullName: guardianName, phone: guardianPhone || "", email: guardianEmail, relationship: guardianRelation }] }
+            : undefined,
+        },
       });
 
-      parentCreds = { email: guardianEmail, password: parentPasswordRaw };
+      // Create parent User account if guardian email is provided
+      let parentCreds: { email: string; password: string } | undefined;
+      if (guardianEmail && guardianName) {
+        const guardianRecord = await tx.guardian.findFirst({
+          where: { studentId: student.id, email: guardianEmail },
+          select: { id: true },
+        });
 
-      // Send parent credentials via email
-      await sendEmail({
-        to: guardianEmail,
-        subject: `Your Parent Portal Credentials – ${(await prisma.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } }))?.name ?? "School"}`,
-        text: `Hello ${guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${guardianEmail}\nPassword: ${parentPasswordRaw}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
-      });
-    }
-  }
+        if (guardianRecord) {
+          const parentPasswordRaw = (guardianPhone ?? "").replace(/\D/g, "").slice(0, 8) || Math.random().toString(36).slice(2, 10);
+          const parentHash = await bcrypt.hash(parentPasswordRaw, 10);
 
-  // Capture data processing consent
-  if (dataConsent) {
-    await prisma.consentRecord.create({
-      data: {
-        studentId: student.id,
-        consentType: "data_processing",
-        consentMethod: "registration_form",
-        schoolId: ctx.schoolId,
-      },
-    }).catch(() => { /* non-critical */ });
+          const existingParent = await tx.user.findFirst({
+            where: { email: guardianEmail, role: "parent", schoolId: ctx.schoolId },
+          });
+
+          // Always write the generated password hash so the credentials we
+          // communicate actually authenticate — including when the parent account
+          // was created during an earlier registration.
+          let parentUser;
+          try {
+            if (!existingParent) {
+              parentUser = await tx.user.create({
+                data: {
+                  email: guardianEmail,
+                  passwordHash: parentHash,
+                  role: "parent",
+                  schoolId: ctx.schoolId,
+                  isActive: true,
+                },
+              });
+            } else {
+              parentUser = await tx.user.update({
+                where: { id: existingParent.id },
+                data: {
+                  passwordHash: parentHash,
+                  isActive: true,
+                  role: "parent",
+                  schoolId: ctx.schoolId,
+                },
+              });
+            }
+          } catch (e) {
+            throw new Error(formatPrismaError(e, `creating the parent account ${guardianEmail}`));
+          }
+
+          await tx.guardian.update({
+            where: { id: guardianRecord.id },
+            data: { parentUserId: parentUser.id },
+          });
+
+          parentCreds = { email: guardianEmail, password: parentPasswordRaw };
+        }
+      }
+
+      // Capture data processing consent
+      if (dataConsent) {
+        await tx.consentRecord.create({
+          data: {
+            studentId: student.id,
+            consentType: "data_processing",
+            consentMethod: "registration_form",
+            schoolId: ctx.schoolId,
+          },
+        }).catch(() => { /* non-critical */ });
+      }
+
+      return { admissionNumber, email, passwordRaw, firstName, lastName, parentCreds };
+    });
+  } catch (e) {
+    return { error: formatPrismaError(e, "registering student") };
   }
 
   await recordAudit({
@@ -224,21 +247,30 @@ export async function createStudentAction(
     actorId: ctx.user.userId,
     action: "create",
     entityType: "student",
-    afterValue: { admissionNumber, firstName, lastName } as never,
+    afterValue: { admissionNumber: created.admissionNumber, firstName: created.firstName, lastName: created.lastName } as never,
   });
 
-  // Send credentials via email
+  // Credential emails are best-effort: a send failure must not roll back the
+  // registration, so they run after the transaction has committed.
   const sendResult = await sendEmail({
-    to: email,
+    to: created.email,
     subject: "Your Marksheet Portal Credentials",
-    text: `Hello ${firstName},\n\nYour student portal account has been created.\n\nEmail: ${email}\nPassword: ${passwordRaw}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
-  });
+    text: `Hello ${created.firstName},\n\nYour student portal account has been created.\n\nEmail: ${created.email}\nPassword: ${created.passwordRaw}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
+  }).catch(() => ({ ok: false as const }));
+
+  if (created.parentCreds) {
+    await sendEmail({
+      to: created.parentCreds.email,
+      subject: `Your Parent Portal Credentials – ${school?.name ?? "School"}`,
+      text: `Hello ${guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${created.parentCreds.email}\nPassword: ${created.parentCreds.password}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
+    }).catch(() => { /* best-effort */ });
+  }
 
   revalidatePath("/students");
   return {
-    success: `${firstName} ${lastName} (${admissionNumber}) registered. Login: ${email}`,
-    generatedPassword: sendResult.ok ? undefined : passwordRaw,
-    ...(parentCreds ? { parentCredentials: parentCreds } : {}),
+    success: `${created.firstName} ${created.lastName} (${created.admissionNumber}) registered. Login: ${created.email}`,
+    generatedPassword: sendResult.ok ? undefined : created.passwordRaw,
+    ...(created.parentCreds ? { parentCredentials: created.parentCreds } : {}),
   };
 }
 
