@@ -20,7 +20,7 @@ export default async function LoginPage() {
       <main className="flex flex-1 items-center justify-center p-margin-mobile bg-surface">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 w-14 h-14 rounded bg-primary-container flex items-center justify-center overflow-hidden">
+            <div className="mx-auto mb-4 w-14 h-14 flex items-center justify-center overflow-hidden">
               {school.logo ? (
                 <img src={school.logo} alt="" className="w-full h-full object-contain" />
               ) : (

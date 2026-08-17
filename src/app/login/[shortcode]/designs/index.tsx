@@ -24,11 +24,11 @@ interface LayoutProps {
 
 function BrandBadge({ school, className = "" }: { school: LoginDesignSchool; className?: string }) {
   return (
-    <div className={`flex items-center justify-center overflow-hidden rounded-full bg-primary-container ${className}`}>
+    <div className={`flex items-center justify-center overflow-hidden ${className}`}>
       {school.logo ? (
         <img src={school.logo} alt="" className="h-full w-full object-contain" />
       ) : (
-        <span className="material-symbols-outlined text-[32px] text-on-primary-container" style={{ fontVariationSettings: "'FILL' 1" }}>
+        <span className="material-symbols-outlined text-[32px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
           school
         </span>
       )}
@@ -142,15 +142,13 @@ function ClassicLayout({ school, texts, children }: LayoutProps) {
       <div className="relative w-full max-w-md overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-6 shadow-sm md:p-8">
         <div className="absolute left-0 top-0 h-1 w-full bg-primary" />
         <div className="mb-8 flex justify-center">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full border border-outline-variant bg-surface-container-highest">
-            {school.logo ? (
-              <img src={school.logo} alt="" className="h-full w-full rounded-full object-contain" />
-            ) : (
-              <span className="material-symbols-outlined text-5xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
-                account_balance
-              </span>
-            )}
-          </div>
+          {school.logo ? (
+            <img src={school.logo} alt="" className="h-24 w-24 object-contain" />
+          ) : (
+            <span className="material-symbols-outlined text-5xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+              account_balance
+            </span>
+          )}
         </div>
         <div className="mb-8 text-center">
           <h1 className="mb-2 font-headline-md text-headline-md text-primary">{texts.heading}</h1>
@@ -229,7 +227,7 @@ function SecureLayout({ school, texts, image, announcements, children }: LayoutP
             </div>
           </div>
           <AnnouncementsPanel announcements={announcements} title="Admin Announcements" />
-          <div className="hidden h-32 overflow-hidden rounded-xl border border-surface-variant lg:block">
+          <div className="relative hidden h-32 overflow-hidden rounded-xl border border-surface-variant lg:block">
             <ImagePanel image={image} school={school} label={school.name} />
           </div>
         </div>
@@ -241,21 +239,21 @@ function SecureLayout({ school, texts, image, announcements, children }: LayoutP
 /* ----------------------------- Modern Dark ----------------------------- */
 function DarkLayout({ school, texts, announcements, children }: LayoutProps) {
   return (
-    <main className="flex flex-1 items-center justify-center bg-[#191c1d] p-margin-mobile md:p-margin-desktop">
+    <main className="flex min-h-screen flex-1 items-center justify-center bg-[#191c1d] p-margin-mobile md:p-margin-desktop">
       <div className="mx-auto grid w-full max-w-container-max grid-cols-1 items-center gap-gutter md:grid-cols-2">
-        <div className="relative overflow-hidden rounded-xl border border-[#44474d] bg-[#2e3132] p-6 shadow-2xl md:p-12">
+        <div className="relative overflow-hidden rounded-xl border border-[#44474d] bg-[#2e3132] p-6 shadow-2xl md:p-12 [&_label]:!text-white/70 [&_input]:!bg-white/10 [&_input]:!text-white [&_input]:!border-white/20 [&_button]:!bg-white/10 [&_button]:!text-white [&_button.bg-primary]:!bg-white [&_button.bg-primary]:!text-[#191c1d] [&_.text-on-surface-variant]:!text-white/60">
           <div className="absolute left-0 top-0 h-1 w-full bg-secondary" />
           <div className="mb-8 text-center md:text-left">
-            <h1 className="mb-2 font-headline-md text-headline-md text-on-surface">{texts.heading}</h1>
-            {texts.subheading && <p className="font-body-md text-body-md text-on-surface-variant">{texts.subheading}</p>}
+            <h1 className="mb-2 font-headline-md text-headline-md text-white">{texts.heading}</h1>
+            {texts.subheading && <p className="font-body-md text-body-md text-white/70">{texts.subheading}</p>}
           </div>
           {children}
         </div>
         <div className="hidden flex-col gap-6 p-6 md:flex">
-          <div className="rounded-xl border border-[#44474d] bg-[#151718] p-8">
+          <div className="rounded-xl border border-[#44474d] bg-[#151718] p-8 [&_h3]:!text-white [&_h4]:!text-white [&_p]:!text-white/70 [&_.text-on-surface]:!text-white [&_.text-on-surface-variant]:!text-white/70 [&_.text-outline-variant]:!text-white/40 [&_.bg-surface-container-lowest]:!bg-[#1f2223]">
             <div className="mb-4 flex items-center gap-3">
               <span className="material-symbols-outlined text-3xl text-secondary">campaign</span>
-              <h2 className="font-headline-sm text-headline-sm text-on-surface">System Announcements</h2>
+              <h2 className="font-headline-sm text-headline-sm text-white">System Announcements</h2>
             </div>
             <AnnouncementsPanel announcements={announcements} title="System Announcements" />
           </div>
