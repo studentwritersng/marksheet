@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
@@ -286,7 +287,7 @@ export async function deleteStaffAction(staffId: string): Promise<ActionState> {
   });
 
   revalidatePath("/staff");
-  return { success: "Staff deleted." };
+  redirect("/staff");
 }
 
 export async function updateStaffSignatureAction(
