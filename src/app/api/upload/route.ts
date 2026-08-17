@@ -77,8 +77,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Reject obviously malicious names (path traversal).
-    if (!/^[a-zA-Z0-9._-]+$/.test(file.name)) {
+    // Reject path-traversal attempts. Other characters (spaces, etc.) are
+    // sanitized into the final filename below, so they are allowed.
+    if (
+      file.name.includes("/") ||
+      file.name.includes("\\") ||
+      file.name.includes("..")
+    ) {
       return NextResponse.json({ error: "Unsupported file name." }, { status: 400 });
     }
 
