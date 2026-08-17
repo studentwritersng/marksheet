@@ -22,6 +22,12 @@ function CallbackInner() {
         const data = await res.json();
         if (res.ok && data.ok && data.status === "paid") {
           setStatus("paid");
+          // Send the user back to the originating console screen (e.g. /addons,
+          // /billing). Registration uses "/" so it keeps the success card.
+          const redirectTo = typeof data.redirectTo === "string" ? data.redirectTo : "/";
+          if (redirectTo && redirectTo !== "/") {
+            window.location.href = redirectTo;
+          }
         } else {
           setStatus("failed");
           setMessage(data.error || "We could not confirm your payment. Our team will still verify it.");

@@ -13,6 +13,7 @@ export default async function PaymentsPage() {
       include: {
         school: { select: { name: true } },
         plan: { select: { name: true } },
+        addon: { select: { name: true } },
         paymentMethod: { select: { label: true, type: true } },
       },
     }),
@@ -25,7 +26,7 @@ export default async function PaymentsPage() {
       payments={payments.map((p) => ({
         id: p.id,
         schoolName: p.school.name,
-        planName: p.plan.name,
+        planName: p.plan ? p.plan.name : p.addon ? p.addon.name : "—",
         amount: p.amount.toNumber(),
         methodLabel: p.paymentMethod.label,
         methodType: p.paymentMethod.type,

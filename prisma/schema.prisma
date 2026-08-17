@@ -1519,6 +1519,7 @@ model Addon {
   schoolAddons    SchoolAddon[]
   activationCodes AddonCode[]
   groupAddons     GroupAddonSubscription[]
+  payments        Payment[]
 
   @@map("addons")
 }
@@ -1561,7 +1562,8 @@ model SchoolAddon {
 model Payment {
   id              String    @id @default(cuid())
   schoolId        String
-  planId          String
+  planId          String? // null when the payment is for an addon (see addonId)
+  addonId         String? // set when the payment is for an addon purchase instead of a license plan
   amount          Decimal
   paymentMethodId String
   status          String    @default("pending") // pending, verified, failed, refunded
@@ -1571,17 +1573,43 @@ model Payment {
   notes           String?
   verifiedById    String?
   verifiedAt      DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   school        School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  plan          LicensePlan   @relation(fields: [planId], references: [id])
+  plan          LicensePlan?  @relation(fields: [planId], references: [id])
   paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id])
   verifiedBy    User?         @relation(fields: [verifiedById], references: [id])
+  addon         Addon?        @relation(fields: [addonId], references: [id])
 
   @@index([schoolId])
   @@index([status])
+  @@index([addonId])
   @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// Paystack Payment Intents (generic, console-driven charges)
+// ---------------------------------------------------------------------------
+
+model PaymentIntent {
+  id          String   @id @default(cuid())
+  schoolId    String? // school-scoped charge (school plan / school addon)
+  groupId     String? // group-scoped charge (proprietor group addon)
+  amount      Decimal
+  currency    String   @default("NGN")
+  email       String // Paystack customer email
+  status      String   @default("pending") // pending | paid | failed
+  paystackRef String?  @unique
+  kind        String // school_plan | school_addon | group_addon
+  metadata    Json? // includes redirectTo and fulfilment details (planId, addonId, durationDays, methodId, stage)
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([groupId])
+  @@map("payment_intents")
 }
 
 // ---------------------------------------------------------------------------

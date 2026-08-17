@@ -18,10 +18,30 @@ export async function verifyPaymentAction(paymentId: string, days: number): Prom
 
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    include: { plan: true, school: true },
+    include: { plan: true, school: true, addon: true },
   });
   if (!payment) return { error: "Payment not found." };
   if (payment.status !== "pending") return { error: "Payment is not pending." };
+
+  // Addon purchases are verified by activating the addon (not a license).
+  if (payment.addonId && payment.addon) {
+    const addon = payment.addon;
+    const expiresAt = addon.durationDays
+      ? new Date(Date.now() + addon.durationDays * 24 * 60 * 60 * 1000)
+      : null;
+    await prisma.schoolAddon.upsert({
+      where: { schoolId_addonId: { schoolId: payment.schoolId, addonId: payment.addonId } },
+      update: { status: "active", activatedVia: "purchase", expiresAt, paymentId: payment.id, activatedAt: new Date() },
+      create: { schoolId: payment.schoolId, addonId: payment.addonId, status: "active", activatedVia: "purchase", expiresAt, paymentId: payment.id },
+    });
+    await prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: "verified", verifiedById: user.userId, verifiedAt: new Date() },
+    });
+    revalidatePath("/console/payments");
+    revalidatePath(`/console/schools/${payment.schoolId}`);
+    return { success: `Payment verified. "${addon.name}" addon activated.` };
+  }
 
   // Find active license for this school or create one
   const existing = await prisma.schoolLicense.findFirst({
@@ -47,7 +67,7 @@ export async function verifyPaymentAction(paymentId: string, days: number): Prom
     await prisma.schoolLicense.create({
       data: {
         schoolId: payment.schoolId,
-        planId: payment.planId,
+        planId: payment.planId!,
         stage: effectiveStage.stage,
         startDate: new Date(),
         endDate: new Date(Date.now() + days * 24 * 60 * 60 * 1000),

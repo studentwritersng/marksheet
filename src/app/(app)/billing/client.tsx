@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useRef } from "react";
+import { useActionState, useState, useRef, useEffect } from "react";
 import { submitPaymentAction } from "./actions";
 
 interface PlanVM { id: string; name: string; durationType: string; basicPrice?: number | null; standardPrice?: number | null; premiumPrice?: number | null; durationDays?: number | null; }
@@ -23,6 +23,13 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
   const [cashCode, setCashCode] = useState<string>("");
   const [state, action, pending] = useActionState(submitPaymentAction, {});
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Redirect to Paystack once the server returns a checkout URL.
+  useEffect(() => {
+    if (state.paystackUrl) {
+      window.location.href = state.paystackUrl;
+    }
+  }, [state.paystackUrl]);
 
   const chosenPlan = plans.find((p) => p.id === selectedPlan);
   const chosenMethod = methods.find((m) => m.id === selectedMethod);
@@ -147,6 +154,12 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
           <input type="hidden" name="proofUrl" value={proofBase64} />
           {schoolStage && <input type="hidden" name="stage" value={schoolStage.stage} />}
 
+          {chosenMethod?.type === "online" && (
+            <p className="text-xs text-on-surface-variant bg-surface-container-low border border-outline-variant rounded-lg p-3">
+              You&apos;ll be redirected to Paystack to pay by card or transfer. Your license is activated automatically once payment succeeds.
+            </p>
+          )}
+
           {chosenMethod?.type === "cash" && (
             <div>
               <label className="font-body-sm text-body-sm text-on-surface block mb-1">Cash Payment Code</label>
@@ -182,7 +195,7 @@ export function BillingClient({ plans, methods, payments, license, schoolName, s
           <div className="flex items-center gap-3">
             <button type="submit" disabled={pending}
               className="bg-primary hover:bg-primary-container text-white text-sm px-5 py-2 rounded-lg disabled:opacity-60 font-label-md text-label-md"
-            >{pending ? "Submitting..." : chosenMethod?.type === "cash" ? "Activate with Code" : `Pay ${formatPrice(effectivePrice) ?? ""}`}</button>
+            >{pending ? "Submitting..." : chosenMethod?.type === "online" ? "Pay with Paystack" : chosenMethod?.type === "cash" ? "Activate with Code" : `Pay ${formatPrice(effectivePrice) ?? ""}`}</button>
           </div>
           {state.error && <p className="text-red-600 text-xs">{state.error}</p>}
           {state.success && <p className="text-emerald-600 text-xs">{state.success}</p>}

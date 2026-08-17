@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useRef } from "react";
+import { useActionState, useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { activateAddonWithCodeAction, purchaseAddonAction } from "./actions";
 
@@ -84,10 +84,19 @@ export function AddonsClient({ addons, activeAddons, schoolStage, methods }: {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [actionFor, setActionFor] = useState<string | null>(null);
   const [actionMode, setActionMode] = useState<"code" | "purchase">("code");
+  const [methodId, setMethodId] = useState<string>("");
+  const selectedMethodType = methods.find((m) => m.id === methodId)?.type ?? "";
   const [codeState, codeAction, codePending] = useActionState(activateAddonWithCodeAction, {});
   const [purchaseState, purchaseAction, purchasePending] = useActionState(purchaseAddonAction, {});
   const [proofBase64, setProofBase64] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Redirect to Paystack once the server returns a checkout URL.
+  useEffect(() => {
+    if (purchaseState.paystackUrl) {
+      window.location.href = purchaseState.paystackUrl;
+    }
+  }, [purchaseState.paystackUrl]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -170,7 +179,7 @@ export function AddonsClient({ addons, activeAddons, schoolStage, methods }: {
 
                 {/* Action */}
                 {!active || active.status !== "active" ? (
-                  <button onClick={() => { setActionFor(isAction ? null : addon.id); setExpanded(addon.id); }}
+                  <button onClick={() => { setActionFor(isAction ? null : addon.id); setMethodId(""); setExpanded(addon.id); }}
                     className={`mt-1 w-full bg-gradient-to-r ${theme.gradient} text-white font-semibold text-sm py-2.5 rounded-xl hover:opacity-90 transition-opacity shadow-md`}>
                     {isAction ? "Cancel" : "Activate"}
                   </button>
@@ -213,33 +222,44 @@ export function AddonsClient({ addons, activeAddons, schoolStage, methods }: {
                     )}
 
                      {actionMode === "purchase" && price && (
-                       <form action={purchaseAction} className="space-y-2">
-                         <input type="hidden" name="addonId" value={addon.id} />
-                         <input type="hidden" name="proofUrl" value={proofBase64} />
-                         {methods.length > 0 && (
-                           <select name="methodId" required className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-                             <option value="">Select payment method</option>
-                             {methods.map((m) => <option key={m.id} value={m.id}>{m.label} ({m.type.replace("_", " ")})</option>)}
-                           </select>
-                         )}
-                         <input name="reference" placeholder="Payment reference / teller ID"
-                           className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-                         <div>
-                           <label className="font-body-sm text-body-sm text-on-surface block mb-1">Upload Proof of Payment</label>
-                           <input ref={fileRef} type="file" accept="image/*" onChange={handleFile}
-                             className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-primary file:text-white hover:file:bg-primary-container" />
-                           {proofBase64 && <img src={proofBase64} alt="Receipt preview" className="mt-2 max-h-32 rounded-lg border border-outline-variant object-contain" />}
-                         </div>
-                         <input name="notes" placeholder="Optional notes"
-                           className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-                         <button type="submit" disabled={purchasePending}
-                           className={`w-full bg-gradient-to-r ${theme.gradient} text-white text-sm py-2 rounded-lg disabled:opacity-60 shadow-sm`}>
-                           {purchasePending ? "Processing..." : `Pay ${formatPrice(price)}`}
-                         </button>
-                         {purchaseState.error && <p className="text-red-600 text-xs">{purchaseState.error}</p>}
-                         {purchaseState.success && <p className="text-emerald-600 text-xs">{purchaseState.success}</p>}
-                       </form>
-                     )}
+                        <form action={purchaseAction} className="space-y-2">
+                          <input type="hidden" name="addonId" value={addon.id} />
+                          <input type="hidden" name="proofUrl" value={proofBase64} />
+                          {methods.length > 0 && (
+                            <select name="methodId" required value={methodId}
+                              onChange={(e) => setMethodId(e.target.value)}
+                              className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+                              <option value="">Select payment method</option>
+                              {methods.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                            </select>
+                          )}
+
+                          {selectedMethodType === "online" ? (
+                            <p className="text-xs text-on-surface-variant bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5">
+                              You&apos;ll be redirected to Paystack to pay by card or transfer. Your addon is activated automatically once payment succeeds.
+                            </p>
+                          ) : (
+                            <>
+                              <input name="reference" placeholder="Payment reference / teller ID"
+                                className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                              <div>
+                                <label className="font-body-sm text-body-sm text-on-surface block mb-1">Upload Proof of Payment</label>
+                                <input ref={fileRef} type="file" accept="image/*" onChange={handleFile}
+                                  className="w-full text-sm text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-primary file:text-white hover:file:bg-primary-container" />
+                                {proofBase64 && <img src={proofBase64} alt="Receipt preview" className="mt-2 max-h-32 rounded-lg border border-outline-variant object-contain" />}
+                              </div>
+                            </>
+                          )}
+                          <input name="notes" placeholder="Optional notes"
+                            className="w-full bg-surface border border-outline-variant rounded-lg p-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                          <button type="submit" disabled={purchasePending}
+                            className={`w-full bg-gradient-to-r ${theme.gradient} text-white text-sm py-2 rounded-lg disabled:opacity-60 shadow-sm`}>
+                            {purchasePending ? "Processing..." : selectedMethodType === "online" ? "Pay with Paystack" : `Pay ${formatPrice(price)}`}
+                          </button>
+                          {purchaseState.error && <p className="text-red-600 text-xs">{purchaseState.error}</p>}
+                          {purchaseState.success && <p className="text-emerald-600 text-xs">{purchaseState.success}</p>}
+                        </form>
+                      )}
                   </div>
                 )}
               </div>

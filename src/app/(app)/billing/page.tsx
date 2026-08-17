@@ -44,7 +44,7 @@ export default async function BillingPage() {
       schoolStage={{ stage: school.stage, price: effectivePrice }}
       plans={plans.map((p) => ({ id: p.id, name: p.name, durationType: p.durationType, basicPrice: p.basicPrice?.toNumber(), standardPrice: p.standardPrice?.toNumber(), premiumPrice: p.premiumPrice?.toNumber(), durationDays: p.durationDays }))}
       methods={methods.map((m) => ({ id: m.id, type: m.type, label: m.label, details: m.details as Record<string, string> | null }))}
-      payments={payments.map((p) => ({ id: p.id, planName: p.plan.name, amount: p.amount.toNumber(), methodLabel: p.paymentMethod.label, status: p.status, createdAt: p.createdAt.toISOString() }))}
+      payments={payments.map((p) => ({ id: p.id, planName: p.plan?.name ?? "—", amount: p.amount.toNumber(), methodLabel: p.paymentMethod.label, status: p.status, createdAt: p.createdAt.toISOString() }))}
       license={currentLicense ? { status: currentLicense.status, endDate: currentLicense.endDate.toISOString(), planName: currentLicense.plan.name } : null}
     />
   );

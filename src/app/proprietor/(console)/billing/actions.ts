@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveEffectiveStage } from "@/lib/license/stage-resolver";
 import { calculateGroupPrice } from "@/lib/billing/progressive";
+import { createPaystackCharge } from "@/lib/paystack-charge";
 
 export interface GroupBillingData {
   groupId: string;
@@ -12,6 +13,7 @@ export interface GroupBillingData {
   feeGroupStage: string | null;
   stage: string;
   schoolCount: number;
+  methods: { id: string; type: string; label: string }[];
   addons: {
     id: string;
     name: string;
@@ -28,7 +30,7 @@ export interface GroupBillingData {
   }[];
 }
 
-export interface BillingActionResult { error?: string; success?: string }
+export interface BillingActionResult { error?: string; success?: string; paystackUrl?: string }
 
 // ── Get billing data for the proprietor's group ────────────────────────────
 
@@ -76,6 +78,7 @@ export async function getGroupBillingData(): Promise<GroupBillingData> {
     feeGroupStage: group.feeGroupStage,
     stage,
     schoolCount,
+    methods: (await prisma.paymentMethod.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } })).map((m) => ({ id: m.id, type: m.type, label: m.label })),
     addons: addons.map((a) => {
       const sub = subs.find((s) => s.addonId === a.id);
       const stagePrice =
@@ -129,6 +132,7 @@ export async function purchaseGroupAddonAction(
   const groupId = user.proprietorGroupId;
   const addonId = formData.get("addonId") as string;
   const durationDaysRaw = formData.get("durationDays") as string;
+  const methodId = (formData.get("methodId") as string)?.trim() || null;
   const paymentReference = (formData.get("paymentReference") as string)?.trim() || null;
   const notes = (formData.get("notes") as string)?.trim() || null;
 
@@ -140,6 +144,46 @@ export async function purchaseGroupAddonAction(
   // Resolve duration
   const durationDays = durationDaysRaw ? parseInt(durationDaysRaw, 10) : (addon.durationDays ?? 365);
   if (isNaN(durationDays) || durationDays < 1) return { error: "Invalid duration." };
+
+  // Paystack (online) — redirect to gateway; the addon is activated on success.
+  if (methodId) {
+    const method = await prisma.paymentMethod.findUnique({ where: { id: methodId } });
+    if (method && method.type === "online") {
+      // Recompute the group price server-side so the charged amount is always correct.
+      const memberships = await prisma.groupMembership.findMany({ where: { groupId }, select: { schoolId: true } });
+      const schoolCount = memberships.length;
+      const firstSchoolId = memberships[0]?.schoolId;
+      const effectiveStage = firstSchoolId
+        ? await resolveEffectiveStage(firstSchoolId)
+        : { stage: "basic" as const, overridden: false, groupName: null };
+      const stage = effectiveStage.stage;
+      const stagePrice =
+        stage === "basic" ? addon.basicPrice
+          : stage === "standard" ? addon.standardPrice
+            : addon.premiumPrice;
+      const basePrice = stagePrice != null ? Number(stagePrice) : (addon.price != null ? Number(addon.price) : null);
+      let amount = basePrice;
+      if (basePrice != null && schoolCount > 0) {
+        amount = calculateGroupPrice(basePrice, schoolCount).total;
+      }
+      if (!amount || amount <= 0) return { error: "This addon has no price set." };
+      const email = user.email || "";
+      if (!email) return { error: "No contact email on file to start payment." };
+      try {
+        const charge = await createPaystackCharge({
+          email,
+          amount,
+          groupId,
+          kind: "group_addon",
+          metadata: { addonId: addon.id, durationDays, methodId: method.id },
+          redirectTo: "/proprietor/billing",
+        });
+        return { paystackUrl: charge.authorizationUrl };
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : "Could not start Paystack payment." };
+      }
+    }
+  }
 
   // Check if there's an existing active subscription
   const existing = await prisma.groupAddonSubscription.findUnique({

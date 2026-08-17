@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
+import { createPaystackCharge } from "@/lib/paystack-charge";
 
-export interface BillingActionResult { error?: string; success?: string; planId?: string; }
+export interface BillingActionResult { error?: string; success?: string; planId?: string; paystackUrl?: string; }
 
 export async function submitPaymentAction(_prev: BillingActionResult, formData: FormData): Promise<BillingActionResult> {
   const user = await getCurrentUser();
@@ -105,7 +106,32 @@ export async function submitPaymentAction(_prev: BillingActionResult, formData: 
     return { success: "Cash code validated! Your license is now active." };
   }
 
-  // Bank transfer or online → create pending payment
+  // Online (Paystack) — redirect to gateway and auto-activate on success.
+  if (method.type === "online") {
+    const amount = Number(effectivePrice);
+    const email =
+      user.email ||
+      (await prisma.school.findUnique({ where: { id: user.schoolId }, select: { email: true } }))?.email ||
+      "";
+    if (!email) {
+      return { error: "No contact email on file to start payment. Please set your school email first." };
+    }
+    try {
+      const charge = await createPaystackCharge({
+        email,
+        amount,
+        schoolId: user.schoolId,
+        kind: "school_plan",
+        metadata: { planId: plan.id, durationDays: plan.durationDays, methodId: method.id, stage },
+        redirectTo: "/billing",
+      });
+      return { paystackUrl: charge.authorizationUrl };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : "Could not start Paystack payment." };
+    }
+  }
+
+  // Bank transfer → create pending payment
   try {
     await prisma.payment.create({
       data: {

@@ -11,6 +11,7 @@ interface BillingData {
   feeGroupStage: string | null;
   stage: string;
   schoolCount: number;
+  methods: { id: string; type: string; label: string }[];
   addons: {
     id: string;
     name: string;
@@ -32,9 +33,18 @@ function formatPrice(n: number | null) {
   return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(n);
 }
 
-function AddonCard({ addon, groupId }: { addon: BillingData["addons"][number]; groupId: string }) {
+function AddonCard({ addon, groupId, methods }: { addon: BillingData["addons"][number]; groupId: string; methods: { id: string; type: string; label: string }[] }) {
   const [state, action, pending] = useActionState(purchaseGroupAddonAction, init);
   const [showForm, setShowForm] = useState(false);
+  const [methodId, setMethodId] = useState("");
+  const [methodType, setMethodType] = useState("");
+
+  // Redirect to Paystack once the server returns a checkout URL.
+  useEffect(() => {
+    if (state.paystackUrl) {
+      window.location.href = state.paystackUrl;
+    }
+  }, [state.paystackUrl]);
 
   const isActive = addon.subscription?.status === "active";
   const endDate = addon.subscription?.endDate ? new Date(addon.subscription.endDate) : null;
@@ -86,29 +96,61 @@ function AddonCard({ addon, groupId }: { addon: BillingData["addons"][number]; g
         <form action={action} className="space-y-2 pt-2 border-t border-white/5">
           <input type="hidden" name="addonId" value={addon.id} />
           <input type="hidden" name="durationDays" value={String(addon.durationDays ?? 365)} />
-          <div>
-            <label className="text-[10px] text-white/50 block mb-0.5">Payment reference</label>
-            <input
-              name="paymentReference"
-              placeholder="Bank transfer ref or receipt no."
-              className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white placeholder:text-white/20"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] text-white/50 block mb-0.5">Notes</label>
-            <input
-              name="notes"
-              placeholder="Optional"
-              className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white placeholder:text-white/20"
-            />
-          </div>
+          <input type="hidden" name="methodId" value={methodId} />
+          {methods.length > 0 && (
+            <div>
+              <label className="text-[10px] text-white/50 block mb-0.5">Payment method</label>
+              <select
+                name="methodId"
+                required
+                value={methodId}
+                onChange={(e) => {
+                  setMethodId(e.target.value);
+                  const m = methods.find((mm) => mm.id === e.target.value);
+                  setMethodType(m?.type ?? "");
+                }}
+                className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white"
+              >
+                <option value="">Select payment method</option>
+                {methods.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {methodType === "online" ? (
+            <p className="text-[10px] text-white/60 bg-white/5 rounded p-2">
+              You&apos;ll be redirected to Paystack to pay by card or transfer. The addon activates automatically on success.
+            </p>
+          ) : methodType ? (
+            <>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-0.5">Payment reference</label>
+                <input
+                  name="paymentReference"
+                  placeholder="Bank transfer ref or receipt no."
+                  className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white placeholder:text-white/20"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-0.5">Notes</label>
+                <input
+                  name="notes"
+                  placeholder="Optional"
+                  className="w-full bg-white/5 border border-white/10 rounded p-2 text-xs text-white placeholder:text-white/20"
+                />
+              </div>
+            </>
+          ) : null}
+
           <div className="flex gap-2 pt-1">
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || (methods.length > 0 && !methodId)}
               className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-4 py-1.5 rounded-lg disabled:opacity-60"
             >
-              {pending ? "Processing..." : isActive ? "Renew" : "Subscribe"}
+              {pending ? "Processing..." : methodType === "online" ? "Pay with Paystack" : isActive ? "Renew" : "Subscribe"}
             </button>
             <button
               type="button"
@@ -173,7 +215,7 @@ export function BillingClient({ groupId }: { groupId: string }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {data.addons.map((a) => (
-          <AddonCard key={a.id} addon={a} groupId={groupId} />
+          <AddonCard key={a.id} addon={a} groupId={groupId} methods={data.methods ?? []} />
         ))}
       </div>
     </div>
