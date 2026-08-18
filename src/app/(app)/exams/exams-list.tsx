@@ -519,25 +519,57 @@ function CreateExamForm({
                       <span className="font-body-sm text-body-sm text-on-surface-variant">min</span>
                     </div>
                   </div>
-                  {child.code !== "PRC" && (
-                    <div className="mt-2 border rounded p-2 max-h-40 overflow-y-auto">
-                      {topicGroups.map(([topic, qs]) => (
-                        <div key={topic}>
-                          <p className="font-label-sm text-label-sm">{topic}</p>
-                          {qs.map((q) => (
-                            <label key={q.id} className="flex items-center gap-2 text-xs">
-                              <input type="checkbox" checked={(compQuestions[child.id] ?? []).includes(q.id)}
-                                onChange={(e) => setCompQuestions((prev) => {
-                                  const cur = prev[child.id] ?? [];
-                                  return { ...prev, [child.id]: e.target.checked ? [...cur, q.id] : cur.filter((id) => id !== q.id) };
-                                })} />
-                              <span className="line-clamp-1">{q.text}</span>
-                            </label>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {child.code !== "PRC" && (() => {
+                    const childType: "mcq" | "essay" | null =
+                      child.code === "OBJ" ? "mcq" : child.code === "THEORY" ? "essay" : null;
+                    const typeLabel = childType === "mcq" ? "MCQ" : childType === "essay" ? "Essay" : "All";
+                    const selectedSet = new Set(compQuestions[child.id] ?? []);
+                    const toggleQuestions = (group: QuestionVM[], checked: boolean) =>
+                      setCompQuestions((prev) => {
+                        const cur = new Set(prev[child.id] ?? []);
+                        group.forEach((q) => { if (checked) cur.add(q.id); else cur.delete(q.id); });
+                        return { ...prev, [child.id]: Array.from(cur) };
+                      });
+                    const hasAny = topicGroups.some(([, qs]) => (childType ? qs.filter((q) => q.type === childType) : qs).length > 0);
+                    return (
+                      <div className="mt-2 border rounded p-2 max-h-52 overflow-y-auto space-y-2">
+                        <p className="font-label-sm text-label-sm text-on-surface-variant">
+                          Question bank ({typeLabel}){selectedSet.size > 0 && ` · ${selectedSet.size} selected`}
+                        </p>
+                        {!hasAny && (
+                          <p className="text-xs text-on-surface-variant">No {typeLabel} questions available for this subject.</p>
+                        )}
+                        {topicGroups.map(([topic, qs]) => {
+                          const typeQs = childType ? qs.filter((q) => q.type === childType) : qs;
+                          if (typeQs.length === 0) return null;
+                          const allSel = typeQs.every((q) => selectedSet.has(q.id));
+                          const someSel = typeQs.some((q) => selectedSet.has(q.id));
+                          return (
+                            <div key={topic}>
+                              <label className="flex items-center gap-2 font-medium cursor-pointer">
+                                <input type="checkbox" checked={allSel}
+                                  ref={(el) => { if (el) el.indeterminate = !allSel && someSel; }}
+                                  onChange={(e) => toggleQuestions(typeQs, e.target.checked)} />
+                                <span className="font-label-sm text-label-sm">{topic}</span>
+                                <span className="rounded bg-surface-container px-2 py-0.5 font-label-sm text-label-sm text-on-surface-variant">{typeQs.length}</span>
+                              </label>
+                              <div className="ml-5 mt-1 space-y-1">
+                                {typeQs.map((q) => (
+                                  <label key={q.id} className="flex items-start gap-2 text-xs cursor-pointer">
+                                    <input type="checkbox" className="mt-0.5"
+                                      checked={selectedSet.has(q.id)}
+                                      onChange={(e) => toggleQuestions([q], e.target.checked)} />
+                                    <span className="line-clamp-1">{q.text}</span>
+                                    <span className="text-[10px] text-on-surface-variant">{q.marks}m</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
