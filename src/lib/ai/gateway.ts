@@ -28,7 +28,8 @@ export type AiTaskType =
   | "question_generation"
   | "essay_grading"
   | "comment_drafting"
-  | "curriculum_parsing";
+  | "curriculum_parsing"
+  | "quiz_generation";
 
 export interface AiMessage {
   role: "system" | "user" | "assistant";
