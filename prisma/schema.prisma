@@ -963,13 +963,13 @@ model AssessmentType {
 // ---------------------------------------------------------------------------
 model RemarkTemplate {
   id        String   @id @default(cuid())
-  schoolId  String
+  schoolId  String? // null = platform-wide default available to every school
   type      String // "teacher" | "principal"
   text      String
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school School? @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([schoolId, type])
   @@map("remark_templates")

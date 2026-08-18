@@ -28,12 +28,12 @@ export default async function RemarksPage(props: {
       orderBy: { name: "asc" },
     }),
     prisma.remarkTemplate.findMany({
-      where: { schoolId: user.schoolId, type: "teacher" },
+      where: { OR: [{ schoolId: user.schoolId }, { schoolId: null }], type: "teacher" },
       orderBy: { sortOrder: "asc" },
       select: { id: true, text: true },
     }),
     prisma.remarkTemplate.findMany({
-      where: { schoolId: user.schoolId, type: "principal" },
+      where: { OR: [{ schoolId: user.schoolId }, { schoolId: null }], type: "principal" },
       orderBy: { sortOrder: "asc" },
       select: { id: true, text: true },
     }),
