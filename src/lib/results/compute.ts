@@ -103,7 +103,7 @@ export function assembleScoreMap(p: AssembleParams): ScoreMap {
         if (!scoreMap[studentId][exam.subjectId]) scoreMap[studentId][exam.subjectId] = {};
         if (subWeights.length === 0) {
           if (scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] == null) {
-            scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] = max > 0 ? (raw / max) * (examMaxScores[exam.id] || 100) : 0;
+            scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] = raw;
           }
         } else {
           const sw = subWeights.find((w) => (atIdToCode.get(w.subAssessmentTypeId) ?? "") === code);
