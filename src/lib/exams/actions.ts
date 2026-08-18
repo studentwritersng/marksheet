@@ -8,6 +8,7 @@ import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { notifyStudents } from "@/lib/notifications/actions";
 import { hookExamScheduled } from "@/lib/notifications/event-hooks";
+import { buildChildExamSpecs, type ComponentInput } from "./build-child-exams";
 import type { Prisma } from "@prisma/client";
 
 export interface ActionState {
@@ -24,14 +25,14 @@ async function loadScopedExam(
   perms: Awaited<ReturnType<typeof requireSchoolStaff>>["perms"],
   staffId: string | null,
   examId: string,
-): Promise<{ id: string; subjectId: string; status: string } | null> {
+): Promise<{ id: string; subjectId: string; status: string; subAssessmentTypeId: string | null } | null> {
   const exam = await prisma.exam.findFirst({
     where: { id: examId, schoolId },
-    select: { id: true, subjectId: true, createdBy: true, status: true },
+    select: { id: true, subjectId: true, createdBy: true, status: true, subAssessmentTypeId: true },
   });
   if (!exam) return null;
   if (canAccessSubject(perms, exam.subjectId) || (staffId && exam.createdBy === staffId)) {
-    return { id: exam.id, subjectId: exam.subjectId, status: exam.status };
+    return { id: exam.id, subjectId: exam.subjectId, status: exam.status, subAssessmentTypeId: exam.subAssessmentTypeId };
   }
   return null;
 }
@@ -53,6 +54,13 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
     try { subAssessmentWeights = JSON.parse(subAssessmentWeightsRaw) as Prisma.InputJsonValue; } catch { /* ignore */ }
   }
 
+  const componentsJson = formData.get("componentsJson") as string | null;
+  let components: ComponentInput[] = [];
+  if (componentsJson) {
+    try { components = JSON.parse(componentsJson) as ComponentInput[]; } catch { components = []; }
+  }
+  const parentWeight = parseFloat((formData.get("parentWeight") as string) || "0") || 0;
+
   if (!subjectId || !termId || !assessmentTypeId || !durationMinutes || classIds.length === 0) {
     return { error: "Missing required fields. Select at least one class." };
   }
@@ -65,7 +73,7 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
   const [subject, term, assessmentType, classCount] = await Promise.all([
     prisma.subject.findFirst({ where: { id: subjectId, schoolId: ctx.schoolId }, select: { id: true } }),
     prisma.term.findFirst({ where: { id: termId, session: { schoolId: ctx.schoolId } }, select: { id: true } }),
-    prisma.assessmentType.findFirst({ where: { code: assessmentTypeId, schoolId: ctx.schoolId }, select: { id: true } }),
+    prisma.assessmentType.findFirst({ where: { code: assessmentTypeId, schoolId: ctx.schoolId }, include: { children: { select: { id: true, code: true } } } }),
     prisma.class.count({ where: { id: { in: classIds }, schoolId: ctx.schoolId } }),
   ]);
   if (!subject) return { error: "Subject not found." };
@@ -73,38 +81,98 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
   if (!assessmentType) return { error: "Assessment type not found." };
   if (classCount !== classIds.length) return { error: "One or more classes are invalid." };
 
-  const exam = await prisma.exam.create({
-    data: {
-      schoolId: ctx.schoolId,
-      subjectId,
-      classId: classIds[0],
-      termId,
-      assessmentTypeId,
-      durationMinutes,
-      shuffleEnabled: true,
-      status: "draft",
-      createdBy: ctx.user.staffId ?? undefined,
-      subAssessmentWeights,
-      classes: {
-        create: classIds.map((cId) => ({ classId: cId })),
-      },
-    },
-  });
+  const childIds = new Set(assessmentType.children.map((c) => c.id));
 
-  if (questionIds.length > 0) {
-    await prisma.examQuestion.createMany({
-      data: questionIds.map((qId) => ({ examId: exam.id, questionId: qId })),
+  let specs: ReturnType<typeof buildChildExamSpecs> = [];
+  try {
+    specs = buildChildExamSpecs({
+      parentHasSubAssessments: assessmentType.children.length > 0,
+      parentWeight,
+      components,
     });
+  } catch (e: any) {
+    return { error: e.message ?? "Invalid exam components." };
+  }
+
+  // Authorize: every spec must reference a real child of this parent type.
+  for (const s of specs) {
+    if (!childIds.has(s.subAssessmentTypeId)) return { error: "Invalid sub-assessment." };
+  }
+
+  if (specs.length === 0) {
+    // LEGACY single exam (unchanged behaviour).
+    const exam = await prisma.exam.create({
+      data: {
+        schoolId: ctx.schoolId,
+        subjectId,
+        classId: classIds[0],
+        termId,
+        assessmentTypeId,
+        durationMinutes,
+        shuffleEnabled: true,
+        status: "draft",
+        createdBy: ctx.user.staffId ?? undefined,
+        subAssessmentWeights,
+        classes: {
+          create: classIds.map((cId) => ({ classId: cId })),
+        },
+      },
+    });
+
+    if (questionIds.length > 0) {
+      await prisma.examQuestion.createMany({
+        data: questionIds.map((qId) => ({ examId: exam.id, questionId: qId })),
+      });
+    }
+
+    await recordAudit({
+      schoolId: ctx.schoolId, actorId: ctx.user.userId,
+      action: "create", entityType: "exam",
+      afterValue: { examId: exam.id, subjectId, classIds, termId, questionCount: questionIds.length } as never,
+    });
+
+    revalidatePath("/exams");
+    return { success: "Exam created. Add questions and submit for review when ready." };
+  }
+
+  // NEW: one Exam per enabled component.
+  const createdExamIds: string[] = [];
+  for (const spec of specs) {
+    const exam = await prisma.exam.create({
+      data: {
+        schoolId: ctx.schoolId,
+        subjectId,
+        classId: classIds[0],
+        termId,
+        assessmentTypeId: assessmentType.id,
+        subAssessmentTypeId: spec.subAssessmentTypeId,
+        durationMinutes: spec.durationMinutes,
+        shuffleEnabled: true,
+        status: "draft",
+        createdBy: ctx.user.staffId ?? undefined,
+        subAssessmentWeights: [{ subAssessmentTypeId: spec.subAssessmentTypeId, weightPercentage: spec.allocation }] as Prisma.InputJsonValue,
+        classes: {
+          create: classIds.map((cId) => ({ classId: cId })),
+        },
+      },
+    });
+    createdExamIds.push(exam.id);
+
+    if (spec.questionIds.length > 0) {
+      await prisma.examQuestion.createMany({
+        data: spec.questionIds.map((qId) => ({ examId: exam.id, questionId: qId })),
+      });
+    }
   }
 
   await recordAudit({
     schoolId: ctx.schoolId, actorId: ctx.user.userId,
     action: "create", entityType: "exam",
-    afterValue: { examId: exam.id, subjectId, classIds, termId, questionCount: questionIds.length } as never,
+    afterValue: { examIds: createdExamIds, subjectId, classIds, termId, componentCount: specs.length } as never,
   });
 
   revalidatePath("/exams");
-  return { success: "Exam created. Add questions and submit for review when ready." };
+  return { success: "Exams created (one per component)." };
 }
 
 export async function updateExamAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -132,6 +200,12 @@ export async function updateExamAction(_prev: ActionState, formData: FormData): 
   if (!existing) return { error: "Exam not found or not assigned to you." };
   if (!canAccessSubject(ctx.perms, subjectId)) {
     return { error: "Not authorised for this subject." };
+  }
+
+  // Guard child (component) exams: their sub-assessment allocation must remain.
+  if (existing.subAssessmentTypeId && (!subAssessmentWeights || (subAssessmentWeights as any[]).length === 0 ||
+      !(subAssessmentWeights as any[]).some((w) => w.subAssessmentTypeId === existing.subAssessmentTypeId))) {
+    return { error: "This component exam must keep its sub-assessment allocation." };
   }
 
   await prisma.exam.update({
