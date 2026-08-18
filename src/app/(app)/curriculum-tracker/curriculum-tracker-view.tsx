@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 interface TrackerRow {
   className: string;
@@ -9,6 +10,12 @@ interface TrackerRow {
   taught: number;
   pct: number;
   topics: { topic: string; week: number; taught: boolean }[];
+}
+
+interface ChildOption {
+  id: string;
+  name: string;
+  className: string;
 }
 
 interface Props {
@@ -20,6 +27,8 @@ interface Props {
   isAdmin: boolean;
   teacherSubjects: { subjectId: string; subjectName: string; classNames: string[] }[];
   studentClassId: string | null;
+  childrenList?: ChildOption[];
+  selectedChildId?: string | null;
 }
 
 export function CurriculumTrackerView({
@@ -31,6 +40,8 @@ export function CurriculumTrackerView({
   isAdmin,
   teacherSubjects,
   studentClassId,
+  childrenList = [],
+  selectedChildId = null,
 }: Props) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
@@ -58,6 +69,31 @@ export function CurriculumTrackerView({
           {termName} Term — {overallTaught} of {overallTotal} topics covered ({overallPct}%)
         </p>
       </div>
+
+      {childrenList.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-4 mb-6">
+          <p className="font-label-sm text-label-sm text-on-surface-variant mb-2">Viewing ward</p>
+          <div className="flex flex-wrap gap-2">
+            {childrenList.map((c) => {
+              const active = c.id === selectedChildId;
+              return (
+                <Link
+                  key={c.id}
+                  href={`/curriculum-tracker?childId=${c.id}`}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                    active
+                      ? "bg-primary text-on-primary border-primary"
+                      : "bg-surface-container-lowest text-on-surface border-outline-variant hover:border-primary"
+                  }`}
+                >
+                  {c.name}
+                  <span className="ml-1 text-xs opacity-80">{c.className}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Overall progress */}
       <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5 mb-6">

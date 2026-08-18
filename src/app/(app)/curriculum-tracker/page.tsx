@@ -5,7 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { isAddonActive } from "@/lib/addons/check";
 import { CurriculumTrackerView } from "./curriculum-tracker-view";
 
-export default async function CurriculumTrackerPage() {
+export default async function CurriculumTrackerPage(props: {
+  searchParams: Promise<{ childId?: string }>;
+}) {
+  const { childId } = await props.searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const perms = await resolvePermissions(user);
@@ -29,6 +32,8 @@ export default async function CurriculumTrackerPage() {
   let classIds: string[] = [];
   let teacherSubjects: { subjectId: string; subjectName: string; classNames: string[] }[] = [];
   let studentClassId: string | null = null;
+  let children: { id: string; name: string; className: string }[] = [];
+  let selectedChildId: string | null = null;
 
   if (admin) {
     // Admin sees all classes
@@ -72,6 +77,41 @@ export default async function CurriculumTrackerPage() {
     }
     classIds = Array.from(seenClassIds);
     teacherSubjects = Array.from(subjectMap.values());
+  } else if (user.role === "parent" && user.userId) {
+    // Parent sees the curriculum for their linked wards; pick a child first.
+    const guardians = await prisma.guardian.findMany({
+      where: { parentUserId: user.userId, student: { schoolId } },
+      include: {
+        student: {
+          include: { currentClass: { select: { id: true, name: true, level: true } } },
+        },
+      },
+    });
+    const wards = guardians
+      .map((g) => g.student)
+      .filter((s): s is typeof s & { currentClassId: string } => Boolean(s.currentClassId));
+
+    children = wards.map((w) => ({
+      id: w.id,
+      name: `${w.firstName} ${w.lastName}`,
+      className: w.currentClass?.name ?? "No class",
+    }));
+
+    if (wards.length > 0) {
+      // Only honor a childId that belongs to this parent's own wards.
+      const selected = wards.find((w) => w.id === childId) ?? wards[0];
+      classIds = [selected.currentClassId];
+      studentClassId = selected.currentClassId;
+      selectedChildId = selected.id;
+    }
+  }
+
+  if (user.role === "parent" && children.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="font-body-md text-body-md text-on-surface-variant">No wards linked to your account.</p>
+      </div>
+    );
   }
 
   if (classIds.length === 0) {
@@ -175,6 +215,8 @@ export default async function CurriculumTrackerPage() {
       isAdmin={admin}
       teacherSubjects={teacherSubjects}
       studentClassId={studentClassId}
+      childrenList={children}
+      selectedChildId={selectedChildId}
     />
   );
 }
