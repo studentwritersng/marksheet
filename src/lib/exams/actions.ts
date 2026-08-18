@@ -61,8 +61,13 @@ export async function createExamAction(_prev: ActionState, formData: FormData): 
   }
   const parentWeight = parseFloat((formData.get("parentWeight") as string) || "0") || 0;
 
-  if (!subjectId || !termId || !assessmentTypeId || !durationMinutes || classIds.length === 0) {
+  if (!subjectId || !termId || !assessmentTypeId || classIds.length === 0) {
     return { error: "Missing required fields. Select at least one class." };
+  }
+  // For component-based (sub-assessment) exams, duration is per-component and not
+  // submitted as the top-level field, so only require it for legacy single exams.
+  if (components.length === 0 && !durationMinutes) {
+    return { error: "Missing required fields. Enter an exam duration." };
   }
 
   if (!canAccessSubject(ctx.perms, subjectId)) {
