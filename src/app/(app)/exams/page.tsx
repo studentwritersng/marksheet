@@ -125,6 +125,7 @@ export default async function ExamsPage() {
           classNames: e.classes.map((ec) => ec.class.name).join(", "),
           termName: `${e.term.name}${e.term.session ? ` (${e.term.session.label})` : ""}`,
           assessmentTypeId: e.assessmentTypeId,
+          subAssessmentTypeId: e.subAssessmentTypeId ?? null,
           durationMinutes: e.durationMinutes,
           questionCount: e.examQuestions.length,
           attemptCount: e.attempts.length,

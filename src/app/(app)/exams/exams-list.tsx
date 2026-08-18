@@ -12,7 +12,7 @@ import { ExportButtons } from "@/components/export-buttons";
 
 interface ExamVM {
   id: string; status: string; subjectName: string; className: string; classNames: string;
-  termName: string; assessmentTypeId: string; durationMinutes: number;
+  termName: string; assessmentTypeId: string; subAssessmentTypeId?: string | null; durationMinutes: number;
   questionCount: number; attemptCount: number; submittedCount: number;
   questionIds: string[];
   createdBy?: string | null;
@@ -34,6 +34,7 @@ export function ExamsList({
 }: {
   exams: ExamVM[]; subjects: SubjectVM[]; classes: ClassVM[]; terms: TermVM[];
   questions: QuestionVM[]; classSubjects?: { classId: string; subjectId: string; subjectName: string }[];
+  subAssessmentTypeId?: string | null;
   assessmentTypes: AssessmentTypeVM[]; weightings?: WeightingVM[];
   csvData?: { headers: string[]; rows: string[][] };
   contentId?: string;
@@ -138,7 +139,17 @@ export function ExamsList({
                     <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface">{exam.subjectName}</td>
                     <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface-variant">{exam.classNames || exam.className}</td>
                     <td className="py-3 px-4">
-                      <span className="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded font-label-sm text-label-sm">{exam.assessmentTypeId}</span>
+                      {(() => {
+                        const at = assessmentTypes.find((t) => t.id === exam.assessmentTypeId || t.code === exam.assessmentTypeId);
+                        const baseType = at?.name ?? exam.assessmentTypeId;
+                        const compCode = exam.subAssessmentTypeId
+                          ? (assessmentTypes.find((t) => t.children.some((c) => c.id === exam.subAssessmentTypeId))?.children.find((c) => c.id === exam.subAssessmentTypeId)?.code ?? "")
+                          : "";
+                        const typeLabel = compCode ? `${baseType} · ${compCode}` : baseType;
+                        return (
+                          <span className="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded font-label-sm text-label-sm">{typeLabel}</span>
+                        );
+                      })()}
                     </td>
                     <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface-variant">{exam.durationMinutes} min</td>
                     <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface-variant">{exam.questionCount}</td>
