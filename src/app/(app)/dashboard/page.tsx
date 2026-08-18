@@ -8,6 +8,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { SchoolLicenseBanner } from "@/components/school-license-banner";
 import { resolveDisplayName } from "@/lib/auth/display-name";
+import { TakeQuizCard } from "@/components/quiz/take-quiz-card";
+import { LeaderboardPeek } from "@/components/quiz/leaderboard-peek";
 
 function greeting() {
   const h = new Date().getHours();
@@ -50,6 +52,8 @@ export default async function DashboardPage() {
       </section>
     );
   }
+
+  const assessmentActive = user.schoolId ? await isAddonActive(user.schoolId, "Assessment") : false;
 
   const [students, classes, staff, subjects, session, school, lessonNotes, exams, termResults] = await Promise.all([
     prisma.student.count({ where: { schoolId, status: "active" } }),
@@ -247,6 +251,8 @@ export default async function DashboardPage() {
           </div>
         )}
 
+        {assessmentActive && <TakeQuizCard />}
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard label="Term Results" value={termResultCount} icon="analytics" gradient="from-emerald-500 to-emerald-700" />
           <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5 hover:shadow-md transition-shadow col-span-1 sm:col-span-2">
@@ -269,6 +275,8 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {assessmentActive && <LeaderboardPeek schoolId={schoolId} />}
       </section>
     );
   }
@@ -524,6 +532,8 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        {assessmentActive && <LeaderboardPeek schoolId={schoolId} />}
       </section>
     );
   }
@@ -592,6 +602,8 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+
+      {assessmentActive && <LeaderboardPeek schoolId={schoolId} />}
     </section>
   );
 }

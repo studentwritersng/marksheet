@@ -19,6 +19,7 @@ export function buildNav(
     items.push(
       { label: "Schools", href: "/schools", icon: "domain" },
       { label: "Audit Log", href: "/audit-log", icon: "history" },
+      { label: "Quiz Bank", href: "/console/quiz", icon: "quiz" },
     );
     return items;
   }
@@ -103,6 +104,7 @@ export function buildNav(
       { label: "My Timetable", href: "/my-timetable", icon: "calendar_view_week" },
       { label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" },
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
+      { label: "Take Quiz", href: "/quiz", icon: "quiz" },
     ];
     if (isStudentCaptain) {
       studentItems.push({ label: "Period Tracker", href: "/period-tracker", icon: "checklist" });

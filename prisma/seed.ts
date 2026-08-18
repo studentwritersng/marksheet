@@ -292,6 +292,18 @@ async function main() {
   });
   console.log(`  Addon: "Period Tracker"`);
 
+  // --- Assessment addon ------------------------------------------------
+  await prisma.addon.upsert({
+    where: { name: "Assessment" },
+    update: {},
+    create: {
+      name: "Assessment",
+      description: "AI-generated quizzes and leaderboards from the standard curriculum.",
+      basicPrice: 0, standardPrice: 0, premiumPrice: 0, isActive: true,
+    },
+  });
+  console.log(`  Addon: "Assessment"`);
+
   // --- Timetable Generator addon -------------------------------------------
   const addon = await prisma.addon.upsert({
     where: { name: "Timetable Generator" },
