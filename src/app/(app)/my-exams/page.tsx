@@ -40,6 +40,18 @@ export default async function MyExamsPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  // Resolve human-readable assessment type names from the stored code/id.
+  const atIds = Array.from(new Set(exams.map((e) => e.assessmentTypeId)));
+  const atTypes = await prisma.assessmentType.findMany({
+    where: { OR: [{ code: { in: atIds } }, { id: { in: atIds } }] },
+    select: { id: true, code: true, name: true },
+  });
+  const atName = new Map<string, string>();
+  for (const a of atTypes) {
+    atName.set(a.id, a.name);
+    atName.set(a.code, a.name);
+  }
+
   return (
     <section className="flex flex-col gap-stack-lg">
       <div>
@@ -69,7 +81,7 @@ export default async function MyExamsPage() {
                     {exam.durationMinutes} min
                   </span>
                   <span className="bg-surface-variant text-on-surface-variant font-label-sm text-label-sm px-2 py-0.5 rounded capitalize">
-                    {exam.assessmentTypeId}
+                    {atName.get(exam.assessmentTypeId) ?? exam.assessmentTypeId}
                   </span>
                 </div>
                 <div className="mt-auto pt-2">
