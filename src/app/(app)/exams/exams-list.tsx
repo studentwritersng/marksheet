@@ -305,6 +305,8 @@ function CreateExamForm({
   const [subWeights, setSubWeights] = useState<Record<string, string>>({});
   const [enabledComps, setEnabledComps] = useState<Set<string>>(new Set());
   const [selClassLevels, setSelClassLevels] = useState<string[]>([]);
+  const [compQuestions, setCompQuestions] = useState<Record<string, string[]>>({});
+  const [compDurations, setCompDurations] = useState<Record<string, string>>({});
 
   const selectedType = assessmentTypes.find((t) => t.code === selAssessType);
   const hasSubAssessments = selectedType && selectedType.children.length > 0;
@@ -342,11 +344,19 @@ function CreateExamForm({
 
   return (
     <form action={action} className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 space-y-4">
-      <input type="hidden" name="subAssessmentWeights" value={JSON.stringify(
+      <input type="hidden" name="parentWeight" value={String(parentWeight)} />
+      <input type="hidden" name="componentsJson" value={JSON.stringify(
         hasSubAssessments
           ? selectedType.children
               .filter((c) => enabledComps.has(c.id))
-              .map((c) => ({ subAssessmentTypeId: c.id, weightPercentage: parseFloat(subWeights[c.id] || "0") || 0 }))
+              .map((c) => ({
+                subAssessmentTypeId: c.id,
+                code: c.code,
+                enabled: true,
+                allocation: parseFloat(subWeights[c.id] || "0") || 0,
+                durationMinutes: parseFloat(compDurations[c.id] || "0") || 0,
+                questionIds: c.code === "PRC" ? [] : (compQuestions[c.id] ?? []),
+              }))
           : []
       )} />
       <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">New Exam</h3>
@@ -416,11 +426,13 @@ function CreateExamForm({
             className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md"
           ><option value="">Select type</option>{assessmentTypes.map((t) => <option key={t.code} value={t.code}>{t.name} ({t.code}){t.defaultWeight ? ` — ${t.defaultWeight}%` : ""}</option>)}</select>
         </div>
-        <div>
-          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Duration (minutes)</label>
-          <input type="number" name="durationMinutes" min={1} required
-            className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md" />
-        </div>
+        {!hasSubAssessments && (
+          <div>
+            <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Duration (minutes)</label>
+            <input type="number" name="durationMinutes" min={1} required
+              className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md" />
+          </div>
+        )}
       </div>
 
       {/* Sub-assessment component configuration */}
@@ -443,50 +455,78 @@ function CreateExamForm({
             {selectedType.children.map((child) => {
               const enabled = enabledComps.has(child.id);
               return (
-                <div key={child.id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2.5 border border-outline-variant">
-                  <input
-                    type="checkbox"
-                    id={`comp-${child.id}`}
-                    checked={enabled}
-                    onChange={(e) => {
-                      setEnabledComps((prev) => {
-                        const next = new Set(prev);
-                        if (e.target.checked) next.add(child.id);
-                        else { next.delete(child.id); setSubWeights((w) => ({ ...w, [child.id]: "" })); }
-                        return next;
-                      });
-                    }}
-                    className="rounded border-outline-variant text-[#002046]"
-                  />
-                  <label htmlFor={`comp-${child.id}`} className="flex-1 font-body-md text-body-md text-on-surface cursor-pointer">
-                    {child.name}
-                    <span className="ml-2 font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded">
-                      {child.code}
-                    </span>
-                    {child.code === "PRC" && (
-                      <span className="ml-2 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">Manual only</span>
-                    )}
-                    {child.code === "OBJ" && (
-                      <span className="ml-2 text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">Platform exam / manual override</span>
-                    )}
-                    {child.code === "THEORY" && (
-                      <span className="ml-2 text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Platform exam / manual override</span>
-                    )}
-                  </label>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                <div key={child.id} className="bg-white rounded-lg px-3 py-2.5 border border-outline-variant space-y-2">
+                  <div className="flex items-center gap-3">
                     <input
-                      type="number"
-                      min={0}
-                      max={parentWeight}
-                      step={0.5}
-                      value={subWeights[child.id] ?? ""}
-                      disabled={!enabled}
-                      onChange={(e) => setSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
-                      placeholder="0"
-                      className="w-20 border border-outline-variant rounded p-1.5 text-sm text-right disabled:opacity-40 disabled:bg-surface-container-low focus:outline-none focus:border-primary"
+                      type="checkbox"
+                      id={`comp-${child.id}`}
+                      checked={enabled}
+                      onChange={(e) => {
+                        setEnabledComps((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(child.id);
+                          else { next.delete(child.id); setSubWeights((w) => ({ ...w, [child.id]: "" })); }
+                          return next;
+                        });
+                      }}
+                      className="rounded border-outline-variant text-[#002046]"
                     />
-                    <span className="font-body-sm text-body-sm text-on-surface-variant">marks</span>
+                    <label htmlFor={`comp-${child.id}`} className="flex-1 font-body-md text-body-md text-on-surface cursor-pointer">
+                      {child.name}
+                      <span className="ml-2 font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded">
+                        {child.code}
+                      </span>
+                      {child.code === "PRC" && (
+                        <span className="ml-2 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">Manual only</span>
+                      )}
+                      {child.code === "OBJ" && (
+                        <span className="ml-2 text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">Platform exam / manual override</span>
+                      )}
+                      {child.code === "THEORY" && (
+                        <span className="ml-2 text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Platform exam / manual override</span>
+                      )}
+                    </label>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <input
+                        type="number"
+                        min={0}
+                        max={parentWeight}
+                        step={0.5}
+                        value={subWeights[child.id] ?? ""}
+                        disabled={!enabled}
+                        onChange={(e) => setSubWeights((prev) => ({ ...prev, [child.id]: e.target.value }))}
+                        placeholder="0"
+                        className="w-20 border border-outline-variant rounded p-1.5 text-sm text-right disabled:opacity-40 disabled:bg-surface-container-low focus:outline-none focus:border-primary"
+                      />
+                      <span className="font-body-sm text-body-sm text-on-surface-variant">marks</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <input
+                        type="number" min={1} value={compDurations[child.id] ?? ""} disabled={!enabled}
+                        onChange={(e) => setCompDurations((d) => ({ ...d, [child.id]: e.target.value }))}
+                        placeholder="min" className="w-20 border rounded p-1.5 text-sm text-right disabled:opacity-40" />
+                      <span className="font-body-sm text-body-sm text-on-surface-variant">min</span>
+                    </div>
                   </div>
+                  {child.code !== "PRC" && (
+                    <div className="mt-2 border rounded p-2 max-h-40 overflow-y-auto">
+                      {topicGroups.map(([topic, qs]) => (
+                        <div key={topic}>
+                          <p className="font-label-sm text-label-sm">{topic}</p>
+                          {qs.map((q) => (
+                            <label key={q.id} className="flex items-center gap-2 text-xs">
+                              <input type="checkbox" checked={(compQuestions[child.id] ?? []).includes(q.id)}
+                                onChange={(e) => setCompQuestions((prev) => {
+                                  const cur = prev[child.id] ?? [];
+                                  return { ...prev, [child.id]: e.target.checked ? [...cur, q.id] : cur.filter((id) => id !== q.id) };
+                                })} />
+                              <span className="line-clamp-1">{q.text}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -500,10 +540,11 @@ function CreateExamForm({
         </div>
       )}
 
-      <div>
-        <label className="font-label-sm text-label-sm text-on-surface-variant block mb-2">
-          Question Bank {selSubject && <span className="text-on-surface-variant">— {filteredQuestions.length} question(s)</span>}
-        </label>
+      {!hasSubAssessments && (
+        <div>
+          <label className="font-label-sm text-label-sm text-on-surface-variant block mb-2">
+            Question Bank {selSubject && <span className="text-on-surface-variant">— {filteredQuestions.length} question(s)</span>}
+          </label>
         {filteredQuestions.length === 0 && (
           <p className="p-3 font-body-sm text-body-sm text-on-surface-variant border border-outline-variant rounded">
             {selSubject ? "No approved questions for this subject and class." : "Select a subject above to see available questions."}
@@ -542,6 +583,7 @@ function CreateExamForm({
           ))}
         </div>
       </div>
+      )}
 
       {state.error && <p className="bg-red-50 text-red-700 font-body-sm text-body-sm px-3 py-2 rounded">{state.error}</p>}
       {state.success && <p className="bg-green-50 text-green-700 font-body-sm text-body-sm px-3 py-2 rounded">{state.success}</p>}
