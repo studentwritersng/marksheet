@@ -952,8 +952,8 @@ model AssessmentType {
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
-  @@unique([schoolId, name])
-  @@unique([schoolId, code])
+  @@unique([schoolId, name, parentId])
+  @@unique([schoolId, code, parentId])
   @@index([schoolId])
   @@map("assessment_types")
 }

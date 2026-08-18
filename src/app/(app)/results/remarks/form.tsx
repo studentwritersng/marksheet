@@ -12,9 +12,11 @@ interface Template {
 function TemplateDropdown({
   templates,
   onSelect,
+  align = "left",
 }: {
   templates: Template[];
   onSelect: (text: string) => void;
+  align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -43,10 +45,10 @@ function TemplateDropdown({
         Use template ▾
       </button>
       {open && (
-        <div
-          role="listbox"
-          className="absolute left-0 top-full z-50 mt-1 w-[420px] max-w-[90vw] rounded-lg border border-outline-variant bg-surface-container shadow-lg overflow-hidden"
-        >
+      <div
+        role="listbox"
+        className={`absolute top-full z-50 mt-1 w-[420px] max-w-[90vw] rounded-lg border border-outline-variant bg-surface-container shadow-lg overflow-hidden ${align === "right" ? "right-0" : "left-0"}`}
+      >
           <p className="px-3 py-2 text-xs font-semibold text-on-surface-variant border-b border-outline-variant bg-surface-container-low">
             Templates — best to worst
           </p>
@@ -148,6 +150,7 @@ export function RemarksForm({
                       <label className="font-label-sm text-label-sm text-on-surface-variant">Principal&apos;s Comment</label>
                       <TemplateDropdown
                         templates={principalTemplates}
+                        align="right"
                         onSelect={(text) => setField(s.id, "principalComment", text)}
                       />
                     </div>

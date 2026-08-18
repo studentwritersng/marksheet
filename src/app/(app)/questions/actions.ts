@@ -348,7 +348,7 @@ Difficulty distribution: 1 Easy, 1 Medium, 1 Hard`,
       },
     ],
     temperature: 0.6,
-    maxTokens: 8192,
+    maxTokens: 16000,
   });
 
   // Parse the AI JSON response — strip markdown fences first
@@ -708,7 +708,7 @@ Remember: the "questions" array must have exactly ${chunkCount} item${chunkCount
       temperature: 0.6,
       maxTokens: isMcq
         ? Math.min(Math.max(4096, chunkCount * 800 + 1000), 32768)
-        : Math.min(Math.max(8192, chunkCount * 1200 + 1000), 32768),
+        : Math.min(Math.max(16000, chunkCount * 3000 + 2000), 32768),
     });
     return result;
   }
@@ -757,7 +757,7 @@ Remember: the "questions" array must have exactly ${chunkCount} item${chunkCount
           if (depth === 0 && objStart >= 0) {
             try {
               const obj = JSON.parse(raw.slice(objStart, i + 1)) as Record<string, unknown>;
-              if (typeof obj.question_text === "string" && Array.isArray(obj.options)) items.push(obj);
+               if (typeof obj.question_text === "string" && (Array.isArray(obj.options) || Array.isArray(obj.rubric_points))) items.push(obj);
             } catch { /* skip */ }
             objStart = -1;
           }

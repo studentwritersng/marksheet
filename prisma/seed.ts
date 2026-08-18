@@ -50,11 +50,19 @@ async function main() {
     { name: "Exam", code: "EXM", sortOrder: 4 },
   ];
   for (const t of defaultTypes) {
-    await prisma.assessmentType.upsert({
-      where: { schoolId_name: { schoolId: school.id, name: t.name } },
-      update: { code: t.code, sortOrder: t.sortOrder },
-      create: { schoolId: school.id, name: t.name, code: t.code, sortOrder: t.sortOrder },
+    const existing = await prisma.assessmentType.findFirst({
+      where: { schoolId: school.id, name: t.name, parentId: null },
     });
+    if (existing) {
+      await prisma.assessmentType.update({
+        where: { id: existing.id },
+        data: { code: t.code, sortOrder: t.sortOrder },
+      });
+    } else {
+      await prisma.assessmentType.create({
+        data: { schoolId: school.id, name: t.name, code: t.code, sortOrder: t.sortOrder },
+      });
+    }
   }
 
   // --- School Admin user + staff ---------------------------------------

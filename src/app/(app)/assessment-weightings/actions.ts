@@ -33,13 +33,13 @@ export async function createAssessmentTypeAction(
     if (!parent) return { error: "Parent assessment type not found." };
   }
 
-  const existingName = await prisma.assessmentType.findUnique({
-    where: { schoolId_name: { schoolId: ctx.schoolId, name } },
+  const existingName = await prisma.assessmentType.findFirst({
+    where: { schoolId: ctx.schoolId, name, parentId },
   });
   if (existingName) return { error: `Type "${name}" already exists.` };
 
-  const existingCode = await prisma.assessmentType.findUnique({
-    where: { schoolId_code: { schoolId: ctx.schoolId, code } },
+  const existingCode = await prisma.assessmentType.findFirst({
+    where: { schoolId: ctx.schoolId, code, parentId },
   });
   if (existingCode) return { error: `Code "${code}" already in use.` };
 
@@ -61,8 +61,8 @@ export async function createAssessmentTypeAction(
       { name: "Practical", code: "PRC", sortOrder: 3 },
     ];
     for (const sub of subs) {
-      const subExists = await prisma.assessmentType.findUnique({
-        where: { schoolId_code: { schoolId: ctx.schoolId, code: sub.code } },
+      const subExists = await prisma.assessmentType.findFirst({
+        where: { schoolId: ctx.schoolId, code: sub.code, parentId: parent.id },
       });
       if (!subExists) {
         await prisma.assessmentType.create({
@@ -96,13 +96,19 @@ export async function updateAssessmentTypeAction(
   if (!newName) return { error: "Name is required." };
   if (!newCode) return { error: "Code is required." };
 
+  const record = await prisma.assessmentType.findFirst({
+    where: { id, schoolId: ctx.schoolId },
+    select: { parentId: true },
+  });
+  if (!record) return { error: "Assessment type not found." };
+
   const existingName = await prisma.assessmentType.findFirst({
-    where: { schoolId: ctx.schoolId, name: newName, id: { not: id } },
+    where: { schoolId: ctx.schoolId, name: newName, parentId: record.parentId, id: { not: id } },
   });
   if (existingName) return { error: `Type "${newName}" already exists.` };
 
   const existingCode = await prisma.assessmentType.findFirst({
-    where: { schoolId: ctx.schoolId, code: newCode, id: { not: id } },
+    where: { schoolId: ctx.schoolId, code: newCode, parentId: record.parentId, id: { not: id } },
   });
   if (existingCode) return { error: `Code "${newCode}" already in use.` };
 
