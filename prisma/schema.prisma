@@ -761,6 +761,70 @@ model Question {
   @@map("questions")
 }
 
+model QuizQuestion {
+  id               String   @id @default(cuid())
+  classLevel       String // JSS1..SS3
+  term             String // FIRST / SECOND / THIRD
+  subject          String // NERDC subject name
+  topic            String
+  curriculumTopicId String?
+  questionText     String
+  options          Json // string[4]
+  correctIndex     Int
+  explanation      String?
+  difficulty       Int     @default(1) // 1..3
+  points           Int     @default(10)
+  status           String  @default("live") // live | retired
+  createdAt        DateTime @default(now())
+
+  attempts QuizAttemptAnswer[]
+
+  @@index([classLevel, term, subject, topic])
+  @@index([status])
+  @@map("quiz_questions")
+}
+
+model QuizAttempt {
+  id           String   @id @default(cuid())
+  studentId    String
+  schoolId     String
+  classId      String
+  classLevel   String
+  term         String
+  subject      String? // null = mixed/daily quiz
+  mode         String   // "daily" | "practice"
+  totalQuestions Int
+  correctCount Int
+  earnedPoints Int
+  accuracyPct Int
+  durationSec  Int?
+  countsForLeaderboard Boolean @default(true)
+  completedAt  DateTime @default(now())
+
+  answers QuizAttemptAnswer[]
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([classId])
+  @@index([completedAt])
+  @@map("quiz_attempts")
+}
+
+model QuizAttemptAnswer {
+  id            String   @id @default(cuid())
+  quizAttemptId String
+  quizQuestionId String
+  selectedIndex Int?
+  correct       Boolean
+  pointsEarned  Int
+
+  attempt  QuizAttempt  @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
+  question QuizQuestion @relation(fields: [quizQuestionId], references: [id])
+
+  @@index([quizAttemptId])
+  @@map("quiz_attempt_answers")
+}
+
 model McqOption {
   id         String  @id @default(cuid())
   questionId String
