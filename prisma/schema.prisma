@@ -810,6 +810,7 @@ model Exam {
   classId              String? // kept for backward compat; use ExamClass for multiple
   termId               String
   assessmentTypeId     String
+  subAssessmentTypeId String? // child AssessmentType id; null = legacy single exam
   durationMinutes      Int
   shuffleEnabled       Boolean         @default(true)
   status               ExamStatus      @default(draft)
@@ -841,6 +842,7 @@ model Exam {
   @@index([schoolId])
   @@index([subjectId, classId, termId])
   @@index([status])
+  @@index([subAssessmentTypeId])
   @@map("exams")
 }
 
