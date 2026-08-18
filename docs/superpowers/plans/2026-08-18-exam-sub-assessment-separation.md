@@ -349,7 +349,7 @@ Then build specs and branch:
 ```ts
   const specs = buildChildExamSpecs({
     parentHasSubAssessments: assessmentType.children.length > 0,
-    parentWeight: (assessmentType as any).defaultWeight ?? 0,
+    parentWeight: parseFloat((formData.get("parentWeight") as string) || "0") || 0,
     components,
   });
 
@@ -364,7 +364,7 @@ Then build specs and branch:
       data: {
         schoolId: ctx.schoolId, subjectId, classId: classIds[0], termId,
         assessmentTypeId: assessmentType.id, durationMinutes, shuffleEnabled: true,
-        status: "draft", createdBy: ctx.user.staffId ?? undefined, subAssessmentWeights: undefined,
+        status: "draft", createdBy: ctx.user.staffId ?? undefined, subAssessmentWeights,
         classes: { create: classIds.map((cId) => ({ classId: cId })) },
       },
     });
@@ -702,6 +702,7 @@ For PRC (`child.code === "PRC"`) skip the question picker and show "Manual only"
 Replace the existing `<input type="hidden" name="subAssessmentWeights" ... />` (lines 345-351) with:
 
 ```tsx
+  <input type="hidden" name="parentWeight" value={String(parentWeight)} />
   <input type="hidden" name="componentsJson" value={JSON.stringify(
     hasSubAssessments
       ? selectedType.children
