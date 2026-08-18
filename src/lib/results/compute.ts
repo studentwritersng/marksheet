@@ -31,6 +31,94 @@ export interface TermResultOutput {
   subjectResults: SubjectScoreRow[];
 }
 
+export type ScoreMap = Record<string, Record<string, Record<string, number>>>;
+export interface AssembleParams {
+  exams: { id: string; subjectId: string; assessmentTypeId: string; subAssessmentWeights: unknown }[];
+  attempts: { examId: string; studentId: string; answers: { finalScore?: number | null; aiSuggestedScore?: number | null; gradedScore?: number | null }[] }[];
+  manualScores: { examId: string; studentId: string; subAssessmentTypeCode: string; rawScore: number; maxRawScore: number }[];
+  atIdToCode: Map<string, string>;
+  examMaxScores: Record<string, number>;
+  examSubWeights: Record<string, { subAssessmentTypeId: string; weightPercentage: number }[]>;
+}
+export function assembleScoreMap(p: AssembleParams): ScoreMap {
+  const { exams, attempts, manualScores, atIdToCode, examMaxScores, examSubWeights } = p;
+  // manualMap (verbatim from current lines 124-133)
+  const manualMap: Record<string, Record<string, Record<string, { raw: number; max: number }>>> = {};
+  for (const ms of manualScores) {
+    if (!manualMap[ms.examId]) manualMap[ms.examId] = {};
+    if (!manualMap[ms.examId][ms.subAssessmentTypeCode]) manualMap[ms.examId][ms.subAssessmentTypeCode] = {};
+    manualMap[ms.examId][ms.subAssessmentTypeCode][ms.studentId] = { raw: ms.rawScore, max: ms.maxRawScore };
+  }
+  const scoreMap: ScoreMap = {};
+  // --- attempt loop (verbatim from current lines 157-230) ---
+  for (const attempt of attempts) {
+    const exam = exams.find((e) => e.id === attempt.examId);
+    if (!exam) continue;
+    const { subjectId, assessmentTypeId } = exam;
+    const gradedAnswers = attempt.answers.filter((a) => a.finalScore != null || a.aiSuggestedScore != null || a.gradedScore != null);
+    if (gradedAnswers.length === 0) continue;
+    const platformRaw = attempt.answers.reduce((sum, a) => sum + Number(a.finalScore ?? a.aiSuggestedScore ?? a.gradedScore ?? 0), 0);
+    const platformMax = examMaxScores[attempt.examId] ?? 0;
+    const subWeights = (examSubWeights[attempt.examId] ?? []) as { subAssessmentTypeId: string; weightPercentage: number }[];
+    if (!scoreMap[attempt.studentId]) scoreMap[attempt.studentId] = {};
+    if (!scoreMap[attempt.studentId][subjectId]) scoreMap[attempt.studentId][subjectId] = {};
+    if (subWeights.length === 0) {
+      if (platformMax > 0) {
+        const existingManual = Object.values(manualMap[attempt.examId] ?? {}).some((b) => b[attempt.studentId] != null);
+        if (!existingManual) {
+          scoreMap[attempt.studentId][subjectId][assessmentTypeId] =
+            (scoreMap[attempt.studentId][subjectId][assessmentTypeId] ?? 0) + platformRaw;
+        }
+      }
+    } else {
+      const platformComponents = subWeights.filter((sw) => {
+        const code = atIdToCode.get(sw.subAssessmentTypeId) ?? "";
+        return code === "OBJ" || code === "THEORY";
+      });
+      const platformComponentTotal = platformComponents.reduce((s, sw) => s + sw.weightPercentage, 0);
+      for (const sw of subWeights) {
+        const code = atIdToCode.get(sw.subAssessmentTypeId) ?? "";
+        const compMarks = sw.weightPercentage;
+        const manual = manualMap[attempt.examId]?.[code]?.[attempt.studentId];
+        if (manual) {
+          const scaled = manual.max > 0 ? (manual.raw / manual.max) * compMarks : 0;
+          scoreMap[attempt.studentId][subjectId][code] = (scoreMap[attempt.studentId][subjectId][code] ?? 0) + scaled;
+        } else if (code === "OBJ" || code === "THEORY") {
+          if (platformMax > 0 && platformComponentTotal > 0) {
+            const componentShare = compMarks / platformComponentTotal;
+            const scaled = (platformRaw / platformMax) * compMarks * componentShare;
+            scoreMap[attempt.studentId][subjectId][code] = (scoreMap[attempt.studentId][subjectId][code] ?? 0) + scaled;
+          }
+        }
+      }
+    }
+  }
+  // --- manual-only loop (verbatim from current lines 232-260) ---
+  for (const exam of exams) {
+    const subWeights = (examSubWeights[exam.id] ?? []) as { subAssessmentTypeId: string; weightPercentage: number }[];
+    const manualForExam = manualMap[exam.id] ?? {};
+    for (const [code, byStudent] of Object.entries(manualForExam)) {
+      for (const [studentId, { raw, max }] of Object.entries(byStudent)) {
+        if (!scoreMap[studentId]) scoreMap[studentId] = {};
+        if (!scoreMap[studentId][exam.subjectId]) scoreMap[studentId][exam.subjectId] = {};
+        if (subWeights.length === 0) {
+          if (scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] == null) {
+            scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] = max > 0 ? (raw / max) * (examMaxScores[exam.id] || 100) : 0;
+          }
+        } else {
+          const sw = subWeights.find((w) => (atIdToCode.get(w.subAssessmentTypeId) ?? "") === code);
+          const compMarks = sw?.weightPercentage ?? 0;
+          if (compMarks === 0) continue;
+          if (scoreMap[studentId][exam.subjectId][code] == null) {
+            scoreMap[studentId][exam.subjectId][code] = max > 0 ? (raw / max) * compMarks : 0;
+          }
+        }
+      }
+    }
+  }
+  return scoreMap;
+}
+
 /**
  * Run full computation for one class/term combination.
  */
@@ -152,112 +240,14 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
   const atIdToCode = new Map(allAssessmentTypes.map((a) => [a.id, a.code]));
 
   // Build a map: studentId → subjectId → assessmentTypeCode → score (scaled to parent marks)
-  const scoreMap: Record<string, Record<string, Record<string, number>>> = {};
-
-  for (const attempt of attempts) {
-    const exam = exams.find((e) => e.id === attempt.examId);
-    if (!exam) continue;
-    const { subjectId, assessmentTypeId } = exam;
-
-    // Raw platform score for this attempt
-    const gradedAnswers = attempt.answers.filter(
-      (ans) => ans.finalScore != null || ans.aiSuggestedScore != null || ans.gradedScore != null
-    );
-    // If no answers have been graded yet, skip — don't score a 0
-    if (gradedAnswers.length === 0) continue;
-
-    const platformRaw = attempt.answers.reduce((sum, ans) => {
-      const score = ans.finalScore ?? ans.aiSuggestedScore ?? ans.gradedScore ?? 0;
-      return sum + Number(score);
-    }, 0);
-    const platformMax = examMaxScores[attempt.examId] ?? 0;
-
-    // Determine which sub-component this platform attempt contributes to.
-    // Platform exams with OBJ questions → OBJ component; essay questions → THEORY component.
-    // If the exam has mixed questions, we treat the whole attempt as contributing to both by
-    // type-split — but the simpler approach (matching current schema) is: the teacher sets
-    // the sub-component weights on the exam, and the platform attempt covers whatever
-    // question types are in it. We scale the full attempt score to each enabled component
-    // proportionally unless a ManualScore exists for that component (manual overrides platform).
-    const subWeights = examSubWeights[attempt.examId] ?? [];
-
-    if (!scoreMap[attempt.studentId]) scoreMap[attempt.studentId] = {};
-    if (!scoreMap[attempt.studentId][subjectId]) scoreMap[attempt.studentId][subjectId] = {};
-
-    if (subWeights.length === 0) {
-      // No sub-components configured: the platform attempt IS the whole assessment.
-      // Store raw score; weighting step will handle proportionality.
-      if (platformMax > 0) {
-        const existingManual = Object.values(manualMap[attempt.examId] ?? {})
-          .some((byStudent) => byStudent[attempt.studentId] != null);
-        if (!existingManual) {
-          scoreMap[attempt.studentId][subjectId][assessmentTypeId] =
-            (scoreMap[attempt.studentId][subjectId][assessmentTypeId] ?? 0) + platformRaw;
-        }
-      }
-    } else {
-      // Sub-components configured: distribute the platform score across components
-      // Platform score covers OBJ and/or THEORY (never PRC — practicals are always manual)
-      const platformComponents = subWeights.filter((sw) => {
-        const code = atIdToCode.get(sw.subAssessmentTypeId) ?? "";
-        return code === "OBJ" || code === "THEORY";
-      });
-      const platformComponentTotal = platformComponents.reduce((s, sw) => s + sw.weightPercentage, 0);
-
-      for (const sw of subWeights) {
-        const code = atIdToCode.get(sw.subAssessmentTypeId) ?? "";
-        const compMarks = sw.weightPercentage; // marks this component is worth out of parent total
-
-        // Check if a manual score overrides this component for this student
-        const manual = manualMap[attempt.examId]?.[code]?.[attempt.studentId];
-        if (manual) {
-          // Manual override: scale manual raw to component marks
-          const scaled = manual.max > 0 ? (manual.raw / manual.max) * compMarks : 0;
-          scoreMap[attempt.studentId][subjectId][code] =
-            (scoreMap[attempt.studentId][subjectId][code] ?? 0) + scaled;
-        } else if (code === "OBJ" || code === "THEORY") {
-          // Platform score: scale the platform raw proportionally to this component's share
-          if (platformMax > 0 && platformComponentTotal > 0) {
-            const componentShare = compMarks / platformComponentTotal;
-            const scaled = (platformRaw / platformMax) * compMarks * componentShare;
-            scoreMap[attempt.studentId][subjectId][code] =
-              (scoreMap[attempt.studentId][subjectId][code] ?? 0) + scaled;
-          }
-        }
-        // PRC without a manual score: nothing to add from platform
-      }
-    }
-  }
-
-  // Apply manual scores for students who have NO platform attempt (fully offline exams)
-  for (const exam of exams) {
-    const subWeights = examSubWeights[exam.id] ?? [];
-    const manualForExam = manualMap[exam.id] ?? {};
-
-    for (const [code, byStudent] of Object.entries(manualForExam)) {
-      for (const [studentId, { raw, max }] of Object.entries(byStudent)) {
-        if (!scoreMap[studentId]) scoreMap[studentId] = {};
-        if (!scoreMap[studentId][exam.subjectId]) scoreMap[studentId][exam.subjectId] = {};
-
-        if (subWeights.length === 0) {
-          // No sub-component config: store raw score under parent code
-          if (scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] == null) {
-            scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] = raw;
-          }
-        } else {
-          // Find what marks this component is worth
-          const sw = subWeights.find((w) => (atIdToCode.get(w.subAssessmentTypeId) ?? "") === code);
-          const compMarks = sw?.weightPercentage ?? 0;
-          if (compMarks === 0) continue;
-
-          // Only write if not already set by the platform attempt path above
-          if (scoreMap[studentId][exam.subjectId][code] == null) {
-            scoreMap[studentId][exam.subjectId][code] = max > 0 ? (raw / max) * compMarks : 0;
-          }
-        }
-      }
-    }
-  }
+  const scoreMap = assembleScoreMap({
+    exams,
+    attempts,
+    manualScores,
+    atIdToCode,
+    examMaxScores,
+    examSubWeights,
+  });
 
   // 6. Compute results per student per subject
   const results: TermResultOutput[] = [];
