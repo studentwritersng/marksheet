@@ -10,6 +10,8 @@ interface SubjectVM { id: string; name: string }
 export interface ExamScoreRow {
   examId: string;
   assessmentTypeId: string;
+  assessmentTypeName: string;
+  assessmentTypeCode: string;
   components: { code: string; marks: number }[];
   students: {
     studentId: string;
@@ -310,7 +312,7 @@ export function ResultsView({
                   <div className="px-5 py-3 bg-surface-container-low border-b border-outline-variant flex items-center justify-between gap-4 flex-wrap">
                     <div className="flex items-center gap-3">
                       <span className="font-label-lg text-label-lg text-on-surface font-semibold">
-                        {row.assessmentTypeId}
+                        {row.assessmentTypeName}
                       </span>
                       {row.components.length > 0 && (
                         <div className="flex gap-2">
@@ -406,7 +408,7 @@ export function ResultsView({
                                   {(() => {
                                     // Manual score for this exam is keyed by the assessment code
                                     const ms = s.manualScores.find(
-                                      (m) => m.code === row.assessmentTypeId
+                                      (m) => m.code === row.assessmentTypeCode
                                     ) ?? s.manualScores[0];
                                     if (ms) {
                                       return (

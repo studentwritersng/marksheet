@@ -170,18 +170,18 @@ export default async function ResultsPage(props: {
         .map((sr) => [sr.studentId, sr])
     );
 
-    // AssessmentType id→code
+    // AssessmentType id→info (code + name)
     const allAtypes = await prisma.assessmentType.findMany({
       where: { schoolId: user.schoolId },
-      select: { id: true, code: true },
+      select: { id: true, code: true, name: true },
     });
-    const atIdToCode = new Map(allAtypes.map((a) => [a.id, a.code]));
+    const atInfo = new Map(allAtypes.map((a) => [a.id, a]));
 
     for (const exam of exams) {
       type SubWeight = { subAssessmentTypeId: string; weightPercentage: number };
       const subWeights = (exam.subAssessmentWeights as SubWeight[] | null) ?? [];
       const components = subWeights.map((sw) => ({
-        code: atIdToCode.get(sw.subAssessmentTypeId) ?? sw.subAssessmentTypeId,
+        code: atInfo.get(sw.subAssessmentTypeId)?.code ?? sw.subAssessmentTypeId,
         marks: sw.weightPercentage,
       }));
 
@@ -217,6 +217,8 @@ export default async function ResultsPage(props: {
       examScoreRows.push({
         examId: exam.id,
         assessmentTypeId: exam.assessmentTypeId,
+        assessmentTypeName: atInfo.get(exam.assessmentTypeId)?.name ?? exam.assessmentTypeId,
+        assessmentTypeCode: atInfo.get(exam.assessmentTypeId)?.code ?? exam.assessmentTypeId,
         components,
         students: rows,
       });
