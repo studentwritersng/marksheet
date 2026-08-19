@@ -66,8 +66,9 @@ export function assembleScoreMap(p: AssembleParams): ScoreMap {
       if (platformMax > 0) {
         const existingManual = Object.values(manualMap[attempt.examId] ?? {}).some((b) => b[attempt.studentId] != null);
         if (!existingManual) {
-          scoreMap[attempt.studentId][subjectId][assessmentTypeId] =
-            (scoreMap[attempt.studentId][subjectId][assessmentTypeId] ?? 0) + platformRaw;
+          const pCode = atIdToCode.get(assessmentTypeId) ?? assessmentTypeId;
+          scoreMap[attempt.studentId][subjectId][pCode] =
+            (scoreMap[attempt.studentId][subjectId][pCode] ?? 0) + platformRaw;
         }
       }
     } else {
@@ -102,8 +103,9 @@ export function assembleScoreMap(p: AssembleParams): ScoreMap {
         if (!scoreMap[studentId]) scoreMap[studentId] = {};
         if (!scoreMap[studentId][exam.subjectId]) scoreMap[studentId][exam.subjectId] = {};
         if (subWeights.length === 0) {
-          if (scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] == null) {
-            scoreMap[studentId][exam.subjectId][exam.assessmentTypeId] = raw;
+          const pCode = atIdToCode.get(exam.assessmentTypeId) ?? exam.assessmentTypeId;
+          if (scoreMap[studentId][exam.subjectId][pCode] == null) {
+            scoreMap[studentId][exam.subjectId][pCode] = raw;
           }
         } else {
           const sw = subWeights.find((w) => (atIdToCode.get(w.subAssessmentTypeId) ?? "") === code);
@@ -297,7 +299,7 @@ export async function computeClassResults(input: ComputationInput): Promise<Term
           // Parent code with raw score: find the max marks for this assessment type
           const parentExam = exams.find((e) => {
             if (e.subjectId !== subject.id) return false;
-            return e.assessmentTypeId === code;
+            return atIdToCode.get(e.assessmentTypeId) === code;
           });
           // For offline exams (no question bank), examMaxScores[id] = 0.
           // In that case use the maxRawScore from any ManualScore for this exam as the denominator.

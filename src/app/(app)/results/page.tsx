@@ -113,6 +113,14 @@ export default async function ResultsPage(props: {
   const subjects = classSubjects.map((cs) => cs.subject);
   const effectiveSubjectId = selectedSubjectId || subjects[0]?.id || "";
 
+  // AssessmentType id→info (code + name)
+  const allAtypes = await prisma.assessmentType.findMany({
+    where: { schoolId: user.schoolId },
+    select: { id: true, code: true, name: true },
+  });
+  const atInfo = new Map(allAtypes.map((a) => [a.id, a]));
+  const atCodeToName = Object.fromEntries(allAtypes.map((a) => [a.code, a.name]));
+
   // Exams for the selected class/term/subject
   let examScoreRows: ExamScoreRow[] = [];
 
@@ -170,18 +178,11 @@ export default async function ResultsPage(props: {
         .map((sr) => [sr.studentId, sr])
     );
 
-    // AssessmentType id→code
-    const allAtypes = await prisma.assessmentType.findMany({
-      where: { schoolId: user.schoolId },
-      select: { id: true, code: true },
-    });
-    const atIdToCode = new Map(allAtypes.map((a) => [a.id, a.code]));
-
     for (const exam of exams) {
       type SubWeight = { subAssessmentTypeId: string; weightPercentage: number };
       const subWeights = (exam.subAssessmentWeights as SubWeight[] | null) ?? [];
       const components = subWeights.map((sw) => ({
-        code: atIdToCode.get(sw.subAssessmentTypeId) ?? sw.subAssessmentTypeId,
+        code: atInfo.get(sw.subAssessmentTypeId)?.code ?? sw.subAssessmentTypeId,
         marks: sw.weightPercentage,
       }));
 
@@ -217,6 +218,8 @@ export default async function ResultsPage(props: {
       examScoreRows.push({
         examId: exam.id,
         assessmentTypeId: exam.assessmentTypeId,
+        assessmentTypeName: atInfo.get(exam.assessmentTypeId)?.name ?? exam.assessmentTypeId,
+        assessmentTypeCode: atInfo.get(exam.assessmentTypeId)?.code ?? exam.assessmentTypeId,
         components,
         students: rows,
       });
@@ -258,6 +261,7 @@ export default async function ResultsPage(props: {
             status: tr.status,
           }))}
           examScoreRows={examScoreRows}
+          assessmentTypeNames={atCodeToName}
         />
       </div>
     </div>
