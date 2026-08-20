@@ -73,7 +73,7 @@ export async function generateQuizBankAction(_prev: { error?: string; success?: 
 }
 
 export async function topUpQuizBankAction(formData: FormData) {
-  return generateQuizBankAction({}, formData);
+  await generateQuizBankAction({}, formData);
 }
 
 export interface AvailableQuiz {
