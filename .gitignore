@@ -46,3 +46,11 @@ public/uploads/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# never commit these
+youtube_tutorials/
+*.log
+importError.txt
+local_error.txt
+build_error.log
+error.log
