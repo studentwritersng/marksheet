@@ -101,7 +101,7 @@ export async function createDraftPostAction(
         slug,
         excerpt: draft.excerpt ?? null,
         body: draft.body,
-        status: "DRAFT",
+        status: "draft",
         primaryKeywordId: meta.primaryKeywordId ?? null,
         categoryId: meta.categoryId ?? null,
         metaTitle: draft.metaTitle ?? null,
@@ -118,7 +118,7 @@ export async function createDraftPostAction(
       action: "create",
       entityType: "blog_post",
       entityId: post.id,
-      afterValue: { title, slug, status: "DRAFT" },
+      afterValue: { title, slug, status: "draft" },
     });
 
     revalidatePath("/console/blog");
@@ -147,7 +147,7 @@ export async function publishPostAction(
 
     const updated = await prisma.blogPost.update({
       where: { id: postId },
-      data: { status: "PUBLISHED", publishedAt: new Date() },
+      data: { status: "published", publishedAt: new Date() },
     });
 
     await recordAudit({
@@ -156,7 +156,7 @@ export async function publishPostAction(
       entityType: "blog_post",
       entityId: postId,
       beforeValue: { status: post.status, publishedAt: post.publishedAt },
-      afterValue: { status: "PUBLISHED", publishedAt: updated.publishedAt },
+      afterValue: { status: "published", publishedAt: updated.publishedAt },
     });
 
     revalidatePath("/console/blog");
