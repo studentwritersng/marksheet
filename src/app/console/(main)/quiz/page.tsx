@@ -1,4 +1,4 @@
-import { getQuizBankStats, generateQuizBankAction } from "@/lib/quiz/actions";
+import { getQuizBankStats, topUpQuizBankAction } from "@/lib/quiz/actions";
 import { prisma } from "@/lib/prisma";
 
 export default async function ConsoleQuizPage() {
@@ -26,9 +26,7 @@ export default async function ConsoleQuizPage() {
       </div>
 
       <form
-        action={async (formData: FormData) => {
-          await generateQuizBankAction({}, formData);
-        }}
+        action={topUpQuizBankAction}
         className="bg-white border border-outline-variant rounded-2xl p-5"
       >
         <h3 className="font-label-md text-label-md text-on-surface mb-2">Top up bank</h3>

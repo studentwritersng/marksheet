@@ -72,6 +72,10 @@ export async function generateQuizBankAction(_prev: { error?: string; success?: 
   return { success: `Processed ${processed} topic(s) this batch.`, processed };
 }
 
+export async function topUpQuizBankAction(formData: FormData) {
+  return generateQuizBankAction({}, formData);
+}
+
 export interface AvailableQuiz {
   key: string;
   title: string;

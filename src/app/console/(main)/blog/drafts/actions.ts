@@ -202,6 +202,7 @@ export async function updatePostAction(
     });
 
     revalidatePath("/console/blog");
+    revalidatePath("/blog", "layout");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed." };
@@ -240,6 +241,7 @@ export async function publishPostAction(
     });
 
     revalidatePath("/console/blog");
+    revalidatePath("/blog", "layout");
     return {
       ok: true,
       id: postId,
