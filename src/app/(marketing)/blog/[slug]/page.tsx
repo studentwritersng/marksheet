@@ -45,8 +45,11 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
     dateModified: post.updatedAt,
     ...(post.author ? { author: { "@type": "Person", name: post.author } } : {}),
     ...(post.canonicalUrl
-      ? { mainEntityOfPage: post.canonicalUrl }
-      : { mainEntityOfPage: `https://marksheet.ng/blog/${post.slug}` }),
+      ? { mainEntityOfPage: post.canonicalUrl, url: post.canonicalUrl }
+      : {
+          mainEntityOfPage: `https://marksheet.ng/blog/${post.slug}`,
+          url: `https://marksheet.ng/blog/${post.slug}`,
+        }),
     ...(post.category ? { articleSection: post.category.name } : {}),
   };
 
