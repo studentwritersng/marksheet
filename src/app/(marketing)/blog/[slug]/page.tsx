@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -5,18 +6,45 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { BlogReadTracker } from "./BlogReadTracker";
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://marksheet.ng";
+
+// Social crawlers require absolute image URLs — resolve relative paths against the site origin.
+function toAbsoluteUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  return raw.startsWith("http") ? raw : new URL(raw, SITE_URL).toString();
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const post = await prisma.blogPost.findUnique({ where: { slug } });
+  const post = await prisma.blogPost.findUnique({ where: { slug }, include: { category: true } });
   if (!post || post.status !== "published") return {};
+
+  const title = post.metaTitle ?? post.title;
+  const description = post.metaDescription ?? post.excerpt ?? undefined;
+  const ogImage = toAbsoluteUrl(post.featuredImageUrl);
+
   return {
-    title: post.metaTitle ?? post.title,
-    description: post.metaDescription ?? post.excerpt ?? undefined,
+    metadataBase: new URL(SITE_URL),
+    title,
+    description,
     openGraph: {
-      title: post.metaTitle ?? post.title,
-      description: post.metaDescription ?? post.excerpt ?? undefined,
       type: "article",
-      ...(post.featuredImageUrl ? { images: [post.featuredImageUrl] } : {}),
+      title,
+      description,
+      url: `${SITE_URL}/blog/${post.slug}`,
+      siteName: "Marksheet",
+      publishedTime: post.publishedAt?.toISOString(),
+      section: post.category?.name ?? undefined,
+      images: ogImage
+        ? [{ url: ogImage, width: 1200, height: 630, alt: post.featuredImageAltText ?? post.title }]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
     },
   };
 }
@@ -41,7 +69,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     ...(post.subtitle ? { alternativeHeadline: post.subtitle } : {}),
     ...(post.excerpt ? { description: post.excerpt } : {}),
     ...(post.metaDescription ? { abstract: post.metaDescription } : {}),
-    ...(post.featuredImageUrl ? { image: post.featuredImageUrl } : {}),
+    ...(toAbsoluteUrl(post.featuredImageUrl) ? { image: toAbsoluteUrl(post.featuredImageUrl) } : {}),
     ...(post.publishedAt ? { datePublished: post.publishedAt } : {}),
     dateModified: post.updatedAt,
     ...(post.author ? { author: { "@type": "Person", name: post.author } } : {}),
