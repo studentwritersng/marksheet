@@ -14,7 +14,7 @@ export function isUrlSafeSlug(s: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s);
 }
 
-function firstParagraph(text: string): string {
+export function firstParagraph(text: string): string {
   const md = text.replace(/^#.*$/m, ""); // drop H1 line
   const para = md.split(/\n\s*\n/).map((p) => p.trim()).find((p) => p.length > 0);
   return para ?? "";
