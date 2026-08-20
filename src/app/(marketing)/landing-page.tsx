@@ -100,7 +100,22 @@ const faqs = [
 
 const COUNT_RANGES = ["Under 100", "100 – 300", "300 – 500", "500 – 1,000", "1,000+"];
 
-export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string; label: string }> }) {
+type BlogCardVM = {
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  category: string | null;
+  publishedAt: string | null;
+  featuredImageUrl: string | null;
+};
+
+export function MarketingLandingPage({
+  stats,
+  posts = [],
+}: {
+  stats?: Array<{ value: string; label: string }>;
+  posts?: BlogCardVM[];
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [code, setCode] = useState("");
   const [verifyState, setVerifyState] = useState<{
@@ -535,6 +550,92 @@ export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string;
               <span className="block text-mk-muted-fg">Principal, Bright Future College, Enugu</span>
             </figcaption>
           </figure>
+        </div>
+      </section>
+
+      {/* Blog */}
+      <section className="mx-auto max-w-6xl px-5 py-20 lg:py-28">
+        <div className="flex items-end justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.28em] text-mk-primary">
+              From the blog
+            </p>
+            <h2 className="mt-5 font-mk-display text-3xl font-bold sm:text-4xl">
+              Guides, updates and perspectives
+            </h2>
+          </div>
+          <Link
+            href="/blog"
+            className="hidden shrink-0 items-center gap-2 rounded-full border border-mk-border bg-mk-card px-5 py-2.5 text-sm font-semibold text-mk-fg transition-colors hover:border-mk-primary/40 sm:inline-flex"
+          >
+            View all posts
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {posts.length === 0 ? (
+            <p className="text-sm text-mk-muted-fg">No posts published yet.</p>
+          ) : (
+            posts.map((post) => (
+              <Link
+                key={post.slug}
+                href={`/blog/${post.slug}`}
+                className="group flex flex-col overflow-hidden rounded-3xl border border-mk-border bg-mk-card shadow-mk-soft transition-colors hover:border-mk-primary/40"
+              >
+                {post.featuredImageUrl ? (
+                  <img
+                    src={post.featuredImageUrl}
+                    alt={post.title}
+                    loading="lazy"
+                    className="h-44 w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-44 w-full bg-mk-secondary/50" />
+                )}
+                <div className="flex min-w-0 flex-1 flex-col p-6">
+                  <div className="flex items-center gap-3 text-xs text-mk-muted-fg">
+                    {post.category && (
+                      <span className="rounded-full bg-mk-secondary px-2.5 py-0.5 font-medium text-mk-secondary-fg">
+                        {post.category}
+                      </span>
+                    )}
+                    {post.publishedAt && (
+                      <span>
+                        {new Date(post.publishedAt).toLocaleDateString("en-NG", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="mt-3 font-mk-display text-xl font-bold leading-snug transition-colors group-hover:text-mk-primary">
+                    {post.title}
+                  </h3>
+                  {post.excerpt && (
+                    <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-mk-muted-fg">
+                      {post.excerpt}
+                    </p>
+                  )}
+                  <span className="mt-auto inline-flex items-center gap-1.5 pt-4 text-sm font-semibold text-mk-primary">
+                    Read post
+                    <ArrowUpRight className="h-4 w-4" />
+                  </span>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+
+        <div className="mt-8 sm:hidden">
+          <Link
+            href="/blog"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-mk-border bg-mk-card px-6 py-3 text-sm font-semibold text-mk-fg"
+          >
+            View all posts
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
 

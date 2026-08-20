@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveLandingStats } from "@/lib/landing-stats";
+import { prisma } from "@/lib/prisma";
 import { MarketingLandingPage } from "./landing-page";
 import { getSchoolByRequestHost } from "@/lib/school-domain";
 
@@ -30,9 +31,26 @@ export default async function Home() {
   }
 
   const stats = await resolveLandingStats();
+
+  const posts = await prisma.blogPost.findMany({
+    where: { status: "published" },
+    orderBy: { publishedAt: "desc" },
+    take: 3,
+    include: { category: true },
+  });
+  const postVMs = posts.map((p) => ({
+    title: p.title,
+    slug: p.slug,
+    excerpt: p.excerpt,
+    category: p.category?.name ?? null,
+    publishedAt: p.publishedAt ? p.publishedAt.toISOString() : null,
+    featuredImageUrl: p.featuredImageUrl ?? null,
+  }));
+
   return (
     <MarketingLandingPage
       stats={stats.map((s) => ({ value: s.value, label: s.label }))}
+      posts={postVMs}
     />
   );
 }
