@@ -209,3 +209,81 @@ body {
     size: A4 portrait;
   }
 }
+
+.prose-mk > :where(p, ul, ol, blockquote, table, pre, h1, h2, h3, h4) {
+  margin-top: 1.25rem;
+}
+
+.prose-mk > :first-child {
+  margin-top: 0;
+}
+
+.prose-mk h1 {
+  font-family: var(--font-mk-display);
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.prose-mk h2 {
+  font-family: var(--font-mk-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.prose-mk h3 {
+  font-family: var(--font-mk-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.prose-mk a {
+  color: var(--color-mk-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-mk ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.prose-mk ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+.prose-mk blockquote {
+  border-left: 3px solid var(--color-mk-border);
+  padding-left: 1rem;
+  color: var(--color-mk-muted-fg);
+}
+
+.prose-mk code {
+  background-color: var(--color-mk-secondary);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.875em;
+}
+
+.prose-mk pre {
+  background-color: var(--color-mk-ink);
+  color: var(--color-mk-ink-fg);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.prose-mk pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.prose-mk img {
+  border-radius: 0.5rem;
+  margin-top: 1.5rem;
+}
