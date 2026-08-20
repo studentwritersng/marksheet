@@ -24,6 +24,10 @@ export async function GET(req: Request) {
   });
 
   if (!vc || vc.status !== "active") {
+    // TODO(PRD-09): when the dedicated Result Verification Portal lands, fire
+    // `trackVerificationLookup(false)` here on an unsuccessful lookup. This MUST
+    // happen client-side (the portal that triggered the fetch) and pass ONLY the
+    // boolean success — never the code, name, school, or score (NDPR §4.1).
     return Response.json({ error: "Invalid or revoked verification code." });
   }
 
@@ -42,6 +46,10 @@ export async function GET(req: Request) {
     where: { id: tr.student.schoolId },
     select: { name: true },
   });
+
+  // TODO(PRD-09): on a successful lookup, fire `trackVerificationLookup(true)`
+  // from the portal's client handler (not here). This server route must never
+  // pass student PII to analytics — only the boolean success is permitted.
 
   return Response.json({
     studentName: `${tr.student.firstName} ${tr.student.lastName}`,

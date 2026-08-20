@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
+import { trackDemoRequest, trackVerificationLookup } from "@/lib/analytics/events";
 import Image from "next/image";
 import {
   ArrowUpRight,
@@ -110,6 +111,15 @@ export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string;
 
   const [demoState, demoAction, demoPending] = useActionState(submitDemoRequestAction, {} as DemoRequestResult);
 
+  // Fire the demo-request conversion event once, after a successful submission.
+  const demoTrackedRef = useRef(false);
+  useEffect(() => {
+    if (demoState.success && !demoTrackedRef.current) {
+      demoTrackedRef.current = true;
+      trackDemoRequest();
+    }
+  }, [demoState]);
+
   async function checkCode(e: React.FormEvent) {
     e.preventDefault();
     if (!code.trim()) return;
@@ -117,9 +127,13 @@ export function MarketingLandingPage({ stats }: { stats?: Array<{ value: string;
     try {
       const res = await fetch(`/api/verify?code=${encodeURIComponent(code.trim())}`);
       const data = await res.json();
+      // NDPR-safe: only the aggregate success boolean is tracked — never the
+      // code, name, school, or score.
       if (data.error) {
+        trackVerificationLookup(false);
         setVerifyState({ status: "error", message: data.error });
       } else {
+        trackVerificationLookup(true);
         setVerifyState({
           status: "ok",
           result: {

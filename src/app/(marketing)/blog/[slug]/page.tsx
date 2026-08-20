@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { BlogReadTracker } from "./BlogReadTracker";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const { slug } = params;
@@ -63,6 +64,8 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
       <Link href="/blog" className="text-sm font-medium text-mk-muted-fg hover:underline">
         ← Back to blog
       </Link>
+
+      <BlogReadTracker slug={slug} />
 
       <article className="mt-6">
         <header className="border-b border-mk-border pb-8">
