@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveLandingStats } from "@/lib/landing-stats";
-import { MarketingLandingPage } from "./(marketing)/landing-page";
+import { MarketingLandingPage } from "./landing-page";
 import { getSchoolByRequestHost } from "@/lib/school-domain";
 
 export const metadata = {
