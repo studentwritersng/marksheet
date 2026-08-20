@@ -34,10 +34,12 @@ interface PostVM {
 export default async function EditPostPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user || user.role !== "platform_owner") redirect("/console/login");
+
+  const { id } = await params;
 
   const [keywords, categories] = await Promise.all([
     prisma.keyword.findMany({ orderBy: { keywordText: "asc" } }),
@@ -47,7 +49,7 @@ export default async function EditPostPage({
   const keywordVMs: KeywordVM[] = keywords.map((k) => ({ id: k.id, keywordText: k.keywordText }));
   const categoryVMs: CategoryVM[] = categories.map((c) => ({ id: c.id, name: c.name }));
 
-  if (params.id === "new") {
+  if (id === "new") {
     return (
       <EditorClient
         post={null}
@@ -57,7 +59,7 @@ export default async function EditPostPage({
     );
   }
 
-  const post = await prisma.blogPost.findUnique({ where: { id: params.id } });
+  const post = await prisma.blogPost.findUnique({ where: { id } });
   if (!post) notFound();
 
   const postVM: PostVM = {
