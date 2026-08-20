@@ -128,6 +128,86 @@ export async function createDraftPostAction(
   }
 }
 
+export type UpdatePostInput = {
+  title: string;
+  slug?: string | null;
+  subtitle?: string | null;
+  excerpt?: string | null;
+  body: string;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  tags?: string[] | null;
+  categoryId?: string | null;
+  primaryKeywordId?: string | null;
+  featuredImageUrl?: string | null;
+  featuredImageAltText?: string | null;
+  canonicalUrl?: string | null;
+  status?: string | null;
+};
+
+const EDITABLE_STATUSES = ["draft", "pending_review", "archived"];
+
+export async function updatePostAction(
+  postId: string,
+  data: UpdatePostInput,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const user = await requireOwner();
+    const title = (data.title ?? "").trim();
+    if (!title) return { ok: false, error: "title required" };
+
+    const post = await prisma.blogPost.findUnique({ where: { id: postId } });
+    if (!post) return { ok: false, error: "Blog post not found." };
+
+    let slug = post.slug;
+    if (data.slug && data.slug.trim()) {
+      const desired = slugify(data.slug.trim());
+      if (desired && desired !== post.slug) {
+        const collision = await prisma.blogPost.findUnique({ where: { slug: desired } });
+        if (collision) return { ok: false, error: `Slug "${desired}" already in use.` };
+        slug = desired;
+      }
+    }
+
+    const nextStatus = data.status && EDITABLE_STATUSES.includes(data.status) ? data.status : post.status;
+
+    const before = { title: post.title, slug: post.slug, status: post.status };
+    const updated = await prisma.blogPost.update({
+      where: { id: postId },
+      data: {
+        title,
+        slug,
+        subtitle: data.subtitle ?? null,
+        excerpt: data.excerpt ?? null,
+        body: data.body,
+        metaTitle: data.metaTitle ?? null,
+        metaDescription: data.metaDescription ?? null,
+        tags: data.tags ?? undefined,
+        categoryId: data.categoryId ?? null,
+        primaryKeywordId: data.primaryKeywordId ?? null,
+        featuredImageUrl: data.featuredImageUrl ?? null,
+        featuredImageAltText: data.featuredImageAltText ?? null,
+        canonicalUrl: data.canonicalUrl ?? null,
+        status: nextStatus,
+      },
+    });
+
+    await recordAudit({
+      actorId: user.userId,
+      action: "update",
+      entityType: "blog_post",
+      entityId: postId,
+      beforeValue: before,
+      afterValue: { title: updated.title, slug: updated.slug, status: updated.status },
+    });
+
+    revalidatePath("/console/blog");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed." };
+  }
+}
+
 export async function publishPostAction(
   postId: string,
 ): Promise<{
