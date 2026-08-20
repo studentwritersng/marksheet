@@ -24,6 +24,7 @@ const navItems: NavItem[] = [
   { label: "Demo Requests", href: "/console/demo-requests", icon: "contact_phone" },
   { label: "AI Config", href: "/console/ai", icon: "settings" },
   { label: "AI Usage", href: "/console/ai/call-log", icon: "monitoring" },
+  { label: "Quiz Bank", href: "/console/quiz", icon: "quiz" },
   { label: "Analytics", href: "/console/analytics", icon: "insights" },
   { label: "Blog", href: "/console/blog", icon: "article" },
   { label: "Tickets", href: "/console/tickets", icon: "support" },
