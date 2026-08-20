@@ -29,7 +29,8 @@ export type AiTaskType =
   | "essay_grading"
   | "comment_drafting"
   | "curriculum_parsing"
-  | "quiz_generation";
+  | "quiz_generation"
+  | "blog_generation";
 
 export interface AiMessage {
   role: "system" | "user" | "assistant";
@@ -155,6 +156,26 @@ function mockCompletion(opts: AiCompletionOptions): AiCompletionResult {
   const pickTown = (offset = 0) => towns[(topic.length + offset) % towns.length];
 
   let content: string;
+
+  if (task === "blog_generation") {
+    return {
+      content: JSON.stringify({
+        titleOptions: ["Sample SEO Title Under 60", "Another Angle On The Topic", "A Practical Guide For Schools"],
+        subtitle: "A clear subtitle that sets reader expectations.",
+        excerpt: "A 150-char excerpt answering the core question up front for search and AI engines.",
+        body: "# Sample SEO Title Under 60\n\nThe direct answer paragraph goes here within the first two sentences.\n\n## Section Two\nMore detail with an internal link to /features and an external citation.",
+        metaTitle: "Sample SEO Title Under 60",
+        metaDescription: "A 150-char excerpt answering the core question up front for search and AI engines.",
+        tags: ["seo", "nigerian schools"],
+        imagePrompt: "Editorial photo, Nigerian secondary school classroom, warm natural light, brand colors #002046 and #1e3a5f, clean composition, no text.",
+      }),
+      model: "mock",
+      promptTokens: 0,
+      completionTokens: 0,
+      latencyMs: 0,
+      mocked: true,
+    };
+  }
 
   switch (task) {
     case "lesson_note_generation": {
