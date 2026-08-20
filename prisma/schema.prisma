@@ -2274,3 +2274,93 @@ model ExamPin {
   @@index([examId])
   @@map("exam_pins")
 }
+
+// ---- PRD 21: Blog System (platform-owned marketing content) ----
+model Keyword {
+  id             String   @id @default(cuid())
+  keywordText    String
+  type           String   @default("short_tail") // short_tail | long_tail
+  searchIntent   String   @default("informational") // informational | commercial | comparison
+  targetAudience String   @default("general") // teacher | school_admin | proprietor | parent | general
+  status         String   @default("planned") // planned | assigned | published | ranking
+  priority       Int      @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  posts          BlogPost[]
+
+  @@index([status])
+}
+
+model BlogCategory {
+  id    String @id @default(cuid())
+  name  String
+  slug  String @unique
+  posts BlogPost[]
+}
+
+model BlogPost {
+  id                    String   @id @default(cuid())
+  title                 String
+  subtitle              String?
+  slug                  String   @unique
+  excerpt               String?
+  body                  String   @db.Text // markdown / rich text
+  status                String   @default("draft") // draft | pending_review | published | archived
+  primaryKeywordId      String?
+  secondaryKeywordIds   Json? // string[]
+  tags                  Json? // string[]
+  categoryId            String?
+  metaTitle             String?
+  metaDescription       String?
+  canonicalUrl          String?
+  featuredImageUrl      String?
+  featuredImageAltText  String?
+  schemaType            String   @default("BlogPosting") // BlogPosting | Article | FAQPage
+  source                String   @default("manual") // manual | ai_generated
+  author                String?
+  publishedAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  primaryKeyword        Keyword? @relation(fields: [primaryKeywordId], references: [id])
+  category              BlogCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([status])
+  @@index([publishedAt])
+}
+
+model AiBlogDraftRequest {
+  id                       String   @id @default(cuid())
+  keywordId                String?
+  topicText                String?
+  targetAudience           String?
+  requestedBy              String?
+  status                   String   @default("pending") // pending | completed | failed
+  generatedTitleOptions   Json? // string[]
+  generatedSubtitle        String?
+  generatedExcerpt         String?
+  generatedBody            String? @db.Text
+  generatedMetaTitle       String?
+  generatedMetaDescription String?
+  generatedTags            Json? // string[]
+  generatedImagePrompt     String?
+  createdAt                DateTime @default(now())
+
+  @@index([status])
+}
+
+// ---- PRD 22: Google Analytics (platform-owned config) ----
+model AnalyticsConfig {
+  id                 String   @id @default(cuid())
+  ga4MeasurementId   String?
+  consentModeEnabled Boolean  @default(true)
+  isActive           Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+}
+
+model ConversionEventDefinition {
+  id              String   @id @default(cuid())
+  eventName       String   @unique // e.g. demo_request_submitted
+  ga4EventMapping String
+  isActive        Boolean  @default(true)
+}
