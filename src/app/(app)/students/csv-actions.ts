@@ -254,7 +254,7 @@ export async function commitStudentCsvAction(
   const created = emailsToSend.length;
   for (const m of emailsToSend) {
     try {
-      await sendEmail(m);
+      await sendEmail({ ...m, schoolId: ctx.schoolId });
     } catch {
       /* ignore email failures — the student records already exist */
     }

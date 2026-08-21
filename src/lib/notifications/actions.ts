@@ -58,6 +58,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
       to: input.recipientEmail,
       subject: input.title ?? input.eventType,
       text: input.content,
+      schoolId: input.schoolId ?? undefined,
     });
   }
 }

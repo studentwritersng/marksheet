@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction, updateSchoolAction, toggleSuspendSchoolAction, setSchoolStageAction, exportSchoolBackupConsoleAction, configureCustomDomainAction, verifyCustomDomainAction, clearCustomDomainAction, deleteSchoolAction } from "./actions";
+import { setMaintenanceModeAction, updateLicenseAction, suspendLicenseAction, reactivateLicenseAction, updateSchoolAction, toggleSuspendSchoolAction, setSchoolStageAction, exportSchoolBackupConsoleAction, configureCustomDomainAction, verifyCustomDomainAction, clearCustomDomainAction, deleteSchoolAction, updateSchoolSmtpAction, sendTestSmtpEmailAction } from "./actions";
 
 interface SchoolVM {
   id: string;
@@ -18,6 +18,12 @@ interface SchoolVM {
   customDomain: string | null;
   customDomainVerified: boolean;
   customDomainToken: string | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpUser: string | null;
+  smtpFrom: string | null;
+  smtpSecure: boolean;
+  smtpEnabled: boolean;
   createdAt: string;
   _count: { students: number; staff: number; sessions: number; subjects: number };
 }
@@ -69,6 +75,13 @@ export function SchoolDetailClient({
   );
   const [clearState, clearAction, clearPending] = useActionState(
     async () => clearCustomDomainAction(school.id), {},
+  );
+
+  const [smtpState, smtpAction, smtpPending] = useActionState(
+    async (_prev: any, fd: FormData) => updateSchoolSmtpAction(school.id, fd), {},
+  );
+  const [testState, testAction, testPending] = useActionState(
+    async (_prev: any, fd: FormData) => sendTestSmtpEmailAction(school.id, String(fd.get("testEmail") ?? "")), { ok: false },
   );
 
   const router = useRouter();
@@ -249,12 +262,85 @@ export function SchoolDetailClient({
           {domainState.success && <p className="text-emerald-400 text-sm">{domainState.success}</p>}
           {verifyState.error && <p className="text-red-400 text-sm">{verifyState.error}</p>}
           {verifyState.success && <p className="text-emerald-400 text-sm">{verifyState.success}</p>}
-          {clearState.error && <p className="text-red-400 text-sm">{clearState.error}</p>}
-          {clearState.success && <p className="text-emerald-400 text-sm">{clearState.success}</p>}
-        </div>
-      </div>
+           {clearState.error && <p className="text-red-400 text-sm">{clearState.error}</p>}
+           {clearState.success && <p className="text-emerald-400 text-sm">{clearState.success}</p>}
+         </div>
+       </div>
 
-      {/* Current license card */}
+       {/* Email Sender (SMTP) */}
+       <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+         <div className="flex items-center justify-between mb-3">
+           <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Email Sender (SMTP)</h2>
+           {school.smtpEnabled && school.smtpHost && school.smtpPort && school.smtpUser ? (
+             <span className="rounded-full bg-emerald-900/50 text-emerald-300 text-[11px] px-2.5 py-0.5 font-medium border border-emerald-800/30">Configured</span>
+           ) : (
+             <span className="rounded-full bg-amber-900/50 text-amber-300 text-[11px] px-2.5 py-0.5 font-medium border border-amber-800/30">Not configured</span>
+           )}
+         </div>
+         <p className="text-xs text-white/30 mb-4">
+           Each school sends its own mail through a Gmail SMTP account you provide (use a Gmail <strong>app password</strong>, not the account password).
+           Until this is enabled, school emails are blocked and the school sees a setup notice.
+         </p>
+         <form action={smtpAction} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+           <div>
+             <label className="text-xs text-white/50 block mb-1">SMTP Host</label>
+             <input name="smtpHost" defaultValue={school.smtpHost ?? "smtp.gmail.com"} required
+               className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+           </div>
+           <div>
+             <label className="text-xs text-white/50 block mb-1">Port</label>
+             <input name="smtpPort" type="number" defaultValue={school.smtpPort ?? 587} required
+               className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+           </div>
+           <div>
+             <label className="text-xs text-white/50 block mb-1">Gmail Address (User)</label>
+             <input name="smtpUser" type="email" defaultValue={school.smtpUser ?? ""} required
+               className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+           </div>
+           <div>
+             <label className="text-xs text-white/50 block mb-1">App Password</label>
+             <input name="smtpPassword" type="password" placeholder="Leave blank to keep current"
+               className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30" />
+           </div>
+           <div className="sm:col-span-2">
+             <label className="text-xs text-white/50 block mb-1">From Address (optional — defaults to Gmail address)</label>
+             <input name="smtpFrom" type="email" defaultValue={school.smtpFrom ?? ""}
+               className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+           </div>
+           <div className="flex items-center gap-6 sm:col-span-2">
+             <label className="flex items-center gap-2 text-sm text-white/70">
+               <input type="checkbox" name="smtpSecure" defaultChecked={school.smtpSecure}
+                 className="rounded border-white/20 bg-white/5" /> Use SSL/TLS (port 465)
+             </label>
+             <label className="flex items-center gap-2 text-sm text-white/70">
+               <input type="checkbox" name="smtpEnabled" defaultChecked={school.smtpEnabled}
+                 className="rounded border-white/20 bg-white/5" /> Enabled
+             </label>
+           </div>
+           {smtpState.error && <p className="text-red-400 text-sm sm:col-span-2">{smtpState.error}</p>}
+           {smtpState.success && <p className="text-emerald-400 text-sm sm:col-span-2">{smtpState.success}</p>}
+           <div className="sm:col-span-2">
+             <button type="submit" disabled={smtpPending}
+               className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg disabled:opacity-60"
+             >{smtpPending ? "Saving..." : "Save SMTP Settings"}</button>
+           </div>
+         </form>
+
+         <div className="mt-4 pt-4 border-t border-white/5">
+           <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">Send Test Email</h3>
+           <form action={testAction} className="flex items-center gap-2 flex-wrap">
+             <input name="testEmail" type="email" placeholder="owner@school.com" required
+               className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30 flex-1 min-w-[200px]" />
+             <button type="submit" disabled={testPending}
+               className="text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30 transition-colors disabled:opacity-60"
+             >{testPending ? "Sending..." : "Send Test"}</button>
+           </form>
+           {testState.error && <p className="text-red-400 text-sm mt-2">{testState.error}</p>}
+           {testState.message && <p className="text-emerald-400 text-sm mt-2">{testState.message}</p>}
+         </div>
+       </div>
+
+       {/* Current license card */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-5">
         <div className="flex items-start justify-between gap-4">
           <div>

@@ -255,6 +255,7 @@ export async function createStudentAction(
   const sendResult = await sendEmail({
     to: created.email,
     subject: "Your Marksheet Portal Credentials",
+    schoolId: ctx.schoolId,
     text: `Hello ${created.firstName},\n\nYour student portal account has been created.\n\nEmail: ${created.email}\nPassword: ${created.passwordRaw}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
   }).catch(() => ({ ok: false as const }));
 
@@ -262,6 +263,7 @@ export async function createStudentAction(
     await sendEmail({
       to: created.parentCreds.email,
       subject: `Your Parent Portal Credentials – ${school?.name ?? "School"}`,
+      schoolId: ctx.schoolId,
       text: `Hello ${guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${created.parentCreds.email}\nPassword: ${created.parentCreds.password}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
     }).catch(() => { /* best-effort */ });
   }

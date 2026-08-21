@@ -44,6 +44,14 @@ model School {
   customDomain         String? @unique
   customDomainVerified Boolean @default(false)
   customDomainToken    String?
+  // Per-school SMTP sender (School Email Sender). Credentials encrypted at rest.
+  smtpHost      String?                 // e.g. smtp.gmail.com
+  smtpPort      Int?                    // e.g. 587
+  smtpUser      String?                 // Gmail address / sender login
+  smtpPassEnc   String?                 // encrypted app password (AES-256-GCM)
+  smtpFrom      String?                 // From address (Gmail: must equal smtpUser)
+  smtpSecure    Boolean @default(false) // true => port 465 implicit SSL; false => STARTTLS
+  smtpEnabled   Boolean @default(false) // master on/off + "configured" flag
   // Appearance — portal primary colour theme (blue/green/purple/black/gold)
   portalTheme          String  @default("blue")
   // Selected login screen layout (minimalist/illustrative/classic/split/secure/dark)

@@ -67,6 +67,7 @@ export async function createStaffAction(
   await sendEmail({
     to: email,
     subject: `Welcome to ${schoolName} – Your Login Credentials`,
+    schoolId: ctx.schoolId,
     text: `Hello ${fullName},\n\nYour ${schoolName} staff portal account has been created.\n\nLogin: ${email}\nTemporary password: ${tempPassword}\n\nYou will be required to change your password on first login.\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
   });
 

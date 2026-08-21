@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { exportSchoolData } from "@/lib/backup/export";
+import { encryptSecret } from "@/lib/secrets";
+import { sendEmail } from "@/lib/email/send";
 
 export interface SchoolActionResult {
   error?: string;
@@ -298,4 +300,96 @@ export async function deleteSchoolAction(schoolId: string): Promise<SchoolAction
   revalidatePath("/console/schools");
   revalidatePath(`/console/schools/${schoolId}`);
   return { success: `School "${school.name}" permanently deleted.` };
+}
+
+// ---------------------------------------------------------------------------
+// Per-school SMTP sender (School Email Sender)
+// ---------------------------------------------------------------------------
+
+export async function updateSchoolSmtpAction(
+  schoolId: string,
+  formData: FormData,
+): Promise<SchoolActionResult> {
+  try { await guard(); } catch { return { error: "Not authorised." }; }
+
+  const host = (formData.get("smtpHost") as string)?.trim() || null;
+  const portRaw = (formData.get("smtpPort") as string)?.trim();
+  const port = portRaw ? parseInt(portRaw, 10) : null;
+  const user = (formData.get("smtpUser") as string)?.trim() || null;
+  const password = (formData.get("smtpPassword") as string) || "";
+  const from = (formData.get("smtpFrom") as string)?.trim() || null;
+  const secure = formData.get("smtpSecure") === "on";
+  const enabled = formData.get("smtpEnabled") === "on";
+
+  if (enabled && (!host || !port || !user)) {
+    return { error: "To enable SMTP, Host, Port and User are required." };
+  }
+  if (port !== null && (Number.isNaN(port) || port < 1 || port > 65535)) {
+    return { error: "Port must be a number between 1 and 65535." };
+  }
+
+  if (enabled && !password) {
+    const current = await prisma.school.findUnique({
+      where: { id: schoolId },
+      select: { smtpPassEnc: true },
+    });
+    if (!current?.smtpPassEnc) {
+      return { error: "A SMTP app password is required to enable sending. Enter it once, then it is stored encrypted." };
+    }
+  }
+
+  try {
+    await prisma.school.update({
+      where: { id: schoolId },
+      data: {
+        smtpHost: host,
+        smtpPort: port,
+        smtpUser: user,
+        smtpFrom: from,
+        smtpSecure: secure,
+        smtpEnabled: enabled,
+        ...(password ? { smtpPassEnc: encryptSecret(password) } : {}),
+      },
+    });
+  } catch (e: any) {
+    return { error: `Could not save SMTP config: ${e?.message ?? e}` };
+  }
+
+  await recordAudit({
+    actorId: (await getCurrentUser())!.userId,
+    action: "update_school_smtp",
+    entityType: "school",
+    entityId: schoolId,
+    afterValue: { smtpHost: host, smtpPort: port, smtpUser: user, smtpSecure: secure, smtpEnabled: enabled, smtpFrom: from },
+    schoolId,
+  });
+  revalidatePath(`/console/schools/${schoolId}`);
+  return { success: enabled ? "SMTP sender configured and enabled." : "SMTP sender saved (disabled)." };
+}
+
+export async function sendTestSmtpEmailAction(
+  schoolId: string,
+  to: string,
+): Promise<{ ok: boolean; error?: string; message?: string }> {
+  try { await guard(); } catch { return { ok: false, error: "Not authorised." }; }
+  const recipient = (to || "").trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(recipient)) {
+    return { ok: false, error: "Enter a valid test recipient email." };
+  }
+  const result = await sendEmail({
+    to: recipient,
+    subject: "Marksheet SMTP Test Email",
+    text: "This is a test email from your Marksheet school SMTP sender. If you received this, your configuration is working.",
+    schoolId,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.error === "SMTP_NOT_CONFIGURED"
+          ? "SMTP is not configured or not enabled for this school."
+          : result.error ?? "Failed to send test email.",
+    };
+  }
+  return { ok: true, message: `Test email sent to ${recipient}.` };
 }
