@@ -73,11 +73,11 @@ export default async function AppLayout({
   const nav = buildNav(user, perms, isStudentCaptain);
 
   // Fetch school info for sidebar branding
-  let schoolInfo: { name: string; logo: string | null; motto: string | null; shortcode: string | null; portalTheme: string; smtpEnabled: boolean } | null = null;
+  let schoolInfo: { name: string; logo: string | null; motto: string | null; shortcode: string | null; portalTheme: string } | null = null;
   if (user.schoolId) {
     const school = await prisma.school.findUnique({
       where: { id: user.schoolId },
-      select: { name: true, logo: true, motto: true, shortcode: true, portalTheme: true, smtpEnabled: true },
+      select: { name: true, logo: true, motto: true, shortcode: true, portalTheme: true },
     });
     schoolInfo = school;
   }
@@ -154,15 +154,6 @@ export default async function AppLayout({
 
         {/* Announcement banners */}
         {user.schoolId && <AnnouncementBanner schoolId={user.schoolId} userRole={user.role} />}
-
-        {/* School email setup gate */}
-        {schoolInfo && !schoolInfo.smtpEnabled && (
-          <div className="px-margin-mobile md:px-margin-desktop pt-3">
-            <div className="rounded-lg border border-amber-800/40 bg-amber-900/20 px-4 py-2 text-sm text-amber-200">
-              Email sending is disabled until the console owner configures your SMTP sender.
-            </div>
-          </div>
-        )}
 
         {/* Main canvas */}
         <main className="flex-1 overflow-y-auto p-margin-mobile md:p-margin-desktop">
