@@ -209,6 +209,12 @@ export async function logoutAction(): Promise<void> {
   // If the user belongs to a school, redirect to that school's login page
   if (token) {
     const payload = verifySessionToken(token);
+    if (payload) {
+      try {
+        const { prisma } = await import("@/lib/prisma");
+        await prisma.pushDevice.deleteMany({ where: { userId: payload.userId } });
+      } catch {}
+    }
     if (payload?.schoolId) {
       try {
         const { prisma } = await import("@/lib/prisma");
@@ -229,12 +235,28 @@ export async function logoutAction(): Promise<void> {
 
 export async function consoleLogoutAction(): Promise<void> {
   const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  const payload = verifySessionToken(token);
+  if (payload) {
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      await prisma.pushDevice.deleteMany({ where: { userId: payload.userId } });
+    } catch {}
+  }
   store.delete(SESSION_COOKIE);
   redirect("/console/login");
 }
 
 export async function proprietorLogoutAction(): Promise<void> {
   const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  const payload = verifySessionToken(token);
+  if (payload) {
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      await prisma.pushDevice.deleteMany({ where: { userId: payload.userId } });
+    } catch {}
+  }
   store.delete(SESSION_COOKIE);
   redirect("/proprietor/login");
 }
