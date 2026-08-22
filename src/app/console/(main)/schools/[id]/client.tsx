@@ -24,6 +24,7 @@ interface SchoolVM {
   smtpFrom: string | null;
   smtpSecure: boolean;
   smtpEnabled: boolean;
+  managedFrom: string;
   createdAt: string;
   _count: { students: number; staff: number; sessions: number; subjects: number };
 }
@@ -267,19 +268,19 @@ export function SchoolDetailClient({
          </div>
        </div>
 
-       {/* Email Sender (SMTP) */}
+       {/* Email Sender */}
        <div className="bg-white/5 border border-white/10 rounded-xl p-5">
          <div className="flex items-center justify-between mb-3">
-           <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Email Sender (SMTP)</h2>
+           <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Email Sender</h2>
            {school.smtpEnabled && school.smtpHost && school.smtpPort && school.smtpUser ? (
-             <span className="rounded-full bg-emerald-900/50 text-emerald-300 text-[11px] px-2.5 py-0.5 font-medium border border-emerald-800/30">Configured</span>
+             <span className="rounded-full bg-emerald-900/50 text-emerald-300 text-[11px] px-2.5 py-0.5 font-medium border border-emerald-800/30">Using your SMTP</span>
            ) : (
-             <span className="rounded-full bg-amber-900/50 text-amber-300 text-[11px] px-2.5 py-0.5 font-medium border border-amber-800/30">Not configured</span>
+             <span className="rounded-full bg-sky-900/50 text-sky-300 text-[11px] px-2.5 py-0.5 font-medium border border-sky-800/30">Managed by Marksheet</span>
            )}
          </div>
          <p className="text-xs text-white/30 mb-4">
-           Each school sends its own mail through a Gmail SMTP account you provide (use a Gmail <strong>app password</strong>, not the account password).
-           Until this is enabled, school emails are blocked and the school sees a setup notice.
+           School emails are sent from <span className="font-mono text-white/70">{school.managedFrom}</span>, managed by Marksheet (no setup needed).
+           To send from your own domain instead, configure a Gmail/SMTP account below (use a Gmail <strong>app password</strong>, not the account password).
          </p>
          <form action={smtpAction} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
            <div>

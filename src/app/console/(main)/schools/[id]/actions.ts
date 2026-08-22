@@ -387,7 +387,7 @@ export async function sendTestSmtpEmailAction(
       ok: false,
       error:
         result.error === "SMTP_NOT_CONFIGURED"
-          ? "SMTP is not configured or not enabled for this school."
+          ? "Email sending is unavailable: managed sending is off and no SMTP is configured for this school."
           : result.error ?? "Failed to send test email.",
     };
   }

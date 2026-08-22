@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { redirect } from "next/navigation";
 import { SchoolDetailClient } from "./client";
+import { getManagedFrom } from "@/lib/email/managed-from";
 
 export default async function SchoolDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -51,6 +52,7 @@ export default async function SchoolDetailPage({ params }: { params: Promise<{ i
     <SchoolDetailClient
       school={{
         ...school,
+        managedFrom: getManagedFrom(school),
         createdAt: school.createdAt.toISOString(),
       }}
       licenses={licenses.map((l) => ({
