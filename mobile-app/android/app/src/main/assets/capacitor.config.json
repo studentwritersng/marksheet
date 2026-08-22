@@ -1,0 +1,22 @@
+{
+	"appId": "com.marksheet.app",
+	"appName": "Marksheet",
+	"webDir": "www",
+	"server": {
+		"url": "https://myportal.sch.ng",
+		"cleartext": false
+	},
+	"android": {
+		"backgroundColor": "#ffffff",
+		"allowMixedContent": true
+	},
+	"plugins": {
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
+		}
+	}
+}
