@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { sendEmail } from "@/lib/email/send";
+import { after } from "next/server";
+import { deliverPushForNotification } from "@/lib/notifications/push";
 
 export async function notifyStudents(classId: string, eventType: string, title: string, content: string, schoolId?: string): Promise<void> {
   const students = await prisma.student.findMany({
@@ -52,6 +54,20 @@ export async function createNotification(input: CreateNotificationInput): Promis
       content: input.content,
     },
   });
+
+  if (channel === "in_app") {
+    // Push rides along with every in-app notification. Runs after the
+    // response flushes; failures inside are logged, never thrown.
+    after(() =>
+      deliverPushForNotification({
+        recipientType: input.recipientType,
+        recipientId: input.recipientId,
+        eventType: input.eventType,
+        title: input.title ?? null,
+        content: input.content,
+      }),
+    );
+  }
 
   if (channel === "email" && input.recipientEmail) {
     await sendEmail({
