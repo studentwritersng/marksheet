@@ -4,6 +4,6 @@ export const APP_CONFIG = {
   /** PERMANENT Android identity — changing this later means everyone reinstalls. */
   packageId: "com.marksheet.app",
   /** The hosted portal the WebView opens. */
-  defaultUrl: "https://myportal.sch.ng",
+  defaultUrl: "https://marksheet.top",
   backgroundColor: "#ffffff",
 } as const;
