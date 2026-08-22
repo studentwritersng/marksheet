@@ -24,6 +24,7 @@ beforeAll(() => {
 beforeEach(() => {
   mockFindUnique.mockClear();
   mockSendMail.mockClear();
+  delete process.env.RESEND_API_KEY;
 });
 
 describe("sendEmail school SMTP resolution", () => {
@@ -138,6 +139,20 @@ describe("managed sender resolution", () => {
     const sent = mockSendMail.mock.calls[0][0];
     expect(sent.from).toBe('"Springfield Academy" <springfield@marksheet.top>');
     expect(sent.replyTo).toBe("admin@springfield.com");
+  });
+
+  it("hard-blocks with SMTP_NOT_CONFIGURED when neither BYO SMTP nor RESEND_API_KEY is available", async () => {
+    delete process.env.RESEND_API_KEY;
+    mockFindUnique.mockResolvedValueOnce({
+      name: "Springfield Academy", email: "admin@springfield.com", shortcode: "SA", id: "school-4",
+      smtpEnabled: false, smtpHost: null, smtpPort: null, smtpUser: null, smtpPassEnc: null, smtpFrom: null, smtpSecure: false,
+    });
+
+    const res = await sendEmail({ to: "parent@x.com", subject: "Hi", schoolId: "school-4" });
+
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe("SMTP_NOT_CONFIGURED");
+    expect(mockSendMail).not.toHaveBeenCalled();
   });
 
   it("still prefers BYO SMTP over managed when both are available", async () => {
