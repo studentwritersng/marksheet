@@ -7,3 +7,4 @@ android/app/src/main/assets/capacitor.config.json
 
 *.keystore
 *.jks
+android/app/google-services.json
