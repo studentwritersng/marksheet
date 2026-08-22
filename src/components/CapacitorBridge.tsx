@@ -38,58 +38,76 @@ export function CapacitorBridge() {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let registered = false;
+    // Latest server-POST result for the registration token. Null until the
+    // native "registration" event fires for the current attempt.
+    let registerResult: Promise<boolean> | null = null;
 
-    const attempt = async () => {
-      if (registered || cancelled) return true;
-      const plugins = (window as unknown as { Capacitor?: { Plugins?: CapPlugins } }).Capacitor?.Plugins;
-      const pn = plugins?.PushNotifications;
-      if (!pn) return true;
+    const plugins = (window as unknown as { Capacitor?: { Plugins?: CapPlugins } }).Capacitor?.Plugins;
+    const pn = plugins?.PushNotifications;
+    if (!pn) return;
 
-      try {
-        const probe = await fetch("/api/notifications/unread", { cache: "no-store" });
-        if (cancelled) return true;
-        if (probe.status !== 200) return false; // not logged in yet — retry later
-
-        const perm = await pn.requestPermissions();
-        if (perm.display !== "granted") return true; // denied — stop retrying
-
-        pn.addListener("registration", (payload) => {
-          const token = (payload as RegistrationEvent)?.value;
-          if (!token) return;
-          void fetch("/api/push/register", {
+    // Listeners attach ONCE. They must not be re-attached on every retry —
+    // otherwise each loop would stack duplicate token POSTs / local notices.
+    pn.addListener("registration", (payload) => {
+      const token = (payload as RegistrationEvent)?.value;
+      if (!token) return;
+      registerResult = (async () => {
+        try {
+          const res = await fetch("/api/push/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ fcmToken: token, platform: "android" }),
-          }).then((res) => {
-            if (res.ok) registered = true;
           });
-        });
+          const ok = res.ok;
+          if (ok) registered = true;
+          return ok;
+        } catch {
+          return false;
+        }
+      })();
+    });
 
-        pn.addListener("pushNotificationReceived", (payload) => {
-          const message = payload as ForegroundMessage;
-          const local = plugins?.LocalNotifications;
-          if (!local) return;
-          void local.schedule({
-            notifications: [{
-              id: Date.now() % 2147483647,
-              title: message.title ?? "New notification",
-              body: message.body ?? "",
-            }],
-          });
-        });
+    pn.addListener("pushNotificationReceived", (payload) => {
+      const message = payload as ForegroundMessage;
+      const local = plugins?.LocalNotifications;
+      if (!local) return;
+      void local.schedule({
+        notifications: [{
+          id: Date.now() % 2147483647,
+          title: message.title ?? "New notification",
+          body: message.body ?? "",
+        }],
+      });
+    });
 
-        pn.addListener("pushNotificationActionPerformed", (payload) => {
-          const url = (payload as ActionPerformed)?.notification?.data?.url;
-          if (typeof url === "string" && url.startsWith("/")) {
-            window.location.assign(url);
-          }
-        });
+    pn.addListener("pushNotificationActionPerformed", (payload) => {
+      const url = (payload as ActionPerformed)?.notification?.data?.url;
+      if (typeof url === "string" && url.startsWith("/")) {
+        window.location.assign(url);
+      }
+    });
 
+    const attempt = async () => {
+      if (registered || cancelled) return true;
+      const probe = await fetch("/api/notifications/unread", { cache: "no-store" });
+      if (cancelled) return true;
+      if (probe.status !== 200) return false; // not logged in yet — retry later
+
+      const perm = await pn.requestPermissions();
+      if (perm.display !== "granted") return true; // denied — stop retrying
+
+      registerResult = null;
+      try {
         await pn.register();
-        return true;
       } catch {
         return false;
       }
+      // Gate the retry loop on the SERVER response, not just native register()
+      // success: the registration listener POSTs to /api/push/register and
+      // resolves registerResult with res.ok. If it never fired (no token),
+      // retry later.
+      const ok = registerResult ? await registerResult : false;
+      return ok;
     };
 
     const loop = async () => {

@@ -25,6 +25,9 @@ export async function POST(req: Request) {
   let body: { fcmToken?: unknown; platform?: unknown };
   try {
     body = await req.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }

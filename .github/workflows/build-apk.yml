@@ -23,6 +23,12 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Android SDK (licenses accepted automatically)
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages (compileSdk 35 / build-tools 35.0.0)
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
       - name: Restore google-services.json from secret (optional override)
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
