@@ -113,7 +113,15 @@ describe("managed sender helpers", () => {
     expect(getManagedFrom({ name: "", shortcode: "TDC", id: "s2" }))
       .toBe('"" <tdc@marksheet.top>');
     expect(getManagedFrom({ name: "   ", shortcode: null, id: "s3" }))
-      .toBe('"" <s3@marksheet.top>');
+      .toBe('"   " <s3@marksheet.top>');
+  });
+  it("falls back past a first word with no alphanumeric characters", () => {
+    expect(getManagedFrom({ name: "--- Academy", shortcode: "TDC", id: "s4" }))
+      .toBe('"--- Academy" <academy@marksheet.top>');
+  });
+  it("escapes quotes and backslashes in the display name", () => {
+    expect(getManagedFrom({ name: 'The "Best" School', shortcode: null, id: "s5" }))
+      .toBe('"The \\"Best\\" School" <the@marksheet.top>');
   });
   it("returns the school email as reply-to when present", () => {
     expect(getManagedReplyTo({ email: "admin@springfield.com" })).toBe("admin@springfield.com");

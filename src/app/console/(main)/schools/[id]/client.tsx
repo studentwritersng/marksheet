@@ -278,10 +278,16 @@ export function SchoolDetailClient({
              <span className="rounded-full bg-sky-900/50 text-sky-300 text-[11px] px-2.5 py-0.5 font-medium border border-sky-800/30">Managed by Marksheet</span>
            )}
          </div>
-         <p className="text-xs text-white/30 mb-4">
-           School emails are sent from <span className="font-mono text-white/70">{school.managedFrom}</span>, managed by Marksheet (no setup needed).
-           To send from your own domain instead, configure a Gmail/SMTP account below (use a Gmail <strong>app password</strong>, not the account password).
-         </p>
+          {!(school.smtpEnabled && school.smtpHost && school.smtpPort && school.smtpUser) ? (
+            <p className="text-xs text-white/30 mb-4">
+              School emails are sent from <span className="font-mono text-white/70">{school.managedFrom}</span>, managed by Marksheet (no setup needed).
+              To send from your own domain instead, configure a Gmail/SMTP account below (use a Gmail <strong>app password</strong>, not the account password).
+            </p>
+          ) : (
+            <p className="text-xs text-white/30 mb-4">
+              This school sends email through its own SMTP account below.
+            </p>
+          )}
          <form action={smtpAction} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
            <div>
              <label className="text-xs text-white/50 block mb-1">SMTP Host</label>

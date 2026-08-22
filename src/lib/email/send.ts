@@ -6,13 +6,14 @@ import { decryptSecret } from "@/lib/secrets";
 import { getManagedFrom, getManagedReplyTo } from "./managed-from";
 
 /**
- * Lightweight SMTP email sender using nodemailer.
+ * Email sender.
  *
  * Resolution:
- * - No `schoolId`  -> platform mail via the shared env SMTP (SMTP_HOST/PORT/USER/PASS/FROM).
- * - `schoolId` set, configured (smtpEnabled + host/port/user/pass) -> the school's own SMTP.
- * - `schoolId` set, NOT configured -> hard-blocked: returns { ok: false, error: "SMTP_NOT_CONFIGURED" }.
- *   School mail never falls back to the shared env sender.
+ * - No `schoolId` -> platform mail via the shared env SMTP (SMTP_HOST/PORT/USER/PASS/FROM).
+ * - `schoolId` set, BYO SMTP fully configured (smtpEnabled + host/port/user/pass) -> the school's own SMTP.
+ * - `schoolId` set, no BYO, RESEND_API_KEY present -> managed sending via Resend
+ *   (from = "School Name" <firstword@MANAGED_EMAIL_DOMAIN>, replyTo = school.email).
+ * - Otherwise -> hard-blocked: returns { ok: false, error: "SMTP_NOT_CONFIGURED" }.
  */
 export interface EmailOptions {
   to: string;
