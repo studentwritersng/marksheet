@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 
 const mockFindUnique = vi.fn();
 const mockSendMail = vi.fn().mockResolvedValue({});
@@ -14,6 +14,7 @@ vi.mock("nodemailer", () => ({
 }));
 
 import { sendEmail } from "./send";
+import { getManagedFrom, getManagedReplyTo } from "./managed-from";
 import { encryptSecret, decryptSecret } from "@/lib/secrets";
 
 beforeAll(() => {
@@ -99,5 +100,57 @@ describe("crypto roundtrip", () => {
 
   it("returns non-prefixed values unchanged", () => {
     expect(decryptSecret("plain-value")).toBe("plain-value");
+  });
+});
+
+describe("managed sender helpers", () => {
+  it("builds a quoted from address from the school name's first word", () => {
+    expect(getManagedFrom({ name: "Springfield Academy", shortcode: "SA", id: "s1" }))
+      .toBe('"Springfield Academy" <springfield@marksheet.top>');
+  });
+  it("falls back to shortcode then id when the name is blank", () => {
+    expect(getManagedFrom({ name: "", shortcode: "TDC", id: "s2" }))
+      .toBe('"" <tdc@marksheet.top>');
+    expect(getManagedFrom({ name: "   ", shortcode: null, id: "s3" }))
+      .toBe('"" <s3@marksheet.top>');
+  });
+  it("returns the school email as reply-to when present", () => {
+    expect(getManagedReplyTo({ email: "admin@springfield.com" })).toBe("admin@springfield.com");
+    expect(getManagedReplyTo({ email: null })).toBeUndefined();
+  });
+});
+
+describe("managed sender resolution", () => {
+  const ORIGINAL_KEY = process.env.RESEND_API_KEY;
+  beforeEach(() => { delete process.env.RESEND_API_KEY; });
+  afterAll(() => { if (ORIGINAL_KEY) process.env.RESEND_API_KEY = ORIGINAL_KEY; });
+
+  it("uses the managed Marksheet domain when RESEND_API_KEY is set and school has no BYO SMTP", async () => {
+    process.env.RESEND_API_KEY = "re_test";
+    mockFindUnique.mockResolvedValueOnce({
+      name: "Springfield Academy", email: "admin@springfield.com", shortcode: "SA", id: "school-2",
+      smtpEnabled: false, smtpHost: null, smtpPort: null, smtpUser: null, smtpPassEnc: null, smtpFrom: null, smtpSecure: false,
+    });
+
+    const res = await sendEmail({ to: "parent@x.com", subject: "Hi", schoolId: "school-2" });
+
+    expect(res.ok).toBe(true);
+    const sent = mockSendMail.mock.calls[0][0];
+    expect(sent.from).toBe('"Springfield Academy" <springfield@marksheet.top>');
+    expect(sent.replyTo).toBe("admin@springfield.com");
+  });
+
+  it("still prefers BYO SMTP over managed when both are available", async () => {
+    process.env.RESEND_API_KEY = "re_test";
+    mockFindUnique.mockResolvedValueOnce({
+      name: "Springfield Academy", email: "admin@springfield.com", shortcode: "SA", id: "school-3",
+      smtpEnabled: true, smtpHost: "smtp.gmail.com", smtpPort: 587, smtpUser: "school@gmail.com",
+      smtpPassEnc: "app-password", smtpFrom: "school@gmail.com", smtpSecure: false,
+    });
+
+    const res = await sendEmail({ to: "parent@x.com", subject: "Hi", schoolId: "school-3" });
+
+    expect(res.ok).toBe(true);
+    expect(mockSendMail.mock.calls[0][0].from).toBe("school@gmail.com");
   });
 });

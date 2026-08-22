@@ -3,6 +3,7 @@
 import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/secrets";
+import { getManagedFrom, getManagedReplyTo } from "./managed-from";
 
 /**
  * Lightweight SMTP email sender using nodemailer.
@@ -36,6 +37,10 @@ export async function sendEmail(
   const school = await prisma.school.findUnique({
     where: { id: options.schoolId },
     select: {
+      name: true,
+      email: true,
+      shortcode: true,
+      id: true,
       smtpEnabled: true,
       smtpHost: true,
       smtpPort: true,
@@ -46,37 +51,57 @@ export async function sendEmail(
     },
   });
 
-  if (
-    !school ||
-    !school.smtpEnabled ||
-    !school.smtpHost ||
-    !school.smtpPort ||
-    !school.smtpUser ||
-    !school.smtpPassEnc
-  ) {
+  if (!school) {
     return { ok: false, error: "SMTP_NOT_CONFIGURED" };
   }
 
-  const port = school.smtpPort;
-  const pass = decryptSecret(school.smtpPassEnc);
-  const from = school.smtpFrom ?? school.smtpUser;
+  // 1) BYO-SMTP takes precedence when fully configured.
+  if (school.smtpEnabled && school.smtpHost && school.smtpPort && school.smtpUser && school.smtpPassEnc) {
+    const port = school.smtpPort;
+    const pass = decryptSecret(school.smtpPassEnc);
+    const from = school.smtpFrom ?? school.smtpUser;
+    try {
+      const transporter = nodemailer.createTransport({
+        host: school.smtpHost,
+        port,
+        secure: school.smtpSecure || port === 465,
+        auth: { user: school.smtpUser, pass },
+      });
+      await transporter.sendMail({ from, to: options.to, subject: options.subject, text: options.text, html: options.html });
+      return { ok: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[EMAIL ERROR]", message);
+      return { ok: false, error: message };
+    }
+  }
 
+  // 2) Managed sending via the platform Resend domain.
+  if (process.env.RESEND_API_KEY) {
+    return sendViaManaged(options, school);
+  }
+
+  // 3) Neither available.
+  return { ok: false, error: "SMTP_NOT_CONFIGURED" };
+}
+
+async function sendViaManaged(
+  options: EmailOptions,
+  school: { name: string; email?: string | null; shortcode?: string | null; id: string },
+): Promise<{ ok: boolean; error?: string }> {
+  const host = process.env.MANAGED_EMAIL_HOST || "smtp.resend.com";
+  const port = parseInt(process.env.MANAGED_EMAIL_PORT || "587", 10);
+  const pass = process.env.RESEND_API_KEY as string;
+  const from = getManagedFrom(school);
+  const replyTo = getManagedReplyTo(school);
   try {
     const transporter = nodemailer.createTransport({
-      host: school.smtpHost,
+      host,
       port,
-      secure: school.smtpSecure || port === 465,
-      auth: { user: school.smtpUser, pass },
+      secure: port === 465,
+      auth: { user: "resend", pass },
     });
-
-    await transporter.sendMail({
-      from,
-      to: options.to,
-      subject: options.subject,
-      text: options.text,
-      html: options.html,
-    });
-
+    await transporter.sendMail({ from, to: options.to, subject: options.subject, text: options.text, html: options.html, replyTo });
     return { ok: true };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
