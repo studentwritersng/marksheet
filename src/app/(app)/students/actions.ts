@@ -9,6 +9,7 @@ import { recordAudit } from "@/lib/audit";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "@/lib/email/send";
 import { formatPrismaError } from "@/lib/prisma-error";
+import { portalLoginUrl } from "@/lib/site";
 
 export interface ActionState {
   error?: string;
@@ -256,7 +257,7 @@ export async function createStudentAction(
     to: created.email,
     subject: "Your Marksheet Portal Credentials",
     schoolId: ctx.schoolId,
-    text: `Hello ${created.firstName},\n\nYour student portal account has been created.\n\nEmail: ${created.email}\nPassword: ${created.passwordRaw}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
+    text: `Hello ${created.firstName},\n\nYour student portal account has been created.\n\nEmail: ${created.email}\nPassword: ${created.passwordRaw}\n\nLogin at: ${portalLoginUrl(school ?? {})}\n\nRegards,\nSchool Admin`,
   }).catch(() => ({ ok: false as const }));
 
   if (created.parentCreds) {
@@ -264,7 +265,7 @@ export async function createStudentAction(
       to: created.parentCreds.email,
       subject: `Your Parent Portal Credentials – ${school?.name ?? "School"}`,
       schoolId: ctx.schoolId,
-      text: `Hello ${guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${created.parentCreds.email}\nPassword: ${created.parentCreds.password}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
+      text: `Hello ${guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${created.parentCreds.email}\nPassword: ${created.parentCreds.password}\n\nLogin at: ${portalLoginUrl(school ?? {})}\n\nRegards,\nSchool Admin`,
     }).catch(() => { /* best-effort */ });
   }
 

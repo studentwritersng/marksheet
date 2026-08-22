@@ -8,6 +8,7 @@ import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email/send";
+import { portalLoginUrl } from "@/lib/site";
 
 export interface ActionState {
   error?: string;
@@ -60,7 +61,7 @@ export async function createStaffAction(
   // Send credentials via email
   const school = await prisma.school.findUnique({
     where: { id: ctx.schoolId },
-    select: { name: true },
+    select: { name: true, customDomain: true, customDomainVerified: true },
   });
   const schoolName = school?.name ?? "School";
 
@@ -68,7 +69,7 @@ export async function createStaffAction(
     to: email,
     subject: `Welcome to ${schoolName} – Your Login Credentials`,
     schoolId: ctx.schoolId,
-    text: `Hello ${fullName},\n\nYour ${schoolName} staff portal account has been created.\n\nLogin: ${email}\nTemporary password: ${tempPassword}\n\nYou will be required to change your password on first login.\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
+    text: `Hello ${fullName},\n\nYour ${schoolName} staff portal account has been created.\n\nLogin: ${email}\nTemporary password: ${tempPassword}\n\nYou will be required to change your password on first login.\n\nLogin at: ${portalLoginUrl(school ?? {})}\n\nRegards,\nSchool Admin`,
   });
 
   await recordAudit({

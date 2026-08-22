@@ -8,6 +8,7 @@ import { recordAudit } from "@/lib/audit";
 import { parseStudentCsv, type StagedRow } from "@/lib/csv/student-import";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "@/lib/email/send";
+import { portalLoginUrl } from "@/lib/site";
 import { formatPrismaError } from "@/lib/prisma-error";
 
 /** Pad a number to at least 5 digits */
@@ -177,7 +178,7 @@ export async function commitStudentCsvAction(
           emailsToSend.push({
             to: email,
             subject: "Your Marksheet Portal Credentials",
-            text: `Hello ${r.firstName},\n\nYour student portal account has been created.\n\nEmail: ${email}\nPassword: ${passwordRaw}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
+            text: `Hello ${r.firstName},\n\nYour student portal account has been created.\n\nEmail: ${email}\nPassword: ${passwordRaw}\n\nLogin at: ${portalLoginUrl(school ?? {})}\n\nRegards,\nSchool Admin`,
           });
 
           // Create parent User if guardian email is provided
@@ -233,7 +234,7 @@ export async function commitStudentCsvAction(
               emailsToSend.push({
                 to: r.guardianEmail,
                 subject: `Your Parent Portal Credentials – ${school.name ?? "School"}`,
-                text: `Hello ${r.guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${r.guardianEmail}\nPassword: ${parentPasswordRaw}\n\nLogin at: https://marksheet.top/login\n\nRegards,\nSchool Admin`,
+                text: `Hello ${r.guardianName},\n\nYour parent portal account has been created to monitor your ward's academic progress.\n\nLogin: ${r.guardianEmail}\nPassword: ${parentPasswordRaw}\n\nLogin at: ${portalLoginUrl(school ?? {})}\n\nRegards,\nSchool Admin`,
               });
             }
           }
