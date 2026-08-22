@@ -8,7 +8,7 @@ interface ActionState { error?: string; success?: string }
 
 export async function updateParentNotificationPrefsAction(
   parentAccountId: string,
-  prefs: { smsActive: boolean; whatsappActive: boolean; enabledEvents: string[] },
+  prefs: { smsActive: boolean; whatsappActive: boolean; pushActive: boolean; enabledEvents: string[] },
 ): Promise<ActionState> {
   try {
     const user = await getCurrentUser();

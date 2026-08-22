@@ -14,6 +14,7 @@ export function ParentSettingsClient({ parentAccountId, initialPrefs, phone }: P
   const [prefs, setPrefs] = useState({
     smsActive: (initialPrefs.smsActive as boolean) ?? false,
     whatsappActive: (initialPrefs.whatsappActive as boolean) ?? false,
+    pushActive: (initialPrefs.pushActive as boolean) ?? true,
     enabledEvents: (initialPrefs.enabledEvents as string[]) ?? [],
   });
   const [saving, setSaving] = useState(false);
@@ -76,6 +77,15 @@ export function ParentSettingsClient({ parentAccountId, initialPrefs, phone }: P
               className="w-4 h-4"
             />
             <span className="font-body-md text-body-md">WhatsApp</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={prefs.pushActive}
+              onChange={(e) => setPrefs((p) => ({ ...p, pushActive: e.target.checked }))}
+              className="w-4 h-4"
+            />
+            <span className="font-body-md text-body-md">App notifications (push)</span>
           </label>
         </div>
       </div>
