@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { createNotification } from "@/lib/notifications/actions";
 
 export interface ActionState {
   error?: string;
@@ -22,29 +23,23 @@ async function notifyPlatformOwner(title: string, content: string, schoolName?: 
   });
   const prefix = schoolName ? `[${schoolName}] ` : "";
   await Promise.all(owners.map((o) =>
-    prisma.notification.create({
-      data: {
-        recipientType: "staff",
-        recipientId: o.id,
-        channel: "in_app",
-        eventType: "ticket",
-        title: `${prefix}${title}`,
-        content,
-      },
+    createNotification({
+      recipientType: "staff",
+      recipientId: o.id,
+      eventType: "ticket",
+      title: `${prefix}${title}`,
+      content,
     })
   ));
 }
 
 async function notifyUser(userId: string, title: string, content: string) {
-  await prisma.notification.create({
-    data: {
-      recipientType: "staff",
-      recipientId: userId,
-      channel: "in_app",
-      eventType: "ticket",
-      title,
-      content,
-    },
+  await createNotification({
+    recipientType: "staff",
+    recipientId: userId,
+    eventType: "ticket",
+    title,
+    content,
   });
 }
 

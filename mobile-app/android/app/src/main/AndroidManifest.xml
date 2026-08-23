@@ -38,4 +38,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required to display notifications on Android 13+ (API 33+). Without
+         this declaration the system shows no permission prompt and the app
+         cannot post notifications at all. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
