@@ -19,13 +19,14 @@ export function MobileSidebar({
     <>
       {/* Hamburger button */}
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="md:hidden flex items-center gap-2 text-primary font-headline-md text-headline-md font-bold"
+        className="md:hidden flex items-center gap-2 text-primary font-headline-md text-headline-md font-bold min-w-0"
         aria-label="Open menu"
       >
-        <span className="material-symbols-outlined text-[24px]">menu</span>
-        <span className="truncate max-w-[160px]">{schoolInfo?.name ?? "Marksheet"}</span>
-        {schoolInfo?.shortcode && <span className="font-label-sm text-label-sm text-on-surface-variant hidden xs:inline">{schoolInfo.shortcode}</span>}
+        <span className="material-symbols-outlined text-[24px] shrink-0">menu</span>
+        <span className="truncate max-w-[110px]">{schoolInfo?.name ?? "Marksheet"}</span>
+        {schoolInfo?.shortcode && <span className="font-label-sm text-label-sm text-on-surface-variant hidden xs:inline shrink-0">{schoolInfo.shortcode}</span>}
       </button>
 
       {/* Overlay */}
@@ -53,7 +54,7 @@ export function MobileSidebar({
               )}
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-headline-sm text-headline-sm font-bold text-white truncate">{schoolInfo?.name ?? "Marksheet"}</span>
+              <span className="font-headline-sm text-headline-sm font-bold text-white truncate max-w-[200px] block">{schoolInfo?.name ?? "Marksheet"}</span>
             </div>
           </div>
           <button onClick={() => setOpen(false)} className="text-white/80 hover:text-white p-1">

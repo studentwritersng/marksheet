@@ -51,7 +51,7 @@ export function UserDropdown({ displayName, email, roleLabel }: UserDropdownProp
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 cursor-pointer"
       >
-        <div className="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center font-label-md text-label-md text-on-surface-variant">
+        <div className="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center font-label-md text-label-md text-on-surface-variant shrink-0">
           {initialsFrom(displayName)}
         </div>
         <div className="hidden sm:block text-left">

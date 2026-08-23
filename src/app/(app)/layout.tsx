@@ -140,14 +140,14 @@ export default async function AppLayout({
           <div className="hidden md:block" />
 
           {/* Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <div className="flex items-center text-primary gap-2">
             <NotificationBell />
-              <button aria-label="help" className="p-2 rounded-full hover:bg-surface-container-low transition-colors flex items-center justify-center">
+              <button aria-label="help" className="hidden sm:inline-flex p-2 rounded-full hover:bg-surface-container-low transition-colors items-center justify-center">
                 <span className="material-symbols-outlined text-[20px]">help</span>
               </button>
             </div>
-            <div className="h-6 w-px bg-outline-variant mx-1" />
+            <div className="hidden sm:block h-6 w-px bg-outline-variant mx-1" />
             <UserDropdown displayName={await resolveDisplayName(user)} email={user.email} roleLabel={roleLabel} />
           </div>
         </header>
