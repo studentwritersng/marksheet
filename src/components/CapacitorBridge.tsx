@@ -26,30 +26,66 @@ interface ForegroundMessage {
   body?: string;
 }
 
+interface PushState {
+  native: boolean;
+  plugin: boolean;
+  permission: string;
+  token: boolean;
+  error?: string;
+}
+
+declare global {
+  interface Window {
+    Capacitor?: { Plugins?: CapPlugins; isNativePlatform?: () => boolean };
+    __marksheetPushState?: PushState;
+    __marksheetPushEnable?: () => void;
+  }
+}
+
 function getPushPlugin(): CapPlugins["PushNotifications"] | null {
   if (typeof window === "undefined") return null;
-  const cap = (window as unknown as { Capacitor?: { Plugins?: CapPlugins } }).Capacitor;
-  return cap?.Plugins?.PushNotifications ?? null;
+  return window.Capacitor?.Plugins?.PushNotifications ?? null;
+}
+
+function setState(patch: Partial<PushState>) {
+  const prev = window.__marksheetPushState ?? { native: false, plugin: false, permission: "-", token: false };
+  window.__marksheetPushState = { ...prev, ...patch };
+  console.log("[push] state", window.__marksheetPushState);
 }
 
 /**
  * Native-shell glue (loaded on every page, inert in browsers).
  *
- * - Polls for the native PushNotifications plugin (it can be injected after
- *   React mounts, so a single early check would otherwise bail forever).
- * - Requests notification permission eagerly once the plugin is present
- *   (Android 13+ shows the prompt; older Android grants implicitly).
- * - Registers the FCM token with /api/push/register and retries every 60s
- *   until the POST succeeds (covers "not logged in yet" and transient errors).
- * - Shows foreground messages as local notifications and routes taps to the
- *   deep link in the notification data.
+ * Flow:
+ *  - Polls for the native PushNotifications plugin (it can be injected after
+ *    React mounts, so a single early check would otherwise bail forever).
+ *  - Registers the FCM token first (does NOT require the notification
+ *    permission — only DISPLAYING does), so the device is known to the server.
+ *  - Then requests the POST_NOTIFICATIONS permission (Android 13+ prompt).
+ *  - Shows foreground messages as local notifications + routes taps to deep link.
+ *
+ * A debug chip (PushDebug) reads window.__marksheetPushState so we can see
+ * exactly where things break on a real device.
  */
 export function CapacitorBridge() {
   useEffect(() => {
+    const isNative = !!window.Capacitor?.isNativePlatform?.();
+    setState({ native: isNative });
+    if (!isNative) return;
+
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let registered = false;
     let registerResult: Promise<boolean> | null = null;
+
+    const registerToken = async (pn: NonNullable<ReturnType<typeof getPushPlugin>>) => {
+      try {
+        await pn.register();
+      } catch (e) {
+        setState({ error: "register:" + (e as Error)?.message });
+        console.error("[push] register failed", e);
+      }
+    };
 
     const start = async () => {
       let pn = getPushPlugin();
@@ -57,11 +93,18 @@ export function CapacitorBridge() {
         await new Promise((r) => setTimeout(r, 250));
         pn = getPushPlugin();
       }
-      if (cancelled || !pn) return;
+      if (cancelled) return;
+      if (!pn) {
+        setState({ plugin: false, error: "plugin-not-found" });
+        console.error("[push] PushNotifications plugin never appeared");
+        return;
+      }
+      setState({ plugin: true });
 
       pn.addListener("registration", (payload) => {
         const token = (payload as RegistrationEvent)?.value;
         if (!token) return;
+        setState({ token: true });
         registerResult = (async () => {
           try {
             const res = await fetch("/api/push/register", {
@@ -78,11 +121,14 @@ export function CapacitorBridge() {
         })();
       });
 
+      pn.addListener("registrationError", (err) => {
+        setState({ error: "registrationError:" + JSON.stringify(err) });
+        console.error("[push] registrationError", err);
+      });
+
       pn.addListener("pushNotificationReceived", (payload) => {
         const message = payload as ForegroundMessage;
-        const local = (
-          window as unknown as { Capacitor?: { Plugins?: CapPlugins } }
-        ).Capacitor?.Plugins?.LocalNotifications;
+        const local = window.Capacitor?.Plugins?.LocalNotifications;
         if (!local) return;
         void local.schedule({
           notifications: [
@@ -102,31 +148,41 @@ export function CapacitorBridge() {
         }
       });
 
-      const perm = await pn.requestPermissions();
-      if (perm.display !== "granted") return; // user denied — stop retrying
+      // Get the FCM token regardless of permission state.
+      await registerToken(pn);
 
+      // Now ask for the display permission (Android 13+ prompt).
       try {
-        await pn.register();
-      } catch {
-        /* retried by the loop below */
+        const perm = await pn.requestPermissions();
+        setState({ permission: perm.display });
+        console.log("[push] permission", perm.display);
+      } catch (e) {
+        setState({ permission: "error", error: "perm:" + (e as Error)?.message });
+        console.error("[push] requestPermissions failed", e);
       }
 
       const loop = async () => {
         if (registered || cancelled) return;
         const ok = registerResult ? await registerResult : false;
-        if (!ok) {
-          try {
-            await pn.register();
-          } catch {
-            /* ignore */
-          }
-        }
+        if (!ok) await registerToken(pn);
         timer = setTimeout(loop, 60_000);
       };
       void loop();
     };
 
     void start();
+
+    window.__marksheetPushEnable = async () => {
+      const pn = getPushPlugin();
+      if (!pn) return;
+      try {
+        const perm = await pn.requestPermissions();
+        setState({ permission: perm.display });
+      } catch (e) {
+        setState({ permission: "error", error: "perm:" + (e as Error)?.message });
+      }
+      await registerToken(pn);
+    };
 
     return () => {
       cancelled = true;

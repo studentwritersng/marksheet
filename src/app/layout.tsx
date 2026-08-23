@@ -3,6 +3,7 @@ import { after } from "next/server";
 import "./globals.css";
 import { pruneStaleRateLimitBuckets } from "@/lib/ai/prune-buckets";
 import { CapacitorBridge } from "@/components/CapacitorBridge";
+import { PushDebug } from "@/components/PushDebug";
 
 export const metadata: Metadata = {
   title: "Marksheet",
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         <CapacitorBridge />
+        <PushDebug />
       </body>
     </html>
   );

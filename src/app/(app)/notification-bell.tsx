@@ -80,9 +80,9 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute top-full mt-2 left-2 right-2 md:left-auto md:right-0 md:w-80 w-auto bg-surface-container-lowest border border-outline-variant rounded-lg shadow-xl z-50 max-h-96 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant">
-            <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">Notifications</span>
+        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] max-w-sm md:w-80 md:max-w-none bg-surface-container-lowest border border-outline-variant rounded-lg shadow-xl z-50 max-h-[80vh] flex flex-col">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-outline-variant">
+            <span className="font-label-lg text-label-lg text-on-surface font-semibold">Notifications</span>
             {unread > 0 && (
               <button onClick={handleMarkAll} className="font-label-sm text-label-sm text-primary hover:underline">
                 Mark all read
@@ -97,30 +97,30 @@ export function NotificationBell() {
             {!loading && notifications.length === 0 && (
               <p className="py-8 text-center font-body-sm text-body-sm text-on-surface-variant">No notifications yet.</p>
             )}
-            {!loading && notifications.map((n) => (
-              <div
-                key={n.id}
-                className={`px-4 py-3 hover:bg-surface-container-low cursor-pointer transition-colors ${!n.isRead ? "bg-primary-container/10" : ""}`}
-                onClick={() => !n.isRead && handleMarkRead(n.id)}
-              >
-                <div className="flex items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-label-md text-label-md text-on-surface truncate">
-                      {n.title ?? n.eventType}
-                    </p>
-                    <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-0.5">
-                      {n.content}
-                    </p>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant/60 mt-1">
-                      {new Date(n.sentAt).toLocaleString()}
-                    </p>
-                  </div>
-                  {!n.isRead && (
-                    <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
-                  )}
-                </div>
-              </div>
-            ))}
+             {!loading && notifications.map((n) => (
+               <div
+                 key={n.id}
+                 className={`px-3 py-2 hover:bg-surface-container-low cursor-pointer transition-colors ${!n.isRead ? "bg-primary-container/10" : ""}`}
+                 onClick={() => !n.isRead && handleMarkRead(n.id)}
+               >
+                 <div className="flex items-start gap-2">
+                   <div className="flex-1 min-w-0">
+                     <p className="font-label-md text-label-md text-on-surface truncate">
+                       {n.title ?? n.eventType}
+                     </p>
+                     <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-1 mt-0.5">
+                       {n.content}
+                     </p>
+                     <p className="font-label-sm text-label-sm text-on-surface-variant/60 truncate mt-0.5">
+                       {new Date(n.sentAt).toLocaleString()}
+                     </p>
+                   </div>
+                   {!n.isRead && (
+                     <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
+                   )}
+                 </div>
+               </div>
+             ))}
           </div>
         </div>
       )}

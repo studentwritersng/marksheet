@@ -3,7 +3,7 @@
 	"appName": "Marksheet",
 	"webDir": "www",
 	"server": {
-		"url": "https://myportal.sch.ng",
+		"url": "https://marksheet.top",
 		"cleartext": false
 	},
 	"android": {
