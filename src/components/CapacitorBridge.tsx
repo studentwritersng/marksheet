@@ -130,70 +130,79 @@ export function CapacitorBridge() {
       }
       setState({ plugin: true });
 
-      pn.addListener("registration", (payload: { value?: string }) => {
-        const token = payload?.value;
+      const saveToken = (token?: string) => {
         if (!token) return;
         setState({ token: true });
-        registerResult = (async () => {
+        void (async () => {
           try {
             const res = await fetch("/api/push/register", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ fcmToken: token, platform: "android" }),
             });
-            const ok = res.ok;
-            if (ok) registered = true;
-            return ok;
-          } catch {
-            return false;
+            if (res.ok) { registered = true; setState({ error: undefined }); }
+            else setState({ error: "registerPost:" + res.status });
+          } catch (e) {
+            setState({ error: "registerPost:" + (e as Error)?.message });
           }
         })();
+      };
+
+      // Attach listeners FIRST so we never miss the instant "registration" event.
+      let tokenResolve: (t: string | null) => void = () => {};
+      const tokenWait = new Promise<string | null>((resolve) => { tokenResolve = resolve; });
+
+      void pn.addListener("registration", (payload: { value?: string }) => {
+        const token = (payload as { value?: string })?.value;
+        if (!token) return;
+        saveToken(token);
+        tokenResolve(token);
       });
 
-      pn.addListener("registrationError", (err: unknown) => {
+      void pn.addListener("registrationError", (err: unknown) => {
         setState({ error: "registrationError:" + JSON.stringify(err) });
-        console.error("[push] registrationError", err);
+        tokenResolve(null);
       });
 
-      pn.addListener("pushNotificationReceived", (message: { title?: string; body?: string }) => {
+      void pn.addListener("pushNotificationReceived", (message: { title?: string; body?: string }) => {
         void showForegroundNotification(message?.title ?? "New notification", message?.body ?? "");
       });
 
-      pn.addListener("pushNotificationActionPerformed", (payload: unknown) => {
+      void pn.addListener("pushNotificationActionPerformed", (payload: unknown) => {
         const url = (payload as { notification?: { data?: { url?: unknown } } })?.notification?.data?.url;
         if (typeof url === "string" && url.startsWith("/")) {
           window.location.assign(url);
         }
       });
 
-      // Watchdog: if no token appears within 15s of registering, surface it so
-      // we can distinguish "FCM register silent" from an outright failure.
-      setTimeout(() => {
-        if (!cancelled && !window.__marksheetPushState?.token && !window.__marksheetPushState?.error) {
-          setState({ error: "no-token-after-15s (FCM register silent; check google-services.json package, Play services, network)" });
+      // Kick off registration; capture rejects explicitly (do not let it hang).
+      void (async () => {
+        try {
+          await pn.register();
+        } catch (e) {
+          setState({ error: "register:" + (e as Error)?.message });
+          tokenResolve(null);
         }
-      }, 15000);
+      })();
 
-      // Get the FCM token regardless of permission state.
-      await registerToken(pn);
+      // Race the "registration" event against a timeout.
+      const timeout = new Promise<null>((r) => setTimeout(() => r(null), 15000));
+      void Promise.race([tokenWait, timeout]).then((t) => {
+        if (cancelled || registered) return;
+        if (!t && !window.__marksheetPushState?.token && !window.__marksheetPushState?.error) {
+          setState({ error: "no-token-15s (FCM register silent; check google-services package/Play services/network)" });
+        }
+      });
 
-      // Ask for the display permission (Android 13+ prompt).
-      try {
-        const perm = await pn.requestPermissions();
-        setState({ permission: perm.display });
-        console.log("[push] permission", perm.display);
-      } catch (e) {
-        setState({ permission: "error", error: "perm:" + (e as Error)?.message });
-        console.error("[push] requestPermissions failed", e);
-      }
-
-      const loop = async () => {
-        if (registered || cancelled) return;
-        const ok = registerResult ? await registerResult : false;
-        if (!ok) await registerToken(pn);
-        timer = setTimeout(loop, 60_000);
-      };
-      void loop();
+      // Request display permission in parallel (don't gate token on it).
+      void (async () => {
+        try {
+          const perm = await pn.requestPermissions();
+          setState({ permission: perm.display });
+        } catch (e) {
+          setState({ permission: "error", error: "perm:" + (e as Error)?.message });
+        }
+      })();
     };
 
     void (async () => {
