@@ -2,70 +2,107 @@
 
 import { useEffect } from "react";
 
-interface CapPlugins {
-  PushNotifications?: {
-    register(): Promise<void>;
-    requestPermissions(): Promise<{ display: string }>;
-    addListener(event: string, cb: (payload: unknown) => void): unknown;
-  };
-  LocalNotifications?: {
-    schedule(options: {
-      notifications: { id: number; title: string; body: string }[];
-    }): Promise<unknown>;
-  };
-}
-
-interface RegistrationEvent {
-  value: string;
-}
-interface ActionPerformed {
-  notification?: { data?: { url?: unknown } };
-}
-interface ForegroundMessage {
-  title?: string;
-  body?: string;
-}
-
 interface PushState {
   native: boolean;
+  bridge: string;
   plugin: boolean;
   permission: string;
   token: boolean;
   error?: string;
 }
 
+type PushPlugin = import("@capacitor/push-notifications").PushNotificationsPlugin;
+
 declare global {
   interface Window {
-    Capacitor?: { Plugins?: CapPlugins; isNativePlatform?: () => boolean };
+    Capacitor?: {
+      isNativePlatform?: () => boolean;
+      Plugins?: Record<string, unknown> & { PushNotifications?: unknown };
+    };
+    androidBridge?: unknown;
     __marksheetPushState?: PushState;
     __marksheetPushEnable?: () => void;
   }
 }
 
-function getPushPlugin(): CapPlugins["PushNotifications"] | null {
-  if (typeof window === "undefined") return null;
-  return window.Capacitor?.Plugins?.PushNotifications ?? null;
-}
-
 function setState(patch: Partial<PushState>) {
-  const prev = window.__marksheetPushState ?? { native: false, plugin: false, permission: "-", token: false };
+  const prev =
+    window.__marksheetPushState ?? {
+      native: false,
+      bridge: "-",
+      plugin: false,
+      permission: "-",
+      token: false,
+    };
   window.__marksheetPushState = { ...prev, ...patch };
   console.log("[push] state", window.__marksheetPushState);
 }
 
+function hasNativeEnv(): boolean {
+  if (typeof window === "undefined") return false;
+  return !!(window.Capacitor?.isNativePlatform?.() || window.androidBridge);
+}
+
 /**
- * Native-shell glue (loaded on every page, inert in browsers).
+ * The app's WebView loads a remote URL via Capacitor `server.url`. In that
+ * mode the native wrapper injects its high-level bridge script (which creates
+ * `window.Capacitor`) only into locally-served files — not into remote pages —
+ * so `window.Capacitor` is missing here even though the low-level native
+ * JavascriptInterface `window.androidBridge` IS present on every page.
  *
- * Flow:
- *  - Polls for the native PushNotifications plugin (it can be injected after
- *    React mounts, so a single early check would otherwise bail forever).
- *  - Registers the FCM token first (does NOT require the notification
- *    permission — only DISPLAYING does), so the device is known to the server.
- *  - Then requests the POST_NOTIFICATIONS permission (Android 13+ prompt).
- *  - Shows foreground messages as local notifications + routes taps to deep link.
- *
- * A debug chip (PushDebug) reads window.__marksheetPushState so we can see
- * exactly where things break on a real device.
+ * We therefore serve the stock Android `native-bridge.js` ourselves from
+ * `public/` and inject it. It reads `window.androidBridge` and constructs the
+ * full `window.Capacitor` global, restoring plugin access.
+ */
+function ensureCapacitorGlobal(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.Capacitor) return Promise.resolve(true);
+  if (!window.androidBridge) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "/native-bridge.js";
+    script.async = true;
+    script.onload = () => {
+      let tries = 0;
+      const id = setInterval(() => {
+        if (window.Capacitor || ++tries > 30) {
+          clearInterval(id);
+          resolve(!!window.Capacitor);
+        }
+      }, 100);
+    };
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+async function loadPushPlugin(): Promise<PushPlugin | null> {
+  try {
+    // Dynamic import AFTER window.Capacitor exists so the plugin binds to bridge.
+    const mod = await import("@capacitor/push-notifications");
+    return mod.PushNotifications ?? null;
+  } catch (e) {
+    setState({ error: "pnImport:" + (e as Error)?.message });
+    console.error("[push] plugin import failed", e);
+    return null;
+  }
+}
+
+async function showForegroundNotification(title: string, body: string) {
+  try {
+    const mod = await import("@capacitor/local-notifications");
+    await mod.LocalNotifications.schedule({
+      notifications: [{ id: Date.now() % 2147483647, title, body }],
+    });
+  } catch {
+    /* local notifications unavailable — ignore */
+  }
+}
+
+/**
+ * Native-shell glue (loaded on every page, inert in browsers). A debug chip
+ * (PushDebug) reads window.__marksheetPushState so we can see exactly where
+ * push setup breaks on a real device.
  */
 export function CapacitorBridge() {
   useEffect(() => {
@@ -74,7 +111,7 @@ export function CapacitorBridge() {
     let registered = false;
     let registerResult: Promise<boolean> | null = null;
 
-    const registerToken = async (pn: NonNullable<ReturnType<typeof getPushPlugin>>) => {
+    const registerToken = async (pn: PushPlugin) => {
       try {
         await pn.register();
       } catch (e) {
@@ -84,21 +121,17 @@ export function CapacitorBridge() {
     };
 
     const start = async () => {
-      let pn = getPushPlugin();
-      for (let i = 0; i < 40 && !pn && !cancelled; i++) {
-        await new Promise((r) => setTimeout(r, 250));
-        pn = getPushPlugin();
-      }
+      const pn = await loadPushPlugin();
       if (cancelled) return;
       if (!pn) {
-        setState({ plugin: false, error: "plugin-not-found" });
-        console.error("[push] PushNotifications plugin never appeared");
+        setState({ plugin: false, error: "pn-unavailable" });
+        console.error("[push] PushNotifications plugin unavailable");
         return;
       }
       setState({ plugin: true });
 
-      pn.addListener("registration", (payload) => {
-        const token = (payload as RegistrationEvent)?.value;
+      pn.addListener("registration", (payload: { value?: string }) => {
+        const token = payload?.value;
         if (!token) return;
         setState({ token: true });
         registerResult = (async () => {
@@ -117,28 +150,17 @@ export function CapacitorBridge() {
         })();
       });
 
-      pn.addListener("registrationError", (err) => {
+      pn.addListener("registrationError", (err: unknown) => {
         setState({ error: "registrationError:" + JSON.stringify(err) });
         console.error("[push] registrationError", err);
       });
 
-      pn.addListener("pushNotificationReceived", (payload) => {
-        const message = payload as ForegroundMessage;
-        const local = window.Capacitor?.Plugins?.LocalNotifications;
-        if (!local) return;
-        void local.schedule({
-          notifications: [
-            {
-              id: Date.now() % 2147483647,
-              title: message.title ?? "New notification",
-              body: message.body ?? "",
-            },
-          ],
-        });
+      pn.addListener("pushNotificationReceived", (message: { title?: string; body?: string }) => {
+        void showForegroundNotification(message?.title ?? "New notification", message?.body ?? "");
       });
 
-      pn.addListener("pushNotificationActionPerformed", (payload) => {
-        const url = (payload as ActionPerformed)?.notification?.data?.url;
+      pn.addListener("pushNotificationActionPerformed", (payload: unknown) => {
+        const url = (payload as { notification?: { data?: { url?: unknown } } })?.notification?.data?.url;
         if (typeof url === "string" && url.startsWith("/")) {
           window.location.assign(url);
         }
@@ -147,7 +169,7 @@ export function CapacitorBridge() {
       // Get the FCM token regardless of permission state.
       await registerToken(pn);
 
-      // Now ask for the display permission (Android 13+ prompt).
+      // Ask for the display permission (Android 13+ prompt).
       try {
         const perm = await pn.requestPermissions();
         setState({ permission: perm.display });
@@ -166,26 +188,30 @@ export function CapacitorBridge() {
       void loop();
     };
 
-    // Wait for the Capacitor bridge to be injected into the WebView. When the
-    // app loads a remote server URL the bridge can appear AFTER React mounts,
-    // so a single early isNativePlatform() check would bail forever.
     void (async () => {
-      for (let i = 0; i < 80 && !cancelled; i++) {
-        const w = window as {
-          Capacitor?: { isNativePlatform?: () => boolean; Plugins?: CapPlugins };
-        };
-        if (w.Capacitor?.isNativePlatform?.() || w.Capacitor?.Plugins?.PushNotifications) {
-          setState({ native: true });
-          await start();
-          return;
-        }
+      // Native bridge (window.androidBridge) can be injected slightly after load.
+      for (let i = 0; i < 60 && !cancelled && !hasNativeEnv(); i++) {
         await new Promise((r) => setTimeout(r, 250));
       }
-      if (!cancelled) setState({ native: false });
+      if (cancelled) return;
+      if (!hasNativeEnv()) {
+        setState({ native: false });
+        return;
+      }
+      setState({ native: true });
+
+      const hasCap = await ensureCapacitorGlobal();
+      if (cancelled) return;
+      setState({ bridge: window.Capacitor ? "window.Capacitor" : "androidBridge-only" });
+      if (!hasCap) {
+        setState({ error: "window.Capacitor-not-created" });
+        return;
+      }
+      await start();
     })();
 
     window.__marksheetPushEnable = async () => {
-      const pn = getPushPlugin();
+      const pn = await loadPushPlugin();
       if (!pn) return;
       try {
         const perm = await pn.requestPermissions();
