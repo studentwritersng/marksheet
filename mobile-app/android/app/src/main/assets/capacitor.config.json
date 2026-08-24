@@ -2,8 +2,13 @@
 	"appId": "com.marksheet.app",
 	"appName": "Marksheet",
 	"webDir": "www",
+	"allowNavigation": [
+		"marksheet.top",
+		"www.marksheet.top",
+		"*.marksheet.top"
+	],
 	"server": {
-		"url": "https://marksheet.top",
+		"url": "https://marksheet.top/login",
 		"cleartext": false
 	},
 	"android": {
