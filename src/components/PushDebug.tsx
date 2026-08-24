@@ -10,38 +10,61 @@ interface PushState {
   error?: string;
 }
 
+interface Detect {
+  cap: boolean;
+  native: boolean;
+  s: PushState | null;
+}
+
 /**
- * Temporary diagnostic chip — only visible inside the native Android shell.
- * Shows exactly where push setup breaks: plugin load, permission, token.
- * Remove once push is confirmed working.
+ * Temporary diagnostic chip — visible only inside the app WebView (Android
+ * WebView UAs contain "; wv)", which every desktop browser lacks). Reports
+ * whether the Capacitor bridge and push plugin are actually present, so we
+ * can see exactly where push setup breaks on a real device. Remove once push
+ * is confirmed working.
  */
 export function PushDebug() {
-  const [s, setS] = useState<PushState | null>(null);
+  const [tick, setTick] = useState(0);
+  const [d, setD] = useState<Detect>({ cap: false, native: false, s: null });
 
   useEffect(() => {
-    const w = window as unknown as {
-      Capacitor?: { isNativePlatform?: () => boolean };
-      __marksheetPushState?: PushState;
-      __marksheetPushEnable?: () => void;
-    };
-    if (!w.Capacitor?.isNativePlatform?.()) return;
-    const id = setInterval(() => setS(w.__marksheetPushState ?? null), 1000);
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  if (!s?.native) return null;
+  useEffect(() => {
+    const w = window as unknown as {
+      Capacitor?: { isNativePlatform?: () => boolean; Plugins?: unknown };
+      __marksheetPushState?: PushState;
+    };
+    setD({
+      cap: !!w.Capacitor,
+      native: !!w.Capacitor?.isNativePlatform?.() || !!w.Capacitor?.Plugins,
+      s: w.__marksheetPushState ?? null,
+    });
+  }, [tick]);
+
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isWebView = /; *wv\)/i.test(ua) || d.cap || d.native;
+  if (!isWebView) return null;
 
   const badge = (ok: boolean, label: string) => (
     <span className={ok ? "text-green-400" : "text-red-400"}>{label}</span>
   );
 
   return (
-    <div className="fixed bottom-2 left-2 z-[100] bg-black/85 text-white text-[10px] font-mono p-2 rounded leading-tight max-w-[70vw]">
+    <div className="fixed bottom-2 left-2 z-[100] bg-black/85 text-white text-[10px] font-mono p-2 rounded leading-tight max-w-[78vw]">
       <div>
-        Native✓ Plugin {badge(s.plugin, s.plugin ? "✓" : "✗")} Perm {s.permission ?? "-"} Token{" "}
-        {badge(s.token, s.token ? "✓" : "✗")}
+        cap{badge(d.cap, d.cap ? "✓" : "✗")} native{badge(d.native, d.native ? "✓" : "✗")} plugin
+        {badge(!!d.s?.plugin, d.s?.plugin ? "✓" : "✗")} perm:{d.s?.permission ?? "-"} token
+        {badge(!!d.s?.token, d.s?.token ? "✓" : "✗")}
       </div>
-      {s.error && <div className="text-red-300 mt-0.5 break-all">{s.error}</div>}
+      {!d.cap && (
+        <div className="text-red-300 mt-0.5">
+          window.Capacitor is undefined — the app isn't injecting the Capacitor bridge.
+        </div>
+      )}
+      {d.s?.error && <div className="text-red-300 mt-0.5 break-all">{d.s.error}</div>}
       <button
         onClick={() =>
           (window as unknown as { __marksheetPushEnable?: () => void }).__marksheetPushEnable?.()

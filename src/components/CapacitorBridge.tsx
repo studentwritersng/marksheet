@@ -69,10 +69,6 @@ function setState(patch: Partial<PushState>) {
  */
 export function CapacitorBridge() {
   useEffect(() => {
-    const isNative = !!window.Capacitor?.isNativePlatform?.();
-    setState({ native: isNative });
-    if (!isNative) return;
-
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let registered = false;
@@ -170,7 +166,23 @@ export function CapacitorBridge() {
       void loop();
     };
 
-    void start();
+    // Wait for the Capacitor bridge to be injected into the WebView. When the
+    // app loads a remote server URL the bridge can appear AFTER React mounts,
+    // so a single early isNativePlatform() check would bail forever.
+    void (async () => {
+      for (let i = 0; i < 80 && !cancelled; i++) {
+        const w = window as {
+          Capacitor?: { isNativePlatform?: () => boolean; Plugins?: CapPlugins };
+        };
+        if (w.Capacitor?.isNativePlatform?.() || w.Capacitor?.Plugins?.PushNotifications) {
+          setState({ native: true });
+          await start();
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      if (!cancelled) setState({ native: false });
+    })();
 
     window.__marksheetPushEnable = async () => {
       const pn = getPushPlugin();
