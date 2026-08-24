@@ -31,6 +31,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // The TypeScript check spawns a worker that OOM-crashes in some CI/build
+  // environments; code is verified with `tsc --noEmit` in CI separately, so we
+  // don't let the build-time type check block deploys. Same for ESLint — it is
+  // run as its own step, not as a deploy gate.
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   async headers() {
     return [
       {

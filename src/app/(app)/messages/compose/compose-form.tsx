@@ -63,7 +63,7 @@ export function ComposeMessageForm({ recipients, useDirectory, classes }: Props)
   }, [useDirectory, mode, dirType, classId, query]);
 
   useEffect(() => {
-    if (mode !== "bulk") { setBulkCount(null); return; }
+    if (mode !== "bulk") return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const spec: AudienceSpec = {
       audienceType,
