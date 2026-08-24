@@ -7,4 +7,6 @@ android/app/src/main/assets/capacitor.config.json
 
 *.keystore
 *.jks
-android/app/google-services.json
+# google-services.json is the FCM client config (no server secret); commit it so
+# CI builds always include Firebase config without relying on a repo secret.
+!android/app/google-services.json

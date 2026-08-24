@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "612553638287",
+    "project_id": "teta-marksheet",
+    "storage_bucket": "teta-marksheet.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:612553638287:android:2498a5853c7c83c86e0bfa",
+        "android_client_info": {
+          "package_name": "com.marksheet.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBwejNhmY5lN_ANiIHP0FoCk6ZMTnO0-BY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
