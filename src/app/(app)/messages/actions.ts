@@ -137,7 +137,7 @@ export async function sendMessageAction(conversationId: string, content: string)
   });
   for (const op of otherParticipants) {
     await createNotification({
-      schoolId: participant.conversationId,
+      schoolId: user.schoolId ?? undefined,
       recipientType: op.userType as "staff" | "student" | "parent",
       recipientId: op.userId,
       channel: "in_app",
