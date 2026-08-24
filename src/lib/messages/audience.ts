@@ -82,12 +82,6 @@ async function parentsByFeeIds(schoolId: string, spec: AudienceSpec, excludeUser
   });
   let studentIdList = matched.map((m) => m.studentId);
 
-  if (statuses.includes("not_cleared")) {
-    const all = await prisma.student.findMany({ where: studentFilter, select: { id: true } });
-    const withRow = new Set(studentIdList);
-    for (const s of all) if (!withRow.has(s.id)) studentIdList.push(s.id);
-    studentIdList = [...new Set(studentIdList)];
-  }
   if (studentIdList.length === 0) return [];
 
   const guardians = await prisma.guardian.findMany({
