@@ -44,18 +44,34 @@ function adminUser() {
 }
 
 describe("bulkSendAction", () => {
-  it("rejects senders that are neither admins nor HODs", async () => {
-    mockGetCurrentUser.mockResolvedValue(adminUser());
-    mockResolvePermissions.mockResolvedValue({ isSuperAdmin: false, assignments: [] });
+  it("rejects plain staff teachers (no admin/HOD assignment)", async () => {
+    mockGetCurrentUser.mockResolvedValue({ userId: "t1", role: "staff", schoolId: "s1", staffId: "st1", email: "t@x.com" });
+    mockResolvePermissions.mockResolvedValue({ isSuperAdmin: false, isSchoolAdmin: false, assignments: [] });
     const res = await bulkSendAction({ audienceType: "teachers" }, "Hi", "Body");
     expect(res.error).toBe("Not allowed.");
   });
 
-  it("allows HODs via assignment and fans out 1:1 conversations + notifications", async () => {
+  it("allows super_admin (role-based) and fans out 1:1 conversations + notifications", async () => {
     mockGetCurrentUser.mockResolvedValue(adminUser());
+    mockResolvePermissions.mockResolvedValue({ isSuperAdmin: true, assignments: [] });
+    resolveMock.mockResolvedValue(["u1", "u2"]);
+    mockUserFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
+      ({ id: where.id, email: `${where.id}@x.com`, role: where.id === "u1" ? "staff" : "parent", schoolId: "s1" }));
+    mockConversationCreate.mockImplementation(async ({ data }: { data: { participants: { create: { userId: string }[] } } }) =>
+      ({ id: `conv-${data.participants.create[1].userId}` }));
+
+    const res = await bulkSendAction({ audienceType: "teachers" }, "Hi", "Body");
+    expect(res).toEqual({ sent: 2 });
+    expect(mockConversationCreate).toHaveBeenCalledTimes(2);
+    expect(mockConversationCreate.mock.calls[0][0].data.messages.create.senderId).toBe("admin1");
+  });
+
+  it("allows HODs (staff with hod assignment) and fans out", async () => {
+    mockGetCurrentUser.mockResolvedValue({ userId: "hod1", role: "staff", schoolId: "s1", staffId: "st1", email: "h@x.com" });
     mockResolvePermissions.mockResolvedValue({
       isSuperAdmin: false,
-      assignments: [{ assignmentType: "hod", subjectId: "sub1", classId: null }],
+      isSchoolAdmin: false,
+      assignments: [{ id: "a1", type: "hod", subjectId: "sub1", classId: null, isTemporary: false }],
     });
     resolveMock.mockResolvedValue(["u1", "u2"]);
     mockUserFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
@@ -70,7 +86,7 @@ describe("bulkSendAction", () => {
     );
     expect(res).toEqual({ sent: 2 });
     expect(mockConversationCreate).toHaveBeenCalledTimes(2);
-    expect(mockConversationCreate.mock.calls[0][0].data.messages.create.senderId).toBe("admin1");
+    expect(mockConversationCreate.mock.calls[0][0].data.messages.create.senderId).toBe("hod1");
   });
 
   it("errors on empty audience and over-cap audiences", async () => {

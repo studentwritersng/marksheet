@@ -322,8 +322,11 @@ export async function getMessageRecipientsAction() {
 
 async function canBulkSend(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>): Promise<boolean> {
   if (!user.schoolId) return false;
+  // Top-level school owners are always allowed.
+  if (user.role === "super_admin" || user.role === "platform_owner" || user.role === "proprietor") return true;
   const perms = await resolvePermissions(user);
-  return canManageSchool(perms) || perms.assignments.some((a) => a.assignmentType === "hod");
+  // school-admin (staff with school_admin assignment) or HOD (staff with hod assignment).
+  return canManageSchool(perms) || perms.assignments.some((a) => a.type === "hod");
 }
 
 /** Directory feed for the individual composer picker. */
