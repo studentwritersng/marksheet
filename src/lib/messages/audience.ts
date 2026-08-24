@@ -71,16 +71,19 @@ async function parentsByFeeIds(schoolId: string, spec: AudienceSpec, excludeUser
   });
   if (!term) return [];
 
-  const studentFilter = {
-    schoolId,
-    ...(spec.classId ? { currentClassId: spec.classId } : {}),
-  };
+  // FeeStatus has no Student relation; scope students first, then match by studentId.
+  const students = await prisma.student.findMany({
+    where: { schoolId, ...(spec.classId ? { currentClassId: spec.classId } : {}) },
+    select: { id: true },
+  });
+  if (students.length === 0) return [];
+  const studentIds = students.map((s) => s.id);
 
   const matched = await prisma.feeStatus.findMany({
-    where: { termId: term.id, status: { in: statuses }, student: studentFilter },
+    where: { termId: term.id, status: { in: statuses }, studentId: { in: studentIds } },
     select: { studentId: true },
   });
-  let studentIdList = matched.map((m) => m.studentId);
+  const studentIdList = matched.map((m) => m.studentId);
 
   if (studentIdList.length === 0) return [];
 

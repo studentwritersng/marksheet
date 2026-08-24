@@ -1,5 +1,6 @@
 // src/lib/messages/roles.test.ts
 import { describe, it, expect } from "vitest";
+import type { UserRole } from "@prisma/client";
 import { isMessagingStaffRole, participantTypeForRole } from "./roles";
 
 describe("isMessagingStaffRole", () => {
