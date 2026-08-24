@@ -104,6 +104,7 @@ export function buildNav(
       { label: "My Timetable", href: "/my-timetable", icon: "calendar_view_week" },
       { label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" },
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
+      { label: "Messages", href: "/messages", icon: "chat" },
       { label: "Take Quiz", href: "/quiz", icon: "quiz" },
     ];
     if (isStudentCaptain) {
