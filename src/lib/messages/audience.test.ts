@@ -101,9 +101,7 @@ describe("parents_by_fee audience", () => {
     mockGuardianFindMany.mockResolvedValue([]);
     const ids = await resolveAudienceUserIds("s1", { audienceType: "parents_by_fee", feeStatuses: ["not_cleared"] });
     expect(ids).toEqual([]);
-    expect(mockGuardianFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { studentId: { in: [] }, parentUserId: { not: null } } }),
-    );
+    expect(mockGuardianFindMany).not.toHaveBeenCalled();
   });
 
   it("returns empty with no current term, and with empty statuses", async () => {
