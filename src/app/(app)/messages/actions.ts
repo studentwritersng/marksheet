@@ -5,6 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { recordAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications/actions";
+import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
+import { isMessagingStaffRole, participantTypeForRole } from "@/lib/messages/roles";
+import {
+  searchDirectory, countAudience, resolveAudienceUserIds, BULK_SEND_CAP,
+  type AudienceSpec, type DirectoryQuery, type DirectoryEntry,
+} from "@/lib/messages/audience";
 
 export interface ActionState {
   error?: string;
@@ -176,8 +182,8 @@ export async function createConversationAction(recipientId: string, subject: str
   if (!recipient) return { error: "Recipient not found in your school." } as const;
 
   // Determine user types
-  const senderType = user.role === "staff" ? "staff" : user.role === "parent" ? "parent" : "student" as const;
-  const recipientType = recipient.role === "staff" ? "staff" : recipient.role === "parent" ? "parent" : "student" as const;
+  const senderType = participantTypeForRole(user.role);
+  const recipientType = participantTypeForRole(recipient.role);
 
   const conversation = await prisma.conversation.create({
     data: {
@@ -228,7 +234,7 @@ export async function searchRecipientsAction(query: string) {
   const q = query.toLowerCase();
   let results: { userId: string; label: string; type: string }[] = [];
 
-  if (user.role === "staff") {
+  if (isMessagingStaffRole(user.role)) {
     const staff = await prisma.user.findMany({
       where: {
         schoolId: user.schoolId,
@@ -262,6 +268,13 @@ export async function searchRecipientsAction(query: string) {
       take: 20,
     });
     results = staff.map((u) => ({ userId: u.id, label: u.email, type: "staff" as const }));
+  } else if (user.role === "student" && user.schoolId) {
+    // Students may contact staff of their own school.
+    const staff = await prisma.user.findMany({
+      where: { schoolId: user.schoolId, role: "staff" },
+      select: { id: true, email: true, staffId: true },
+    });
+    results = staff.map((u) => ({ userId: u.id, label: u.email, type: "staff" as const }));
   }
 
   return { recipients: results };
@@ -274,7 +287,7 @@ export async function getMessageRecipientsAction() {
 
   let recipients: { userId: string; label: string; type: string }[] = [];
 
-  if (user.role === "staff") {
+  if (isMessagingStaffRole(user.role)) {
     // Staff can message other staff
     const staff = await prisma.user.findMany({
       where: { schoolId: user.schoolId, role: "staff", id: { not: user.userId } },
@@ -295,7 +308,100 @@ export async function getMessageRecipientsAction() {
       select: { id: true, email: true, staffId: true },
     });
     recipients = staff.map((u) => ({ userId: u.id, label: u.email, type: "staff" as const }));
+  } else if (user.role === "student" && user.schoolId) {
+    // Students may contact staff of their own school.
+    const staff = await prisma.user.findMany({
+      where: { schoolId: user.schoolId, role: "staff" },
+      select: { id: true, email: true, staffId: true },
+    });
+    recipients = staff.map((u) => ({ userId: u.id, label: u.email, type: "staff" as const }));
   }
 
   return { recipients };
+}
+
+async function canBulkSend(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>): Promise<boolean> {
+  if (!user.schoolId) return false;
+  const perms = await resolvePermissions(user);
+  return canManageSchool(perms) || perms.assignments.some((a) => a.assignmentType === "hod");
+}
+
+/** Directory feed for the individual composer picker. */
+export async function searchDirectoryAction(input: DirectoryQuery): Promise<DirectoryEntry[]> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) return [];
+  return searchDirectory(user.schoolId, input);
+}
+
+/** Live preview count for the bulk composer. */
+export async function countAudienceAction(spec: AudienceSpec): Promise<{ count: number }> {
+  const user = await getCurrentUser();
+  if (!user || !user.schoolId) return { count: 0 };
+  return { count: await countAudience(user.schoolId, spec, user.userId) };
+}
+
+/** Bulk-send a private 1:1 conversation to every member of an audience. */
+export async function bulkSendAction(
+  spec: AudienceSpec,
+  subject: string,
+  body: string,
+): Promise<{ sent?: number; error?: string }> {
+  const user = await getCurrentUser();
+  if (!user || !user.userId || !user.schoolId) return { error: "Not authenticated." };
+  if (!(await canBulkSend(user))) return { error: "Not allowed." };
+  if (!body.trim()) return { error: "Message cannot be empty." };
+
+  const userIds = await resolveAudienceUserIds(user.schoolId, spec, user.userId);
+  if (userIds.length === 0) return { error: "No recipients match this audience." };
+  if (userIds.length > BULK_SEND_CAP) {
+    return { error: `Too many recipients (${userIds.length}). Cap is ${BULK_SEND_CAP}. Narrow the filters.` };
+  }
+
+  const senderType = participantTypeForRole(user.role);
+  let sent = 0;
+
+  for (let i = 0; i < userIds.length; i += 20) {
+    await Promise.all(userIds.slice(i, i + 20).map(async (recipientId) => {
+      const recipient = await prisma.user.findUnique({
+        where: { id: recipientId },
+        select: { id: true, email: true, role: true, schoolId: true },
+      });
+      if (!recipient || recipient.schoolId !== user.schoolId) return;
+      await prisma.conversation.create({
+        data: {
+          schoolId: user.schoolId!,
+          subject: subject.trim() || null,
+          participants: {
+            create: [
+              { userId: user.userId, userType: senderType, userLabel: user.email },
+              { userId: recipient.id, userType: participantTypeForRole(recipient.role), userLabel: recipient.email },
+            ],
+          },
+          messages: { create: { senderId: user.userId, content: body.trim() } },
+        },
+      });
+      await createNotification({
+        schoolId: user.schoolId!,
+        recipientType: participantTypeForRole(recipient.role),
+        recipientId: recipient.id,
+        channel: "in_app",
+        eventType: "new_message",
+        title: `New message from ${user.email}`,
+        content: body.trim().slice(0, 200),
+      });
+      sent += 1;
+    }));
+  }
+
+  await recordAudit({
+    schoolId: user.schoolId,
+    actorId: user.userId,
+    action: "create",
+    entityType: "conversation_bulk",
+    entityId: `bulk:${Date.now()}`,
+    afterValue: { spec, sent } as never,
+  });
+
+  revalidatePath("/messages");
+  return { sent };
 }
