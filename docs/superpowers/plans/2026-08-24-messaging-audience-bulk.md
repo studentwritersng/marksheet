@@ -16,7 +16,7 @@
 - New UI reuses existing token classes seen in `compose-form.tsx` (`font-label-sm text-label-sm`, `bg-surface-container-lowest`, `border-outline-variant`, etc.). No new deps.
 - Files exporting server actions start with `"use server"` and may only export async functions.
 - Schema facts (verified): current-term lookup `{ where: { session: { schoolId }, isCurrent: true } }`; `FeeStatus{studentId,termId,status}` unique `[studentId,termId]`, status ∈ `cleared|partial|not_cleared`; `Student.userId String? @unique`; `Guardian.parentUserId String?`; `Class.name`; `User.staff Staff?` → `Staff.fullName`; **no** `Student.feeStatuses` back-relation → missing-row detection computed in JS.
-- Roles: admins are `super_admin | platform_owner | proprietor`; HOD = assignment with `assignmentType === "hod"` inside `resolvePermissions(user).assignments`.
+- Roles: `UserRole` enum is ONLY `super_admin | platform_owner | proprietor | staff | student | parent | referral` (verified). Teachers, HODs, and school-admins are ALL role `"staff"`; their capabilities come from `ResolvedAssignment.type` (`AssignmentType`: `subject_teacher`, `hod`, `school_admin`, …). HOD = assignment with `type === "hod"`; school-admin = `type === "school_admin"` (sets `isSchoolAdmin`). `canManageSchool(perms)` = `isSuperAdmin || isSchoolAdmin`.
 - Bulk cap = **1,000** recipients per send.
 
 ---
@@ -28,24 +28,25 @@
 - Test: `src/lib/messages/roles.test.ts`
 
 **Interfaces:**
-- Produces: `MESSAGING_STAFF_ROLES` (readonly tuple), `isMessagingStaffRole(role: string): boolean`, `participantTypeForRole(role: string): "staff" | "parent" | "student"` — consumed by Tasks 4–6.
+- Produces: `MESSAGING_STAFF_ROLES` (readonly tuple), `isMessagingStaffRole(role: UserRole): boolean`, `participantTypeForRole(role: UserRole): "staff" | "student" | "parent"` — consumed by Tasks 4–6. Binding contract (verified schema): `UserRole` enum is ONLY `super_admin | platform_owner | proprietor | staff | student | parent | referral` — there is NO `teacher`/`hod`/`admin` role. Teachers, HODs, and school-admins are ALL role `"staff"`; their capabilities come from `AssignmentType` (`subject_teacher`, `hod`, `school_admin`) on `ResolvedAssignment.type`. `MESSAGING_STAFF_ROLES = {super_admin, platform_owner, proprietor, staff}`. `participantTypeForRole` returns one of the three values the rest of the system understands (`ConversationParticipant.userType` String conventionally `staff|student|parent`; `CreateNotificationInput.recipientType` typed `"student"|"parent"|"staff"`; `resolvePushUserIds` only delivers push for `parent|student|staff`). Mapping: `student → "student"`, `parent → "parent"`, everything else (super_admin/proprietor/platform_owner/staff/unknown) → `"staff"`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
 // src/lib/messages/roles.test.ts
 import { describe, it, expect } from "vitest";
+import type { UserRole } from "@prisma/client";
 import { isMessagingStaffRole, participantTypeForRole } from "./roles";
 
 describe("isMessagingStaffRole", () => {
-  it("treats staff and all admin roles as messaging staff", () => {
-    expect(isMessagingStaffRole("staff")).toBe(true);
+  it("treats school staff and admin roles as messaging staff", () => {
     expect(isMessagingStaffRole("super_admin")).toBe(true);
     expect(isMessagingStaffRole("platform_owner")).toBe(true);
     expect(isMessagingStaffRole("proprietor")).toBe(true);
+    expect(isMessagingStaffRole("staff")).toBe(true); // teachers, HODs, school-admins are all role "staff"
   });
   it("rejects non-staff roles", () => {
-    for (const r of ["student", "parent", "referral", ""]) {
+    for (const r of ["student", "parent", "referral", ""] as UserRole[]) {
       expect(isMessagingStaffRole(r)).toBe(false);
     }
   });
@@ -53,12 +54,14 @@ describe("isMessagingStaffRole", () => {
 
 describe("participantTypeForRole", () => {
   it("maps roles to participant types", () => {
-    expect(participantTypeForRole("staff")).toBe("staff");
-    expect(participantTypeForRole("proprietor")).toBe("staff");
     expect(participantTypeForRole("super_admin")).toBe("staff");
     expect(participantTypeForRole("platform_owner")).toBe("staff");
-    expect(participantTypeForRole("parent")).toBe("parent");
+    expect(participantTypeForRole("proprietor")).toBe("staff");
+    expect(participantTypeForRole("staff")).toBe("staff");
     expect(participantTypeForRole("student")).toBe("student");
+    expect(participantTypeForRole("parent")).toBe("parent");
+    expect(participantTypeForRole("referral")).toBe("staff");
+    expect(participantTypeForRole("" as UserRole)).toBe("staff");
   });
 });
 ```
@@ -73,17 +76,23 @@ Expected: FAIL — cannot resolve `./roles`.
 ```ts
 // src/lib/messages/roles.ts
 
-/** Sender/participant roles that behave like school staff in messaging. */
-export const MESSAGING_STAFF_ROLES = ["staff", "super_admin", "platform_owner", "proprietor"] as const;
+import type { UserRole } from "@prisma/client";
 
-export function isMessagingStaffRole(role: string): boolean {
+/** Sender/participant roles that behave like school staff in messaging. */
+export const MESSAGING_STAFF_ROLES = [
+  "super_admin", "platform_owner", "proprietor", "staff",
+] as const;
+
+export function isMessagingStaffRole(role: UserRole): boolean {
   return (MESSAGING_STAFF_ROLES as readonly string[]).includes(role);
 }
 
+export type ParticipantType = "staff" | "student" | "parent";
+
 /** ConversationParticipant.userType value for a User.role. */
-export function participantTypeForRole(role: string): "staff" | "parent" | "student" {
-  if (role === "parent") return "parent";
+export function participantTypeForRole(role: UserRole): ParticipantType {
   if (role === "student") return "student";
+  if (role === "parent") return "parent";
   return "staff";
 }
 ```
@@ -317,10 +326,10 @@ git commit -m "feat(messages): server-side audience resolution (teachers/student
 ```ts
 // append to src/lib/messages/audience.test.ts
 describe("parents_by_fee audience", () => {
-  it("unions fee matches and missing-row students when not_cleared requested; dedupes parents", async () => {
+  it("only includes students with an actual not_cleared fee row and dedupes parents", async () => {
     mockTermFindFirst.mockResolvedValue({ id: "t1" });
+    mockStudentFindMany.mockResolvedValue([{ id: "st1" }, { id: "st2" }]);
     mockFeeStatusFindMany.mockResolvedValue([{ studentId: "st1" }]);
-    mockStudentFindMany.mockResolvedValue([{ id: "st1" }, { id: "st2" }]); // st2 has no row
     mockGuardianFindMany.mockResolvedValue([{ parentUserId: "p1" }, { parentUserId: "p1" }, { parentUserId: "p2" }]);
 
     const ids = await resolveAudienceUserIds(
@@ -329,15 +338,19 @@ describe("parents_by_fee audience", () => {
       "p2",
     );
     expect(ids).toEqual(["p1"]);
-    expect(mockGuardianFindMany.mock.calls[0][0].where.studentId).toEqual({ in: ["st1", "st2"] });
+    expect(mockStudentFindMany.mock.calls[0][0].where).toEqual({ schoolId: "s1" });
+    expect(mockFeeStatusFindMany.mock.calls[0][0].where.studentId).toEqual({ in: ["st1", "st2"] });
+    expect(mockGuardianFindMany.mock.calls[0][0].where.studentId).toEqual({ in: ["st1"] });
   });
 
-  it("does not add missing rows when not_cleared not requested", async () => {
+  it("skips students with no fee row (not treated as not_cleared)", async () => {
     mockTermFindFirst.mockResolvedValue({ id: "t1" });
-    mockFeeStatusFindMany.mockResolvedValue([{ studentId: "st1" }]);
+    mockStudentFindMany.mockResolvedValue([{ id: "st1" }, { id: "st2" }]);
+    mockFeeStatusFindMany.mockResolvedValue([]);
     mockGuardianFindMany.mockResolvedValue([]);
-    await resolveAudienceUserIds("s1", { audienceType: "parents_by_fee", feeStatuses: ["partial"] });
-    expect(mockStudentFindMany).not.toHaveBeenCalled();
+    const ids = await resolveAudienceUserIds("s1", { audienceType: "parents_by_fee", feeStatuses: ["not_cleared"] });
+    expect(ids).toEqual([]);
+    expect(mockGuardianFindMany).not.toHaveBeenCalled();
   });
 
   it("returns empty with no current term, and with empty statuses", async () => {
@@ -348,14 +361,15 @@ describe("parents_by_fee audience", () => {
     expect(mockFeeStatusFindMany).not.toHaveBeenCalled();
   });
 
-  it("applies class filter to both student queries", async () => {
+  it("applies class filter to the student scope", async () => {
     mockTermFindFirst.mockResolvedValue({ id: "t1" });
-    mockFeeStatusFindMany.mockResolvedValue([]);
     mockStudentFindMany.mockResolvedValue([]);
+    mockFeeStatusFindMany.mockResolvedValue([]);
     mockGuardianFindMany.mockResolvedValue([]);
     await resolveAudienceUserIds("s1", { audienceType: "parents_by_fee", feeStatuses: ["not_cleared"], classId: "c7" });
-    expect(mockFeeStatusFindMany.mock.calls[0][0].where.student.currentClassId).toBe("c7");
     expect(mockStudentFindMany.mock.calls[0][0].where.currentClassId).toBe("c7");
+  });
+});
   });
 });
 ```
@@ -381,27 +395,21 @@ async function parentsByFeeIds(schoolId: string, spec: AudienceSpec, excludeUser
   });
   if (!term) return [];
 
-  // status:"active" mirrors students-directory scoping; adjust only if the
-  // Student model uses a different active flag (verified: `status` exists).
-  const studentFilter = {
-    schoolId,
-    ...(spec.classId ? { currentClassId: spec.classId } : {}),
-  };
+  // FeeStatus has NO Student relation (only scalar studentId), so scope
+  // students first, then match by studentId in the fee query.
+  const students = await prisma.student.findMany({
+    where: { schoolId, ...(spec.classId ? { currentClassId: spec.classId } : {}) },
+    select: { id: true },
+  });
+  if (students.length === 0) return [];
+  const studentIds = students.map((s) => s.id);
 
   const matched = await prisma.feeStatus.findMany({
-    where: { termId: term.id, status: { in: statuses }, student: studentFilter },
+    where: { termId: term.id, status: { in: statuses }, studentId: { in: studentIds } },
     select: { studentId: true },
   });
-  let studentIdList = matched.map((m) => m.studentId);
+  const studentIdList = matched.map((m) => m.studentId);
 
-  // Missing row counts as not_cleared — only when requested. No
-  // Student.feeStatuses back-relation exists, so detect absence in JS.
-  if (statuses.includes("not_cleared")) {
-    const all = await prisma.student.findMany({ where: studentFilter, select: { id: true } });
-    const withRow = new Set(studentIdList);
-    for (const s of all) if (!withRow.has(s.id)) studentIdList.push(s.id);
-    studentIdList = [...new Set(studentIdList)];
-  }
   if (studentIdList.length === 0) return [];
 
   const guardians = await prisma.guardian.findMany({
@@ -425,7 +433,7 @@ Expected: PASS
 
 ```bash
 git add src/lib/messages/audience.ts src/lib/messages/audience.test.ts
-git commit -m "feat(messages): parents_by_fee audience resolution (current-term join + missing-row default)"
+git commit -m "feat(messages): parents_by_fee audience resolution (current-term fee join; missing rows skipped)"
 ```
 
 ---
@@ -661,18 +669,34 @@ function adminUser() {
 }
 
 describe("bulkSendAction", () => {
-  it("rejects senders that are neither admins nor HODs", async () => {
-    mockGetCurrentUser.mockResolvedValue(adminUser());
-    mockResolvePermissions.mockResolvedValue({ isSuperAdmin: false, assignments: [] });
+  it("rejects plain staff teachers (no admin/HOD assignment)", async () => {
+    mockGetCurrentUser.mockResolvedValue({ userId: "t1", role: "staff", schoolId: "s1", staffId: "st1", email: "t@x.com" });
+    mockResolvePermissions.mockResolvedValue({ isSuperAdmin: false, isSchoolAdmin: false, assignments: [] });
     const res = await bulkSendAction({ audienceType: "teachers" }, "Hi", "Body");
     expect(res.error).toBe("Not allowed.");
   });
 
-  it("allows HODs via assignment and fans out 1:1 conversations + notifications", async () => {
+  it("allows super_admin (role-based) and fans out 1:1 conversations + notifications", async () => {
     mockGetCurrentUser.mockResolvedValue(adminUser());
+    mockResolvePermissions.mockResolvedValue({ isSuperAdmin: true, assignments: [] });
+    resolveMock.mockResolvedValue(["u1", "u2"]);
+    mockUserFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
+      ({ id: where.id, email: `${where.id}@x.com`, role: where.id === "u1" ? "staff" : "parent", schoolId: "s1" }));
+    mockConversationCreate.mockImplementation(async ({ data }: { data: { participants: { create: { userId: string }[] } } }) =>
+      ({ id: `conv-${data.participants.create[1].userId}` }));
+
+    const res = await bulkSendAction({ audienceType: "teachers" }, "Hi", "Body");
+    expect(res).toEqual({ sent: 2 });
+    expect(mockConversationCreate).toHaveBeenCalledTimes(2);
+    expect(mockConversationCreate.mock.calls[0][0].data.messages.create.senderId).toBe("admin1");
+  });
+
+  it("allows HODs (staff with hod assignment) and fans out", async () => {
+    mockGetCurrentUser.mockResolvedValue({ userId: "hod1", role: "staff", schoolId: "s1", staffId: "st1", email: "h@x.com" });
     mockResolvePermissions.mockResolvedValue({
       isSuperAdmin: false,
-      assignments: [{ assignmentType: "hod", subjectId: "sub1", classId: null }],
+      isSchoolAdmin: false,
+      assignments: [{ id: "a1", type: "hod", subjectId: "sub1", classId: null, isTemporary: false }],
     });
     resolveMock.mockResolvedValue(["u1", "u2"]);
     mockUserFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
@@ -687,7 +711,7 @@ describe("bulkSendAction", () => {
     );
     expect(res).toEqual({ sent: 2 });
     expect(mockConversationCreate).toHaveBeenCalledTimes(2);
-    expect(mockConversationCreate.mock.calls[0][0].data.messages.create.senderId).toBe("admin1");
+    expect(mockConversationCreate.mock.calls[0][0].data.messages.create.senderId).toBe("hod1");
   });
 
   it("errors on empty audience and over-cap audiences", async () => {
@@ -760,8 +784,11 @@ Append at the bottom of the file:
 ```ts
 async function canBulkSend(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>): Promise<boolean> {
   if (!user.schoolId) return false;
+  // Top-level school owners are always allowed.
+  if (user.role === "super_admin" || user.role === "platform_owner" || user.role === "proprietor") return true;
   const perms = await resolvePermissions(user);
-  return canManageSchool(perms) || perms.assignments.some((a) => a.assignmentType === "hod");
+  // school-admin (staff with school_admin assignment) or HOD (staff with hod assignment).
+  return canManageSchool(perms) || perms.assignments.some((a) => a.type === "hod");
 }
 
 /** Directory feed for the individual composer picker. */
@@ -885,7 +912,9 @@ export default async function ComposeMessagePage() {
   }
 
   const perms = await resolvePermissions(user);
-  const canBulk = canManageSchool(perms) || perms.assignments.some((a) => a.assignmentType === "hod");
+  const canBulk =
+    user.role === "super_admin" || user.role === "platform_owner" || user.role === "proprietor" ||
+    canManageSchool(perms) || perms.assignments.some((a) => a.type === "hod");
   const classes = canBulk && user.schoolId
     ? await prisma.class.findMany({
         where: { schoolId: user.schoolId },
