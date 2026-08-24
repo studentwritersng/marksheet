@@ -166,6 +166,14 @@ export function CapacitorBridge() {
         }
       });
 
+      // Watchdog: if no token appears within 15s of registering, surface it so
+      // we can distinguish "FCM register silent" from an outright failure.
+      setTimeout(() => {
+        if (!cancelled && !window.__marksheetPushState?.token && !window.__marksheetPushState?.error) {
+          setState({ error: "no-token-after-15s (FCM register silent; check google-services.json package, Play services, network)" });
+        }
+      }, 15000);
+
       // Get the FCM token regardless of permission state.
       await registerToken(pn);
 
