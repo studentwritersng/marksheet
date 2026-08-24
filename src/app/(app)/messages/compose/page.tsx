@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { getMessageRecipientsAction } from "../actions";
 import { ComposeMessageForm } from "./compose-form";
 
@@ -11,6 +13,18 @@ export default async function ComposeMessagePage() {
   if ("error" in result) {
     return <p className="font-body-sm text-body-sm text-red-600">{result.error}</p>;
   }
+
+  const perms = await resolvePermissions(user);
+  const canBulk =
+    user.role === "super_admin" || user.role === "platform_owner" || user.role === "proprietor" ||
+    canManageSchool(perms) || perms.assignments.some((a) => a.type === "hod");
+  const classes = canBulk && user.schoolId
+    ? await prisma.class.findMany({
+        where: { schoolId: user.schoolId },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : [];
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -24,7 +38,7 @@ export default async function ComposeMessagePage() {
         Start a new conversation.
       </p>
 
-      <ComposeMessageForm recipients={result.recipients} />
+      <ComposeMessageForm recipients={result.recipients} useDirectory={canBulk} classes={classes} />
     </div>
   );
 }
