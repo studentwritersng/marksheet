@@ -11,12 +11,11 @@ export function isMessagingStaffRole(role: UserRole): boolean {
   return (MESSAGING_STAFF_ROLES as readonly string[]).includes(role);
 }
 
-export type ParticipantType = "teacher" | "student" | "parent" | "admin";
+export type ParticipantType = "staff" | "student" | "parent";
 
 /** ConversationParticipant.userType value for a User.role. */
 export function participantTypeForRole(role: UserRole): ParticipantType {
-  if (role === "super_admin" || role === "proprietor" || role === "platform_owner" || role === "admin") return "admin";
-  if (role === "hod" || role === "teacher") return "teacher";
   if (role === "student") return "student";
-  return "parent";
+  if (role === "parent") return "parent";
+  return "staff";
 }

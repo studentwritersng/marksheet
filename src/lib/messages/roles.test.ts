@@ -20,15 +20,15 @@ describe("isMessagingStaffRole", () => {
 
 describe("participantTypeForRole", () => {
   it("maps roles to participant types", () => {
-    expect(participantTypeForRole("super_admin")).toBe("admin");
-    expect(participantTypeForRole("proprietor")).toBe("admin");
-    expect(participantTypeForRole("platform_owner")).toBe("admin");
-    expect(participantTypeForRole("admin")).toBe("admin");
-    expect(participantTypeForRole("teacher")).toBe("teacher");
-    expect(participantTypeForRole("hod")).toBe("teacher");
+    expect(participantTypeForRole("super_admin")).toBe("staff");
+    expect(participantTypeForRole("proprietor")).toBe("staff");
+    expect(participantTypeForRole("platform_owner")).toBe("staff");
+    expect(participantTypeForRole("admin")).toBe("staff");
+    expect(participantTypeForRole("teacher")).toBe("staff");
+    expect(participantTypeForRole("hod")).toBe("staff");
     expect(participantTypeForRole("student")).toBe("student");
     expect(participantTypeForRole("parent")).toBe("parent");
-    expect(participantTypeForRole("referral" as any)).toBe("parent");
-    expect(participantTypeForRole("" as any)).toBe("parent");
+    expect(participantTypeForRole("referral" as any)).toBe("staff");
+    expect(participantTypeForRole("" as any)).toBe("staff");
   });
 });
