@@ -15,6 +15,10 @@ const config = {
   android: {
     backgroundColor: APP_CONFIG.backgroundColor,
     allowMixedContent: true,
+    // Marker appended to the WebView user-agent. Bridge.java sets this natively
+    // (setUserAgentString) for every page load, independent of JS bridge
+    // injection — so the web app can report exactly which APK build is running.
+    appendUserAgent: " CapApk4",
   },
   plugins: {
     PushNotifications: {

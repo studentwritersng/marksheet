@@ -48,6 +48,8 @@ export function PushDebug() {
   const isWebView = /; *wv\)/i.test(ua) || d.cap || d.native;
   if (!isWebView) return null;
 
+  const buildTag = /CapApk\w*/i.exec(ua)?.[0] ?? null;
+
   const badge = (ok: boolean, label: string) => (
     <span className={ok ? "text-green-400" : "text-red-400"}>{label}</span>
   );
@@ -59,11 +61,20 @@ export function PushDebug() {
         {badge(!!d.s?.plugin, d.s?.plugin ? "✓" : "✗")} perm:{d.s?.permission ?? "-"} token
         {badge(!!d.s?.token, d.s?.token ? "✓" : "✗")}
       </div>
+      <div className="mt-0.5">
+        ua-build{badge(!!buildTag, buildTag ?? "none")}
+      </div>
+      {!buildTag && (
+        <div className="text-amber-300 mt-0.5">
+          No build marker in UA → this is an OLD APK, not the latest build.
+        </div>
+      )}
       {!d.cap && (
         <div className="text-red-300 mt-0.5">
           window.Capacitor is undefined — the app isn't injecting the Capacitor bridge.
         </div>
       )}
+      <div className="text-blue-200 mt-0.5 break-all opacity-80">ua: {ua}</div>
       {d.s?.error && <div className="text-red-300 mt-0.5 break-all">{d.s.error}</div>}
       <button
         onClick={() =>
