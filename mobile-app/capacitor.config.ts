@@ -1,7 +1,6 @@
-import type { CapacitorConfig } from "@capacitor/cli";
 import { APP_CONFIG } from "./app.config";
 
-const config: CapacitorConfig = {
+const config = {
   appId: APP_CONFIG.packageId,
   appName: APP_CONFIG.appName,
   webDir: "www",

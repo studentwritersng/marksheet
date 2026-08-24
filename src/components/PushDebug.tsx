@@ -10,14 +10,6 @@ interface PushState {
   error?: string;
 }
 
-declare global {
-  interface Window {
-    __marksheetPushState?: PushState;
-    __marksheetPushEnable?: () => void;
-    Capacitor?: { isNativePlatform?: () => boolean };
-  }
-}
-
 /**
  * Temporary diagnostic chip — only visible inside the native Android shell.
  * Shows exactly where push setup breaks: plugin load, permission, token.
@@ -27,8 +19,13 @@ export function PushDebug() {
   const [s, setS] = useState<PushState | null>(null);
 
   useEffect(() => {
-    if (!window.Capacitor?.isNativePlatform?.()) return;
-    const id = setInterval(() => setS(window.__marksheetPushState ?? null), 1000);
+    const w = window as unknown as {
+      Capacitor?: { isNativePlatform?: () => boolean };
+      __marksheetPushState?: PushState;
+      __marksheetPushEnable?: () => void;
+    };
+    if (!w.Capacitor?.isNativePlatform?.()) return;
+    const id = setInterval(() => setS(w.__marksheetPushState ?? null), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -46,7 +43,9 @@ export function PushDebug() {
       </div>
       {s.error && <div className="text-red-300 mt-0.5 break-all">{s.error}</div>}
       <button
-        onClick={() => window.__marksheetPushEnable?.()}
+        onClick={() =>
+          (window as unknown as { __marksheetPushEnable?: () => void }).__marksheetPushEnable?.()
+        }
         className="mt-1 underline text-blue-300"
       >
         Enable push
