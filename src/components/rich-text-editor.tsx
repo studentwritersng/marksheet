@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 
 interface RichTextEditorProps {
   name: string;
@@ -19,10 +19,16 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState(defaultValue);
-  // Seeded ONCE and never updated afterwards. Feeding typed content back
-  // through dangerouslySetInnerHTML makes React rewrite the DOM node, which
-  // destroys the caret on every keystroke.
-  const [initialHtml] = useState(defaultValue);
+
+  // Seed initial content ONCE via the DOM node. React never controls the
+  // editor's innerHTML afterwards, so typing never gets clobbered.
+  useEffect(() => {
+    if (editorRef.current && defaultValue) {
+      editorRef.current.innerHTML = defaultValue;
+      setHtml(defaultValue);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const exec = useCallback((command: string, value?: string) => {
     document.execCommand(command, false, value);
@@ -86,7 +92,6 @@ export function RichTextEditor({
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
-        dangerouslySetInnerHTML={{ __html: initialHtml }}
         onInput={handleInput}
         onPaste={handlePaste}
         className="p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none min-h-[80px]"
