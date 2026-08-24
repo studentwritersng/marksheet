@@ -59,9 +59,44 @@ async function guardianParentIds(schoolId: string, spec: AudienceSpec, excludeUs
   );
 }
 
-/** Replaced with the real body in Task 3. */
-async function parentsByFeeIds(_schoolId: string, _spec: AudienceSpec, _excludeUserId?: string | null): Promise<string[]> {
-  return [];
+async function parentsByFeeIds(schoolId: string, spec: AudienceSpec, excludeUserId?: string | null): Promise<string[]> {
+  const statuses = (spec.feeStatuses ?? []).filter((s) =>
+    (["cleared", "partial", "not_cleared"] as const).includes(s as FeeStatusValue),
+  );
+  if (statuses.length === 0) return [];
+
+  const term = await prisma.term.findFirst({
+    where: { session: { schoolId }, isCurrent: true },
+    select: { id: true },
+  });
+  if (!term) return [];
+
+  const studentFilter = {
+    schoolId,
+    ...(spec.classId ? { currentClassId: spec.classId } : {}),
+  };
+
+  const matched = await prisma.feeStatus.findMany({
+    where: { termId: term.id, status: { in: statuses }, student: studentFilter },
+    select: { studentId: true },
+  });
+  let studentIdList = matched.map((m) => m.studentId);
+
+  if (statuses.includes("not_cleared")) {
+    const all = await prisma.student.findMany({ where: studentFilter, select: { id: true } });
+    const withRow = new Set(studentIdList);
+    for (const s of all) if (!withRow.has(s.id)) studentIdList.push(s.id);
+    studentIdList = [...new Set(studentIdList)];
+  }
+  if (studentIdList.length === 0) return [];
+
+  const guardians = await prisma.guardian.findMany({
+    where: { studentId: { in: studentIdList }, parentUserId: { not: null } },
+    select: { parentUserId: true },
+  });
+  return [...new Set(guardians.map((g) => g.parentUserId))].filter(
+    (id): id is string => !!id && id !== excludeUserId,
+  );
 }
 
 /**

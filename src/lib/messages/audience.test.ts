@@ -73,3 +73,46 @@ describe("countAudience / cap", () => {
     expect(BULK_SEND_CAP).toBe(1000);
   });
 });
+
+describe("parents_by_fee audience", () => {
+  it("unions fee matches and missing-row students when not_cleared requested; dedupes parents", async () => {
+    mockTermFindFirst.mockResolvedValue({ id: "t1" });
+    mockFeeStatusFindMany.mockResolvedValue([{ studentId: "st1" }]);
+    mockStudentFindMany.mockResolvedValue([{ id: "st1" }, { id: "st2" }]); // st2 has no row
+    mockGuardianFindMany.mockResolvedValue([{ parentUserId: "p1" }, { parentUserId: "p1" }, { parentUserId: "p2" }]);
+
+    const ids = await resolveAudienceUserIds(
+      "s1",
+      { audienceType: "parents_by_fee", feeStatuses: ["not_cleared"] },
+      "p2",
+    );
+    expect(ids).toEqual(["p1"]);
+    expect(mockGuardianFindMany.mock.calls[0][0].where.studentId).toEqual({ in: ["st1", "st2"] });
+  });
+
+  it("does not add missing rows when not_cleared not requested", async () => {
+    mockTermFindFirst.mockResolvedValue({ id: "t1" });
+    mockFeeStatusFindMany.mockResolvedValue([{ studentId: "st1" }]);
+    mockGuardianFindMany.mockResolvedValue([]);
+    await resolveAudienceUserIds("s1", { audienceType: "parents_by_fee", feeStatuses: ["partial"] });
+    expect(mockStudentFindMany).not.toHaveBeenCalled();
+  });
+
+  it("returns empty with no current term, and with empty statuses", async () => {
+    mockTermFindFirst.mockResolvedValue(null);
+    expect(await resolveAudienceUserIds("s1", { audienceType: "parents_by_fee", feeStatuses: ["cleared"] })).toEqual([]);
+    mockTermFindFirst.mockResolvedValue({ id: "t1" });
+    expect(await resolveAudienceUserIds("s1", { audienceType: "parents_by_fee" })).toEqual([]);
+    expect(mockFeeStatusFindMany).not.toHaveBeenCalled();
+  });
+
+  it("applies class filter to both student queries", async () => {
+    mockTermFindFirst.mockResolvedValue({ id: "t1" });
+    mockFeeStatusFindMany.mockResolvedValue([]);
+    mockStudentFindMany.mockResolvedValue([]);
+    mockGuardianFindMany.mockResolvedValue([]);
+    await resolveAudienceUserIds("s1", { audienceType: "parents_by_fee", feeStatuses: ["not_cleared"], classId: "c7" });
+    expect(mockFeeStatusFindMany.mock.calls[0][0].where.student.currentClassId).toBe("c7");
+    expect(mockStudentFindMany.mock.calls[0][0].where.currentClassId).toBe("c7");
+  });
+});
