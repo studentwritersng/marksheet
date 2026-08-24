@@ -4,7 +4,7 @@ import type { UserRole } from "@prisma/client";
 
 /** Sender/participant roles that behave like school staff in messaging. */
 export const MESSAGING_STAFF_ROLES = [
-  "super_admin", "proprietor", "platform_owner", "teacher", "hod", "admin",
+  "super_admin", "platform_owner", "proprietor", "staff",
 ] as const;
 
 export function isMessagingStaffRole(role: UserRole): boolean {
