@@ -19,6 +19,10 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState(defaultValue);
+  // Seeded ONCE and never updated afterwards. Feeding typed content back
+  // through dangerouslySetInnerHTML makes React rewrite the DOM node, which
+  // destroys the caret on every keystroke.
+  const [initialHtml] = useState(defaultValue);
 
   const exec = useCallback((command: string, value?: string) => {
     document.execCommand(command, false, value);
@@ -81,7 +85,8 @@ export function RichTextEditor({
       <div
         ref={editorRef}
         contentEditable
-        dangerouslySetInnerHTML={{ __html: html || "" }}
+        suppressContentEditableWarning
+        dangerouslySetInnerHTML={{ __html: initialHtml }}
         onInput={handleInput}
         onPaste={handlePaste}
         className="p-3 font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none min-h-[80px]"
