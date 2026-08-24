@@ -117,3 +117,89 @@ export async function countAudience(
 ): Promise<number> {
   return (await resolveAudienceUserIds(schoolId, spec, excludeUserId)).length;
 }
+
+export async function searchDirectory(schoolId: string, q: DirectoryQuery): Promise<DirectoryEntry[]> {
+  const query = q.query?.trim() ?? "";
+
+  if (q.type === "teacher") {
+    const rows = await prisma.user.findMany({
+      where: {
+        schoolId,
+        role: "staff",
+        ...(query ? { OR: [{ email: { contains: query, mode: "insensitive" as const } }, { staff: { fullName: { contains: query, mode: "insensitive" as const } } }] } : {}),
+      },
+      select: { id: true, email: true, staff: { select: { fullName: true } } },
+      orderBy: { email: "asc" },
+      take: 25,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      label: r.staff?.fullName || r.email,
+      ...(r.staff?.fullName ? { sublabel: r.email } : {}),
+      type: "staff" as const,
+    }));
+  }
+
+  if (q.type === "student") {
+    const rows = await prisma.student.findMany({
+      where: {
+        schoolId,
+        userId: { not: null },
+        ...(q.classId ? { currentClassId: q.classId } : {}),
+        ...(query ? { OR: [
+          { firstName: { contains: query, mode: "insensitive" as const } },
+          { lastName: { contains: query, mode: "insensitive" as const } },
+          { admissionNumber: { contains: query, mode: "insensitive" as const } },
+        ] } : {}),
+      },
+      select: {
+        userId: true, firstName: true, lastName: true, admissionNumber: true,
+        currentClass: { select: { name: true } },
+      },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+      take: 25,
+    });
+    return rows
+      .filter((r): r is typeof r & { userId: string } => !!r.userId)
+      .map((r) => ({
+        id: r.userId,
+        label: `${r.firstName} ${r.lastName}`,
+        sublabel: [r.admissionNumber, r.currentClass?.name].filter(Boolean).join(" · "),
+        type: "student" as const,
+      }));
+  }
+
+  const rows = await prisma.guardian.findMany({
+    where: {
+      parentUserId: { not: null },
+      student: {
+        schoolId,
+        ...(q.classId ? { currentClassId: q.classId } : {}),
+        ...(query ? { OR: [
+          { firstName: { contains: query, mode: "insensitive" as const } },
+          { lastName: { contains: query, mode: "insensitive" as const } },
+        ] } : {}),
+      },
+      ...(query ? { OR: [
+        { fullName: { contains: query, mode: "insensitive" as const } },
+      ] } : {}),
+    },
+    select: {
+      parentUserId: true, relationship: true, fullName: true,
+      student: { select: { firstName: true, lastName: true, currentClass: { select: { name: true } } } },
+    },
+    take: 25,
+  });
+  const seen = new Map<string, DirectoryEntry>();
+  for (const r of rows) {
+    if (!r.parentUserId || seen.has(r.parentUserId)) continue;
+    const cls = r.student.currentClass?.name ?? "";
+    seen.set(r.parentUserId, {
+      id: r.parentUserId,
+      label: r.fullName,
+      sublabel: `${r.relationship} of ${r.student.firstName} ${cls}`.trim(),
+      type: "parent",
+    });
+  }
+  return [...seen.values()];
+}

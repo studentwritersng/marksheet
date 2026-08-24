@@ -6,6 +6,7 @@ const mockStudentFindMany = vi.fn();
 const mockGuardianFindMany = vi.fn();
 const mockFeeStatusFindMany = vi.fn();
 const mockTermFindFirst = vi.fn();
+const mockStaffFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -14,13 +15,14 @@ vi.mock("@/lib/prisma", () => ({
     guardian: { findMany: (...a: unknown[]) => mockGuardianFindMany(...a) },
     feeStatus: { findMany: (...a: unknown[]) => mockFeeStatusFindMany(...a) },
     term: { findFirst: (...a: unknown[]) => mockTermFindFirst(...a) },
+    staff: { findMany: (...a: unknown[]) => mockStaffFindMany(...a) },
   },
 }));
 
-import { resolveAudienceUserIds, countAudience, BULK_SEND_CAP } from "./audience";
+import { resolveAudienceUserIds, countAudience, BULK_SEND_CAP, searchDirectory } from "./audience";
 
 beforeEach(() => {
-  [mockUserFindMany, mockStudentFindMany, mockGuardianFindMany, mockFeeStatusFindMany, mockTermFindFirst].forEach((m) => m.mockReset());
+  [mockUserFindMany, mockStudentFindMany, mockGuardianFindMany, mockFeeStatusFindMany, mockTermFindFirst, mockStaffFindMany].forEach((m) => m.mockReset());
 });
 
 describe("teachers audience", () => {
@@ -124,5 +126,48 @@ describe("parents_by_fee audience", () => {
     await resolveAudienceUserIds("s1", { audienceType: "parents_by_fee", feeStatuses: ["not_cleared"], classId: "c7" });
     expect(mockFeeStatusFindMany.mock.calls[0][0].where.student.currentClassId).toBe("c7");
     expect(mockStudentFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("searchDirectory", () => {
+  it("teachers: label prefers Staff.fullName over email", async () => {
+    mockUserFindMany.mockResolvedValue([
+      { id: "u1", email: "a@x.com", staff: { fullName: "Ada Obi" } },
+      { id: "u2", email: "b@x.com", staff: null },
+    ]);
+    const out = await searchDirectory("s1", { type: "teacher", query: "" });
+    expect(out).toEqual([
+      { id: "u1", label: "Ada Obi", sublabel: "a@x.com", type: "staff" },
+      { id: "u2", label: "b@x.com", type: "staff" },
+    ]);
+    expect(mockUserFindMany.mock.calls[0][0].where.role).toBe("staff");
+  });
+
+  it("students: returns entries with ward label and admission/class sublabel", async () => {
+    mockStudentFindMany.mockResolvedValue([
+      { userId: "u5", firstName: "Tunde", lastName: "Bello", admissionNumber: "A01", currentClass: { name: "JSS1A" } },
+      { userId: null, firstName: "No", lastName: "Login", admissionNumber: "A02", currentClass: null },
+    ]);
+    const out = await searchDirectory("s1", { type: "student", query: "tun", classId: "c1" });
+    expect(out).toEqual([
+      { id: "u5", label: "Tunde Bello", sublabel: "A01 · JSS1A", type: "student" },
+    ]);
+    const where = mockStudentFindMany.mock.calls[0][0].where;
+    expect(where.userId).toEqual({ not: null });
+    expect(where.currentClassId).toBe("c1");
+    expect(where.OR[0].firstName.contains).toBe("tun");
+  });
+
+  it("parents: one entry per guardian user, labeled with ward name and class", async () => {
+    mockGuardianFindMany.mockResolvedValue([
+      { parentUserId: "p1", fullName: "Mrs Ade", relationship: "mother",
+        student: { firstName: "Tunde", lastName: "Bello", currentClass: { name: "JSS2A" } } },
+      { parentUserId: "p1", fullName: "Mrs Ade", relationship: "mother",
+        student: { firstName: "Ada", lastName: "Bello", currentClass: { name: "JSS1A" } } },
+    ]);
+    const out = await searchDirectory("s1", { type: "parent", query: "" });
+    expect(out).toEqual([
+      { id: "p1", label: "Mrs Ade", sublabel: "mother of Tunde JSS2A", type: "parent" },
+    ]);
   });
 });
