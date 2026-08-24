@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { SchoolLoginForm } from "./login-form";
 import { LoginDesignRenderer } from "./designs";
+import { SchoolMemory, DifferentSchoolLink } from "./school-memory-client";
 import {
   resolveLoginTexts,
   isLoginDesign,
@@ -62,6 +63,7 @@ export default async function SchoolLoginPage({
 
   return (
     <div data-portal-theme={school.portalTheme || "blue"}>
+      <SchoolMemory shortcode={shortcode} />
       <LoginDesignRenderer
         design={design}
         school={{ name: school.name, logo: school.logo, motto: school.motto }}
@@ -71,6 +73,7 @@ export default async function SchoolLoginPage({
       >
         <SchoolLoginForm schoolId={school.id} schoolName={school.name} />
       </LoginDesignRenderer>
+      <DifferentSchoolLink />
     </div>
   );
 }

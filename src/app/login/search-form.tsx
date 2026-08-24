@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { searchSchoolsAction } from "./actions";
+import { rememberSchool } from "./school-memory";
 
 interface SchoolResult {
   id: string;
@@ -33,12 +34,6 @@ export function SchoolSearchForm() {
       return;
     }
 
-    if (trimmed.toLowerCase() === "marksheet") {
-      setResults([]);
-      setSearched(true);
-      return;
-    }
-
     setLoading(true);
     setSearched(true);
     try {
@@ -49,10 +44,6 @@ export function SchoolSearchForm() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function isMarksheet() {
-    return query.trim().toLowerCase() === "marksheet";
   }
 
   return (
@@ -73,33 +64,13 @@ export function SchoolSearchForm() {
         />
       </div>
 
-      {searched && !loading && isMarksheet() && (
-        <div className="space-y-3 pt-2">
-          <p className="text-xs text-on-surface-variant text-center">
-            Platform administrator or proprietor?
-          </p>
-          <a
-            href="/console/login"
-            className="block w-full bg-[#0a0e1a] text-white font-label-md text-label-md py-2.5 px-4 rounded-lg text-center hover:bg-[#1a1f2e] transition-colors"
-          >
-            Owner Console Login
-          </a>
-          <a
-            href="/proprietor/login"
-            className="block w-full bg-primary text-white font-label-md text-label-md py-2.5 px-4 rounded-lg text-center hover:bg-primary-container transition-colors"
-          >
-            Proprietor Login
-          </a>
-        </div>
-      )}
-
       {loading && (
         <div className="flex justify-center py-6">
           <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
         </div>
       )}
 
-      {searched && !loading && !isMarksheet() && results.length === 0 && query.trim() && (
+      {searched && !loading && results.length === 0 && query.trim() && (
         <p className="text-center text-sm text-on-surface-variant py-4">
           No schools found matching &ldquo;{query.trim()}&rdquo;
         </p>
@@ -111,7 +82,12 @@ export function SchoolSearchForm() {
             <button
               key={school.id}
               type="button"
-              onClick={() => school.shortcode && router.push(`/login/${school.shortcode.toLowerCase()}`)}
+              onClick={() => {
+                if (school.shortcode) {
+                  rememberSchool(school.shortcode);
+                  router.push(`/login/${school.shortcode.toLowerCase()}`);
+                }
+              }}
               className="w-full flex items-center gap-3 p-3 rounded-xl border border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low transition-colors text-left"
             >
               <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center shrink-0 overflow-hidden">
@@ -132,7 +108,7 @@ export function SchoolSearchForm() {
 
       {!searched && (
         <p className="text-xs text-on-surface-variant text-center pt-2">
-          Type your school name or shortcode above, or type &ldquo;Marksheet&rdquo; for console access.
+          Type your school name or shortcode above to find your school.
         </p>
       )}
     </div>

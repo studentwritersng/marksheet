@@ -5,11 +5,26 @@ import { getSchoolByRequestHost } from "@/lib/school-domain";
 import { SchoolSearchForm } from "./search-form";
 import { SchoolLoginForm } from "./[shortcode]/login-form";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ all?: string | string[] }>;
+}) {
   const user = await getCurrentUser();
   if (user) {
     if (user.role === "proprietor") redirect("/proprietor");
     redirect("/dashboard");
+  }
+
+  const sp = await searchParams;
+  const showAll = sp.all === "1" || (Array.isArray(sp.all) && sp.all.includes("1"));
+  if (!showAll) {
+    const cookie = (await headers()).get("cookie") ?? "";
+    const m = cookie.match(/(?:^|;\s*)marksheet_school=([^;]+)/);
+    if (m?.[1]) {
+      const shortcode = decodeURIComponent(m[1]);
+      if (shortcode) redirect(`/login/${shortcode}`);
+    }
   }
 
   const host = (await headers()).get("host") ?? "";
