@@ -42,4 +42,12 @@
          this declaration the system shows no permission prompt and the app
          cannot post notifications at all. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Required for the attendance QR scanner (camera). Capacitor's
+         BridgeWebChromeClient auto-grants the WebView camera request once the
+         app holds the CAMERA permission. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
 </manifest>

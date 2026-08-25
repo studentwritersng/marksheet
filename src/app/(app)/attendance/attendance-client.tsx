@@ -550,33 +550,73 @@ function ScannerTab({
   const html5QrCodeRef = useRef<any>(null);
 
   const startScanner = useCallback(async () => {
+    // Prevent a double-start (it surfaces as a camera error).
+    if (html5QrCodeRef.current) return;
     setScanResult(null);
+
     const { Html5Qrcode } = await import("html5-qrcode");
     const scanner = new Html5Qrcode("qr-scanner-element");
     html5QrCodeRef.current = scanner;
     setScannerActive(true);
 
-    scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 250 } },
-      async (decodedText: string) => {
-        scanner.stop().catch(() => {});
-        setScannerActive(false);
-
-        const pId = attendancePeriodEnabled ? periodId : undefined;
-        const action = mode === "sign_in" ? scanStudentSignInAction : scanStudentSignOutAction;
-        const result = await action(schoolId, decodedText.trim(), date, pId);
-        if (result.error) {
-          setScanResult({ error: result.error, studentName: result.student?.fullName });
-        } else {
-          setScanResult({ success: result.success, studentName: result.student?.fullName });
-        }
-      },
-      () => {},
-    ).catch(() => {
-      setScanResult({ error: "Failed to access camera. Ensure camera permissions are granted." });
+    const onScan = async (decodedText: string) => {
+      await scanner.stop().catch(() => {});
+      html5QrCodeRef.current = null;
       setScannerActive(false);
-    });
+
+      const pId = attendancePeriodEnabled ? periodId : undefined;
+      const action = mode === "sign_in" ? scanStudentSignInAction : scanStudentSignOutAction;
+      const result = await action(schoolId, decodedText.trim(), date, pId);
+      if (result.error) {
+        setScanResult({ error: result.error, studentName: result.student?.fullName });
+      } else {
+        setScanResult({ success: result.success, studentName: result.student?.fullName });
+      }
+    };
+
+    // Some devices/browsers reject the strict rear-camera constraint, so try a
+    // full fallback chain instead of failing on the first attempt.
+    const cameraAttempts: Array<{ facingMode?: string }> = [
+      { facingMode: "environment" },
+      { facingMode: "user" },
+      {}, // let the browser pick any camera
+    ];
+    const scanConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
+    let lastErr: unknown = null;
+    let started = false;
+    for (const camera of cameraAttempts) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await scanner.start(camera as any, scanConfig, onScan, () => {});
+        started = true;
+        break;
+      } catch (e) {
+        lastErr = e;
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if ((scanner as any).isScanning) await scanner.stop();
+        } catch {
+          /* not started yet */
+        }
+        try {
+          scanner.clear();
+        } catch {
+          /* noop */
+        }
+      }
+    }
+
+    if (!started) {
+      html5QrCodeRef.current = null;
+      setScannerActive(false);
+      const name = (lastErr as { name?: string } | null)?.name ?? "";
+      setScanResult({
+        error:
+          name === "NotAllowedError"
+            ? "Camera permission was denied. Allow camera access in your browser/app settings, then tap Start Scanner again."
+            : `Could not start the camera${name ? ` (${name})` : ""}. Ensure camera permission is granted and a camera is available.`,
+      });
+    }
   }, [schoolId, date, periodId, attendancePeriodEnabled, mode]);
 
   const stopScanner = useCallback(() => {

@@ -152,7 +152,9 @@ export function CapacitorBridge() {
     };
 
     const start = (cap: NativeCapacitor) => {
-      if (!cap.nativePromise || !cap.addListener) {
+      const np = cap.nativePromise;
+      const al = cap.addListener;
+      if (!np || !al) {
         setState({ plugin: false, error: "bridge-methods-missing" });
         return;
       }
@@ -161,17 +163,17 @@ export function CapacitorBridge() {
 
       // Attach listeners before registering so we never miss the instant
       // "registration" event FCM may emit straight away.
-      cap.addListener(PN, "registration", (payload: unknown) => {
+      al(PN, "registration", (payload: unknown) => {
         saveToken((payload as { value?: string })?.value);
       });
-      cap.addListener(PN, "registrationError", (err: unknown) => {
+      al(PN, "registrationError", (err: unknown) => {
         setState({ error: "registrationError:" + JSON.stringify(err) });
       });
-      cap.addListener(PN, "pushNotificationReceived", (message: unknown) => {
+      al(PN, "pushNotificationReceived", (message: unknown) => {
         const m = message as { title?: string; body?: string };
         void showForegroundNotification(cap, m?.title ?? "New notification", m?.body ?? "");
       });
-      cap.addListener(PN, "pushNotificationActionPerformed", (payload: unknown) => {
+      al(PN, "pushNotificationActionPerformed", (payload: unknown) => {
         const url = (payload as { notification?: { data?: { url?: unknown } } })?.notification?.data?.url;
         if (typeof url === "string" && url.startsWith("/")) {
           window.location.assign(url);
@@ -181,7 +183,7 @@ export function CapacitorBridge() {
       // Kick off FCM registration (do not let a reject go unobserved).
       void (async () => {
         try {
-          await cap.nativePromise!(PN, "register", {});
+          await np(PN, "register", {});
         } catch (e) {
           setState({ error: "register:" + (e as Error)?.message });
         }
@@ -197,7 +199,7 @@ export function CapacitorBridge() {
       // Request display permission in parallel so it never gates the token.
       void (async () => {
         try {
-          const perm = await cap.nativePromise<{ display: string }>(PN, "requestPermissions", {});
+          const perm = await np<{ display: string }>(PN, "requestPermissions", {});
           setState({ permission: perm?.display ?? "?" });
         } catch (e) {
           setState({ permission: "error", error: "perm:" + (e as Error)?.message });

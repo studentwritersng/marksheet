@@ -389,14 +389,19 @@ export interface StudentQrCard {
 }
 
 export async function getStudentQrCards(
-  schoolId: string, classId?: string,
+  schoolId: string,
+  opts: { classId?: string; studentId?: string } = {},
 ): Promise<{ cards: StudentQrCard[] }> {
   const user = await getCurrentUser();
   if (!user) throw new Error("Not authenticated.");
   await assertSchoolScope(schoolId);
 
   const where: Prisma.StudentWhereInput = { schoolId, status: "active" };
-  if (classId) where.currentClassId = classId;
+  if (opts.studentId) {
+    where.id = opts.studentId;
+  } else if (opts.classId) {
+    where.currentClassId = opts.classId;
+  }
 
   const students = await prisma.student.findMany({
     where,
@@ -408,11 +413,13 @@ export async function getStudentQrCards(
 
   const cards: StudentQrCard[] = await Promise.all(
     students.map(async (s) => {
-      const qrDataUrl = await QRCode.toDataURL(s.admissionNumber, {
-        width: 200,
+      // SVG (vector) — stays sharp at any print/zoom size, unlike a raster PNG.
+      const svg = await QRCode.toString(s.admissionNumber, {
+        type: "svg",
         margin: 2,
-        color: { dark: "#002046", light: "#FFFFFF" },
+        errorCorrectionLevel: "M",
       });
+      const qrDataUrl = `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
       return {
         studentId: s.id,
         admissionNumber: s.admissionNumber,
@@ -425,6 +432,42 @@ export async function getStudentQrCards(
   );
 
   return { cards };
+}
+
+/** Search active students for the QR card generator's "single student" mode. */
+export async function searchQrCardStudents(
+  schoolId: string,
+  query: string,
+): Promise<{ students: { studentId: string; fullName: string; admissionNumber: string; className: string }[] }> {
+  const user = await getCurrentUser();
+  if (!user) return { students: [] };
+  await assertSchoolScope(schoolId);
+  const q = query.trim();
+  if (q.length < 2) return { students: [] };
+
+  const students = await prisma.student.findMany({
+    where: {
+      schoolId,
+      status: "active",
+      OR: [
+        { firstName: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { admissionNumber: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    include: { currentClass: { select: { name: true } } },
+    take: 12,
+  });
+
+  return {
+    students: students.map((s) => ({
+      studentId: s.id,
+      fullName: `${s.firstName} ${s.lastName}`,
+      admissionNumber: s.admissionNumber,
+      className: s.currentClass?.name ?? "—",
+    })),
+  };
 }
 
 type ScanResult = ActionState & { student?: { id: string; fullName: string; className: string } };
