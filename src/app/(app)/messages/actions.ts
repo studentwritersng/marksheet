@@ -85,7 +85,9 @@ export async function getConversationMessagesAction(conversationId: string) {
     orderBy: { createdAt: "asc" },
   });
 
-  // Mark as read
+  // Mark as read. NOTE: no revalidatePath here — this function is awaited
+  // during a Server Component render (/messages/[id]), and revalidating during
+  // render throws. The list page refetches naturally on navigation.
   await prisma.message.updateMany({
     where: { conversationId, isRead: false, senderId: { not: user.userId } },
     data: { isRead: true },
@@ -94,8 +96,6 @@ export async function getConversationMessagesAction(conversationId: string) {
     where: { id: participant.id },
     data: { lastReadAt: new Date() },
   });
-
-  revalidatePath("/messages");
 
   return { messages: messages.map((m) => ({
     id: m.id,
