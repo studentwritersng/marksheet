@@ -88,6 +88,42 @@ function ensureCapacitorGlobal(): Promise<boolean> {
  * files). Instead we call the native bridge directly by plugin name via
  * `cap.nativePromise` / `cap.addListener`.
  */
+
+/** Custom notification channel + sound — shared with the native MainActivity
+ * channel and the FCM `android.notification` config (push.ts). */
+const NOTIF_CHANNEL_ID = "marksheet_notifications";
+const NOTIF_SOUND = "marksheet_notification";
+
+async function createLnChannel(cap: NativeCapacitor) {
+  if (!cap.nativePromise) return;
+  try {
+    await cap.nativePromise(LN, "createChannel", {
+      id: NOTIF_CHANNEL_ID,
+      name: "Notifications",
+      description: "Marksheet notifications",
+      importance: 5, // IMPORTANCE_HIGH
+      sound: NOTIF_SOUND,
+      visibility: 1,
+      vibration: true,
+    });
+  } catch {
+    /* channel creation unavailable — ignore */
+  }
+}
+
+async function showForegroundNotification(cap: NativeCapacitor, title: string, body: string) {
+  if (!cap.nativePromise) return;
+  try {
+    await cap.nativePromise(LN, "schedule", {
+      notifications: [
+        { id: Date.now() % 2147483647, title, body, channelId: NOTIF_CHANNEL_ID, sound: NOTIF_SOUND },
+      ],
+    });
+  } catch {
+    /* local notifications unavailable — ignore */
+  }
+}
+
 export function CapacitorBridge() {
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +157,7 @@ export function CapacitorBridge() {
         return;
       }
       setState({ plugin: true });
+      void createLnChannel(cap);
 
       // Attach listeners before registering so we never miss the instant
       // "registration" event FCM may emit straight away.

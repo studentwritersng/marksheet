@@ -130,7 +130,16 @@ async function sendToDevice(
             token: device.fcmToken,
             notification: { title: payload.title ?? "New notification", body: payload.body },
             data: { eventType: payload.eventType, url: payload.url },
-            android: { priority: "HIGH" },
+            android: {
+              priority: "HIGH",
+              notification: {
+                // Custom channel + sound. The channel is created in MainActivity
+                // with res/raw/marksheet_notification.mp3; FCM names it without
+                // the file extension.
+                channel_id: "marksheet_notifications",
+                sound: "marksheet_notification",
+              },
+            },
           },
         }),
       },
