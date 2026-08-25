@@ -4,9 +4,10 @@ import { resolvePermissions } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { FeeStatusTable } from "./fee-status-table";
 import { TermSelector } from "./term-selector";
+import { ClassSelector } from "./class-selector";
 
 export default async function FeeStatusPage(props: {
-  searchParams: Promise<{ termId?: string }>;
+  searchParams: Promise<{ termId?: string; classId?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const user = await getCurrentUser();
@@ -113,8 +114,15 @@ export default async function FeeStatusPage(props: {
     include: { terms: { orderBy: { name: "asc" } } },
   });
 
+  const classes = await prisma.class.findMany({
+    where: { schoolId: user.schoolId, archived: false },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
   const activeTerm = currentSession?.terms.find((t) => t.isCurrent) ?? currentSession?.terms[0];
   const selectedTermId = searchParams.termId || activeTerm?.id;
+  const classId = searchParams.classId?.trim() || undefined;
 
   if (!selectedTermId) {
     return (
@@ -129,7 +137,11 @@ export default async function FeeStatusPage(props: {
 
   const [students, feeStatuses] = await Promise.all([
     prisma.student.findMany({
-      where: { schoolId: user.schoolId, status: "active" },
+      where: {
+        schoolId: user.schoolId,
+        status: "active",
+        ...(classId ? { currentClassId: classId } : {}),
+      },
       include: { currentClass: { select: { name: true } } },
       orderBy: { lastName: "asc" },
     }),
@@ -148,11 +160,20 @@ export default async function FeeStatusPage(props: {
       </p>
 
       {currentSession && (
-        <div className="mt-4 flex gap-4">
+        <div className="mt-4 flex flex-wrap gap-4">
           <div className="flex items-center gap-2">
             <span className="font-label-md text-label-md text-on-surface">Term:</span>
             <TermSelector
               terms={currentSession.terms.map((t) => ({ id: t.id, name: t.name }))}
+              selectedTermId={selectedTermId}
+              classId={classId}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-label-md text-label-md text-on-surface">Class:</span>
+            <ClassSelector
+              classes={classes}
+              selectedClassId={classId ?? ""}
               selectedTermId={selectedTermId}
             />
           </div>

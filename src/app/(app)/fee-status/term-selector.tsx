@@ -3,12 +3,15 @@
 export function TermSelector({
   terms,
   selectedTermId,
+  classId,
 }: {
   terms: { id: string; name: string }[];
   selectedTermId: string;
+  classId?: string;
 }) {
   return (
     <form method="GET">
+      {classId ? <input type="hidden" name="classId" value={classId} /> : null}
       <select
         name="termId"
         defaultValue={selectedTermId}

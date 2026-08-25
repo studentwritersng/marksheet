@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { markNotificationReadAction, markAllReadAction, getMyNotifications } from "@/lib/notifications/actions";
 import type { NotificationVM } from "@/lib/notifications/actions";
 
@@ -12,6 +13,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<NotificationVM[]>([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // Poll the lightweight unread endpoint (cached server-side), not the DB.
   const refreshUnread = useCallback(async () => {
@@ -64,6 +66,12 @@ export function NotificationBell() {
     setUnread(0);
   };
 
+  const handleOpen = (id: string) => {
+    handleMarkRead(id);
+    setOpen(false);
+    router.push("/my-notifications");
+  };
+
   return (
     <div ref={dropdownRef} className="relative">
       <button
@@ -80,7 +88,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] max-w-sm md:w-80 md:max-w-none bg-surface-container-lowest border border-outline-variant rounded-lg shadow-xl z-50 max-h-[80vh] flex flex-col">
+        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] max-w-sm md:w-80 md:max-w-none bg-surface-container-lowest border border-outline-variant rounded-lg shadow-xl z-[60] max-h-[80vh] flex flex-col max-md:fixed max-md:inset-x-2 max-md:top-16 max-md:mt-0 max-md:w-auto">
           <div className="flex items-center justify-between px-3 py-2 border-b border-outline-variant">
             <span className="font-label-lg text-label-lg text-on-surface font-semibold">Notifications</span>
             {unread > 0 && (
@@ -101,22 +109,14 @@ export function NotificationBell() {
                <div
                  key={n.id}
                  className={`px-3 py-2 hover:bg-surface-container-low cursor-pointer transition-colors ${!n.isRead ? "bg-primary-container/10" : ""}`}
-                 onClick={() => !n.isRead && handleMarkRead(n.id)}
+                 onClick={() => handleOpen(n.id)}
                >
-                 <div className="flex items-start gap-2">
-                   <div className="flex-1 min-w-0">
-                     <p className="font-label-md text-label-md text-on-surface truncate">
-                       {n.title ?? n.eventType}
-                     </p>
-                     <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-1 mt-0.5">
-                       {n.content}
-                     </p>
-                     <p className="font-label-sm text-label-sm text-on-surface-variant/60 truncate mt-0.5">
-                       {new Date(n.sentAt).toLocaleString()}
-                     </p>
-                   </div>
+                 <div className="flex items-center gap-2">
+                   <p className="font-body-sm text-body-sm text-on-surface truncate flex-1 min-w-0">
+                     {n.content}
+                   </p>
                    {!n.isRead && (
-                     <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
+                     <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
                    )}
                  </div>
                </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface PushState {
   native: boolean;
@@ -125,30 +125,44 @@ async function showForegroundNotification(cap: NativeCapacitor, title: string, b
 }
 
 export function CapacitorBridge() {
+  // The FCM token is stable per app install; what changes is the *account* it
+  // is bound to. We cache the token and re-bind it to whichever account is
+  // signed in, so switching users on a shared phone (e.g. student -> parent)
+  // moves the device across accounts without a full app restart.
+  const tokenRef = useRef<string | undefined>(undefined);
+
+  // POST the cached token; the server reads the session and owns the binding
+  // (upsert-by-token). Safe to call repeatedly.
+  const registerToken = useCallback(() => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    setState({ token: true });
+    void (async () => {
+      try {
+        const res = await fetch("/api/push/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fcmToken: tok, platform: "android" }),
+        });
+        if (res.ok) {
+          setState({ error: undefined });
+        } else {
+          setState({ error: "registerPost:" + res.status });
+        }
+      } catch (e) {
+        setState({ error: "registerPost:" + (e as Error)?.message });
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    let registered = false;
+    let sessionTimer: ReturnType<typeof setInterval> | undefined;
 
     const saveToken = (token?: string) => {
       if (!token) return;
-      setState({ token: true });
-      void (async () => {
-        try {
-          const res = await fetch("/api/push/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fcmToken: token, platform: "android" }),
-          });
-          if (res.ok) {
-            registered = true;
-            setState({ error: undefined });
-          } else {
-            setState({ error: "registerPost:" + res.status });
-          }
-        } catch (e) {
-          setState({ error: "registerPost:" + (e as Error)?.message });
-        }
-      })();
+      tokenRef.current = token;
+      registerToken();
     };
 
     const start = (cap: NativeCapacitor) => {
@@ -219,6 +233,26 @@ export function CapacitorBridge() {
       }
       setState({ native: true });
 
+      // Re-bind the device when the logged-in user changes. FCM does not
+      // re-emit "registration" on an account switch, so we watch the session
+      // and re-POST the cached token the moment the userId differs. This lets
+      // a single shared phone serve whichever account is currently signed in.
+      let lastSessionUserId: string | null = "__none__";
+      sessionTimer = setInterval(async () => {
+        if (cancelled) return;
+        try {
+          const res = await fetch("/api/push/diagnose", { cache: "no-store" });
+          const data = res.ok ? await res.json() : null;
+          const cur = (data && typeof data.userId === "string" ? data.userId : null) as string | null;
+          if (cur !== lastSessionUserId) {
+            lastSessionUserId = cur;
+            if (cur && tokenRef.current) registerToken();
+          }
+        } catch {
+          /* network blip — next tick retries */
+        }
+      }, 10000);
+
       const hasCap = await ensureCapacitorGlobal();
       if (cancelled) return;
       setState({ bridge: window.Capacitor ? "window.Capacitor" : "androidBridge-only" });
@@ -247,6 +281,7 @@ export function CapacitorBridge() {
 
     return () => {
       cancelled = true;
+      if (sessionTimer) clearInterval(sessionTimer);
     };
   }, []);
 
