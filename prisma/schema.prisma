@@ -1453,7 +1453,8 @@ model Notification {
 model PushDevice {
   id        String   @id @default(cuid())
   userId    String
-  fcmToken  String   @unique
+  fcmToken  String?  @unique
+  hmsToken  String?  @unique
   schoolId  String?
   platform  String   @default("android")
   createdAt DateTime @default(now())

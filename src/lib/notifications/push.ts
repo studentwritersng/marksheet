@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { sendHuaweiPush } from "./huawei-push";
 
 /**
  * FCM HTTP v1 push sender (zero-dependency).
@@ -109,7 +110,7 @@ async function mintAccessToken(config: FcmConfig, fetchImpl: typeof fetch): Prom
 
 // ── Per-device send ─────────────────────────────────────────────────────────
 
-interface DeviceRow { id: string; fcmToken: string }
+interface DeviceRow { id: string; fcmToken: string | null }
 interface PushPayload { title?: string | null; body: string; url: string; eventType: string }
 
 async function sendToDevice(
@@ -119,6 +120,7 @@ async function sendToDevice(
   payload: PushPayload,
   fetchImpl: typeof fetch,
 ): Promise<"ok" | "prune" | "error"> {
+  if (!device.fcmToken) return "error";
   try {
     const res = await fetchImpl(
       `https://fcm.googleapis.com/v1/projects/${config.projectId}/messages:send`,
@@ -163,8 +165,7 @@ export async function deliverPushForNotification(
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   try {
-    const config = getFcmConfig();
-    if (!config) return;
+    const fcmConfig = getFcmConfig();
 
     const userIds = await resolvePushUserIds(input.recipientType, input.recipientId);
 
@@ -172,7 +173,7 @@ export async function deliverPushForNotification(
 
     const devices = await prisma.pushDevice.findMany({
       where: { userId: { in: userIds } },
-      select: { id: true, fcmToken: true },
+      select: { id: true, fcmToken: true, hmsToken: true },
     });
     if (devices.length === 0) return;
 
@@ -183,13 +184,29 @@ export async function deliverPushForNotification(
       eventType: input.eventType,
     };
 
-    // One OAuth mint per fan-out, shared by every device send.
-    const accessToken = await mintAccessToken(config, fetchImpl);
+    // One FCM OAuth mint per fan-out (only needed for FCM devices).
+    const accessToken = fcmConfig ? await mintAccessToken(fcmConfig, fetchImpl) : null;
 
     const prunedIds: string[] = [];
     await Promise.all(
       devices.map(async (device) => {
-        const outcome = await sendToDevice(config, accessToken, device, payload, fetchImpl);
+        let outcome: "ok" | "prune" | "error";
+        if (device.hmsToken) {
+          outcome = await sendHuaweiPush(
+            {
+              hmsToken: device.hmsToken,
+              title: payload.title,
+              body: payload.body,
+              eventType: payload.eventType,
+              url: payload.url,
+            },
+            fetchImpl,
+          );
+        } else if (device.fcmToken && fcmConfig && accessToken) {
+          outcome = await sendToDevice(fcmConfig, accessToken, device, payload, fetchImpl);
+        } else {
+          return;
+        }
         if (outcome === "prune") prunedIds.push(device.id);
       }),
     );

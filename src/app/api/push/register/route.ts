@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { fcmToken?: unknown; platform?: unknown };
+  let body: { fcmToken?: unknown; hmsToken?: unknown; platform?: unknown };
   try {
     body = await req.json();
     if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -33,16 +33,30 @@ export async function POST(req: Request) {
   }
 
   const fcmToken = typeof body.fcmToken === "string" ? body.fcmToken.trim() : "";
+  const hmsToken = typeof body.hmsToken === "string" ? body.hmsToken.trim() : "";
   const platform = typeof body.platform === "string" && body.platform ? body.platform.slice(0, 32) : "android";
-  if (fcmToken.length < MIN_TOKEN_LEN || fcmToken.length > MAX_TOKEN_LEN) {
-    return NextResponse.json({ error: "Invalid fcmToken" }, { status: 400 });
-  }
 
-  await prisma.pushDevice.upsert({
-    where: { fcmToken },
-    update: { userId: user.userId, schoolId: user.schoolId, platform },
-    create: { fcmToken, userId: user.userId, schoolId: user.schoolId, platform },
-  });
+  if (fcmToken) {
+    if (fcmToken.length < MIN_TOKEN_LEN || fcmToken.length > MAX_TOKEN_LEN) {
+      return NextResponse.json({ error: "Invalid fcmToken" }, { status: 400 });
+    }
+    await prisma.pushDevice.upsert({
+      where: { fcmToken },
+      update: { userId: user.userId, schoolId: user.schoolId, platform },
+      create: { fcmToken, userId: user.userId, schoolId: user.schoolId, platform },
+    });
+  } else if (hmsToken) {
+    if (hmsToken.length < MIN_TOKEN_LEN || hmsToken.length > MAX_TOKEN_LEN) {
+      return NextResponse.json({ error: "Invalid hmsToken" }, { status: 400 });
+    }
+    await prisma.pushDevice.upsert({
+      where: { hmsToken },
+      update: { userId: user.userId, schoolId: user.schoolId, platform },
+      create: { hmsToken, userId: user.userId, schoolId: user.schoolId, platform },
+    });
+  } else {
+    return NextResponse.json({ error: "Missing fcmToken or hmsToken" }, { status: 400 });
+  }
 
   return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 }
