@@ -86,6 +86,50 @@ export async function createHomeworkAction(_prev: ActionState, fd: FormData): Pr
   return { success: "Homework created." };
 }
 
+export interface BankQuestionDTO {
+  id: string;
+  text: string;
+  type: "mcq" | "essay";
+  marks: number;
+  options?: { text: string; isCorrect: boolean }[];
+  rubric?: { modelAnswer?: string; rubricPoints?: unknown };
+}
+
+export async function searchBankQuestionsAction(
+  subjectId: string,
+  classLevel: string,
+  type: "mcq" | "essay" | "all",
+): Promise<{ questions: BankQuestionDTO[]; error?: string }> {
+  const ctx = await requireHomeworkManager();
+  if (!ctx) return { questions: [], error: "Not authorised." };
+  if (!subjectId) return { questions: [], error: "Subject is required." };
+  try {
+    const rows = await prisma.question.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        subjectId,
+        ...(classLevel ? { classLevel } : {}),
+        ...(type !== "all" ? { type } : {}),
+      },
+      include: { mcqOptions: true, essaySpec: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const questions: BankQuestionDTO[] = rows.map((q) => ({
+      id: q.id,
+      text: q.text,
+      type: q.type,
+      marks: Number(q.marks),
+      options: q.mcqOptions?.map((o) => ({ text: o.optionText, isCorrect: o.isCorrect })),
+      rubric: q.essaySpec
+        ? { modelAnswer: q.essaySpec.modelAnswer, rubricPoints: q.essaySpec.rubricPoints }
+        : undefined,
+    }));
+    return { questions };
+  } catch {
+    return { questions: [], error: "Could not load the question bank." };
+  }
+}
+
 export async function publishHomeworkAction(id: string): Promise<ActionState> {
   const ctx = await requireHomeworkManager();
   if (!ctx) return { error: "Not authorised." };
