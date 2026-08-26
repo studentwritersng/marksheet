@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { validateQuestionCounts } from "@/lib/homework/grading";
+import { Prisma } from "@prisma/client";
+import { validateQuestionCounts, autoGradeMcq, computeTotals, type McqOption } from "@/lib/homework/grading";
 import { recordAudit } from "@/lib/audit";
 import { guardActiveLicense } from "@/lib/license";
-import { requireHomeworkManager } from "./auth";
+import { requireHomeworkManager, requireStudentSelf } from "./auth";
 
 export interface ActionState {
   error?: string;
@@ -146,4 +147,120 @@ export async function publishHomeworkAction(id: string): Promise<ActionState> {
   });
   revalidatePath("/homework");
   return { success: "Homework published." };
+}
+
+async function upsertHomeworkAnswer(args: {
+  attemptId: string;
+  homeworkQuestionId: string;
+  type: "mcq" | "essay";
+  response: unknown;
+  autoCorrect: boolean | null;
+  autoScore: number;
+}): Promise<void> {
+  const existing = await prisma.homeworkAnswer.findFirst({
+    where: { attemptId: args.attemptId, homeworkQuestionId: args.homeworkQuestionId },
+  });
+  const data = {
+    type: args.type,
+    response: args.response as Prisma.InputJsonValue,
+    autoCorrect: args.autoCorrect,
+    autoScore: args.autoScore,
+  };
+  if (existing) {
+    await prisma.homeworkAnswer.update({ where: { id: existing.id }, data });
+  } else {
+    await prisma.homeworkAnswer.create({
+      data: {
+        attemptId: args.attemptId,
+        homeworkQuestionId: args.homeworkQuestionId,
+        ...data,
+      },
+    });
+  }
+}
+
+export async function submitHomeworkAction(
+  homeworkId: string,
+  answers: { homeworkQuestionId: string; response: unknown }[],
+): Promise<ActionState> {
+  const ctx = await requireStudentSelf();
+  if (!ctx) return { error: "Not authorised" };
+  const { studentId, schoolId } = ctx;
+
+  const hw = await prisma.homework.findFirst({
+    where: { id: homeworkId },
+    include: { questions: { orderBy: { order: "asc" } } },
+  });
+  if (!hw) return { error: "Not available" };
+  if (hw.status !== "published") return { error: "Not available" };
+  if (hw.dueDate && hw.dueDate < new Date()) return { error: "Past due" };
+
+  const existing = await prisma.homeworkAttempt.findUnique({
+    where: { homeworkId_studentId: { homeworkId, studentId } },
+  });
+  if (existing && (existing.status === "submitted" || existing.status === "graded")) {
+    return { error: "Already submitted" };
+  }
+
+  const attempt = await prisma.homeworkAttempt.upsert({
+    where: { homeworkId_studentId: { homeworkId, studentId } },
+    create: {
+      homeworkId,
+      studentId,
+      schoolId,
+      classId: hw.classId,
+      termId: hw.termId,
+      status: "submitted",
+      submittedAt: new Date(),
+    },
+    update: {
+      status: "submitted",
+      submittedAt: new Date(),
+    },
+  });
+
+  let mcqScore = 0;
+  for (const ans of answers) {
+    const q = hw.questions.find((x) => x.id === ans.homeworkQuestionId);
+    if (!q) continue;
+    if (q.type === "mcq") {
+      const options = (q.options as unknown as McqOption[] | null) ?? [];
+      const selected =
+        typeof ans.response === "number"
+          ? ans.response
+          : ans.response === null
+            ? null
+            : Number(ans.response);
+      const { correct, scoreFactor } = autoGradeMcq(selected, options);
+      const autoScore = Math.round(scoreFactor * Number(q.marks));
+      mcqScore += autoScore;
+      await upsertHomeworkAnswer({
+        attemptId: attempt.id,
+        homeworkQuestionId: q.id,
+        type: "mcq",
+        response: ans.response,
+        autoCorrect: correct,
+        autoScore,
+      });
+    } else {
+      await upsertHomeworkAnswer({
+        attemptId: attempt.id,
+        homeworkQuestionId: q.id,
+        type: "essay",
+        response: ans.response,
+        autoCorrect: null,
+        autoScore: 0,
+      });
+    }
+  }
+
+  const totalMarks = hw.questions.reduce((sum, q) => sum + Number(q.marks), 0);
+  const { totalScore, percentage } = computeTotals(mcqScore, 0, totalMarks);
+  await prisma.homeworkAttempt.update({
+    where: { id: attempt.id },
+    data: { mcqScore, totalScore, percentage, status: "submitted" },
+  });
+
+  revalidatePath(`/student/homework/${homeworkId}`);
+  return { success: "Homework submitted." };
 }
