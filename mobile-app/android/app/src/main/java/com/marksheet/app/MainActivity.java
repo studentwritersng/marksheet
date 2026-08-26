@@ -2,7 +2,9 @@ package com.marksheet.app;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
+import android.Manifest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,6 +21,14 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Android 13+ (API 33+) gates notifications behind a runtime permission.
+        // Without this prompt the permission stays DENIED and FCM/system
+        // notifications are silently dropped even though the token registers.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 100);
+            }
+        }
         createNotificationChannel();
 
         Bridge bridge = getBridge();
