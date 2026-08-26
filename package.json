@@ -7,7 +7,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "prisma generate",
-    "build": "next build",
+    "build": "prisma db push --accept-data-loss --skip-generate && next build",
     "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",
