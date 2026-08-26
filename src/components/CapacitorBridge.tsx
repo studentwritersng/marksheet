@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface PushState {
   native: boolean;
@@ -130,6 +130,17 @@ export function CapacitorBridge() {
   // signed in, so switching users on a shared phone (e.g. student -> parent)
   // moves the device across accounts without a full app restart.
   const tokenRef = useRef<string | undefined>(undefined);
+
+  // Temporary on-device debug badge (only inside the native app, detected via
+  // the CapApk4 user-agent marker). Lets us read the live push state off the
+  // phone screen without a desktop browser. Remove once debugging is done.
+  const [inApp, setInApp] = useState(false);
+  const [badge, setBadge] = useState<PushState | null>(null);
+  useEffect(() => {
+    setInApp(/CapApk4/i.test(navigator.userAgent));
+    const t = setInterval(() => setBadge(window.__marksheetPushState ?? null), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // POST the cached token; the server reads the session and owns the binding
   // (upsert-by-token). Safe to call repeatedly.
@@ -284,6 +295,34 @@ export function CapacitorBridge() {
       if (sessionTimer) clearInterval(sessionTimer);
     };
   }, []);
+
+  if (inApp) {
+    const b = badge;
+    const mark = (v?: boolean) => (v ? "✓" : "✗");
+    const err = b?.error ? ` ERR:${b.error}` : "";
+    return (
+      <div
+        style={{
+          position: "fixed",
+          bottom: 12,
+          right: 12,
+          zIndex: 99999,
+          background: "rgba(0,0,0,0.85)",
+          color: "#0f0",
+          padding: "6px 10px",
+          borderRadius: 8,
+          fontSize: 11,
+          fontFamily: "monospace",
+          lineHeight: 1.4,
+          pointerEvents: "none",
+        }}
+      >
+        PUSH N:{mark(b?.native)} P:{mark(b?.plugin)} T:{mark(b?.token)}
+        {b?.permission && b.permission !== "-" ? ` perm:${b.permission}` : ""}
+        {err}
+      </div>
+    );
+  }
 
   return null;
 }
