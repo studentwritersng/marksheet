@@ -95,7 +95,7 @@ export function HomeworkForm({
     setQuestions((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  async function handleSearch(e: React.FormEvent) {
+  async function handleSearch(e: React.SyntheticEvent) {
     e.preventDefault();
     setBankLoading(true);
     setBankError(null);
@@ -216,7 +216,7 @@ export function HomeworkForm({
           <h2 className="font-headline-sm text-headline-sm text-on-surface">
             Import from question bank
           </h2>
-          <form onSubmit={handleSearch} className="mt-4 flex flex-wrap items-end gap-3">
+          <div className="mt-4 flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <label className="font-label-md text-label-md text-on-surface">Subject</label>
               <select
@@ -255,10 +255,10 @@ export function HomeworkForm({
                 <option value="essay">Essay</option>
               </select>
             </div>
-            <button type="submit" disabled={bankLoading} className={btnCls}>
+            <button type="button" onClick={handleSearch} disabled={bankLoading} className={btnCls}>
               {bankLoading ? "Searching…" : "Search"}
             </button>
-          </form>
+          </div>
           {bankError && <p className="mt-3 text-sm text-red-600">{bankError}</p>}
           {bankResults.length > 0 && (
             <ul className="mt-4 flex flex-col gap-2">
