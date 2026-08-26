@@ -158,7 +158,8 @@ export function CapacitorBridge() {
         if (res.ok) {
           setState({ error: undefined });
         } else {
-          setState({ error: "registerPost:" + res.status });
+          const txt = await res.text().catch(() => "");
+          setState({ error: "registerPost:" + res.status + " " + txt.slice(0, 240) });
         }
       } catch (e) {
         setState({ error: "registerPost:" + (e as Error)?.message });

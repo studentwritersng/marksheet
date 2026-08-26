@@ -44,26 +44,34 @@ export async function POST(req: Request) {
     platform,
   });
 
-  if (fcmToken) {
-    if (fcmToken.length < MIN_TOKEN_LEN || fcmToken.length > MAX_TOKEN_LEN) {
-      return NextResponse.json({ error: "Invalid fcmToken" }, { status: 400 });
+  try {
+    if (fcmToken) {
+      if (fcmToken.length < MIN_TOKEN_LEN || fcmToken.length > MAX_TOKEN_LEN) {
+        return NextResponse.json({ error: "Invalid fcmToken" }, { status: 400 });
+      }
+      await prisma.pushDevice.upsert({
+        where: { fcmToken },
+        update: { userId: user.userId, schoolId: user.schoolId, platform },
+        create: { fcmToken, userId: user.userId, schoolId: user.schoolId, platform },
+      });
+    } else if (hmsToken) {
+      if (hmsToken.length < MIN_TOKEN_LEN || hmsToken.length > MAX_TOKEN_LEN) {
+        return NextResponse.json({ error: "Invalid hmsToken" }, { status: 400 });
+      }
+      await prisma.pushDevice.upsert({
+        where: { hmsToken },
+        update: { userId: user.userId, schoolId: user.schoolId, platform },
+        create: { hmsToken, userId: user.userId, schoolId: user.schoolId, platform },
+      });
+    } else {
+      return NextResponse.json({ error: "Missing fcmToken or hmsToken" }, { status: 400 });
     }
-    await prisma.pushDevice.upsert({
-      where: { fcmToken },
-      update: { userId: user.userId, schoolId: user.schoolId, platform },
-      create: { fcmToken, userId: user.userId, schoolId: user.schoolId, platform },
-    });
-  } else if (hmsToken) {
-    if (hmsToken.length < MIN_TOKEN_LEN || hmsToken.length > MAX_TOKEN_LEN) {
-      return NextResponse.json({ error: "Invalid hmsToken" }, { status: 400 });
-    }
-    await prisma.pushDevice.upsert({
-      where: { hmsToken },
-      update: { userId: user.userId, schoolId: user.schoolId, platform },
-      create: { hmsToken, userId: user.userId, schoolId: user.schoolId, platform },
-    });
-  } else {
-    return NextResponse.json({ error: "Missing fcmToken or hmsToken" }, { status: 400 });
+  } catch (e) {
+    console.error("[push:register] upsert failed", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "upsert failed" },
+      { status: 500 }
+    );
   }
 
   console.log("[push:register] registered", {
