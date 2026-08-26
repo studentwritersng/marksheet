@@ -115,6 +115,10 @@ model School {
   hubs                     Hub[]
   offlineBundles           OfflineBundle[]
 
+  feeItems            FeeItem[]
+  studentPayments     StudentPayment[]
+  feeReminderConfig   FeeReminderConfig?
+
   originTransfers      GroupStudentTransferRecord[] @relation("TransferOriginSchool")
   destinationTransfers GroupStudentTransferRecord[] @relation("TransferDestinationSchool")
   commissions          ReferralCommission[]
@@ -168,6 +172,8 @@ model Term {
   exams          Exam[]
   subjectResults SubjectResult[]
   termResults    TermResult[]
+  feeItems       FeeItem[]
+  studentPayments StudentPayment[]
 
   @@unique([sessionId, name])
   @@index([sessionId])
@@ -319,6 +325,7 @@ enum AssignmentType {
   exam_officer
   school_admin
   fee_status_manager
+  bursar            // ← add
   receptionist
 }
 
@@ -396,6 +403,7 @@ model Student {
   consentRecords    ConsentRecord[]
   taughtTopics      TaughtTopic[]
   attendanceRecords AttendanceRecord[]
+  payments          StudentPayment[]
 
   originTransfers      GroupStudentTransferRecord[] @relation("TransferOriginStudent")
   destinationTransfers GroupStudentTransferRecord[] @relation("TransferDestinationStudent")
@@ -1411,6 +1419,50 @@ model FeeStatus {
   @@unique([studentId, termId])
   @@index([termId])
   @@map("fee_statuses")
+}
+
+model FeeItem {
+  id        String   @id @default(cuid())
+  schoolId  String
+  termId    String
+  level     String
+  name      String
+  amount    Decimal
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  term   Term   @relation(fields: [termId], references: [id], onDelete: Cascade)
+  @@unique([termId, level, name])
+  @@index([schoolId, termId])
+  @@map("fee_items")
+}
+
+model StudentPayment {
+  id         String   @id @default(cuid())
+  schoolId   String
+  studentId  String
+  termId     String
+  amount     Decimal
+  method     String   @default("cash")
+  note       String?
+  recordedBy String?
+  createdAt  DateTime @default(now())
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term    Term    @relation(fields: [termId], references: [id], onDelete: Cascade)
+  @@index([studentId, termId])
+  @@index([schoolId, termId])
+  @@map("student_payments")
+}
+
+model FeeReminderConfig {
+  id            String    @id @default(cuid())
+  schoolId      String    @unique
+  weeklyEnabled Boolean   @default(false)
+  dayOfWeek     Int       @default(1)
+  lastSentAt    DateTime?
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  @@map("fee_reminder_configs")
 }
 
 // ---------------------------------------------------------------------------
