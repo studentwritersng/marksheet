@@ -75,11 +75,6 @@ export function buildNav(
         { label: "Billing & License", href: "/billing", icon: "account_balance_wallet" },
       ]},
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
-      { label: "Bursary", icon: "account_balance_wallet", children: [
-        { label: "Fee Menu", href: "/fees", icon: "receipt_long" },
-        { label: "Payments", href: "/fees/payments", icon: "payments" },
-        { label: "Reminders", href: "/fees/reminders", icon: "campaign" },
-      ]},
       { label: "System", icon: "settings", children: [
         { label: "Announcements", href: "/announcements", icon: "campaign" },
         { label: "Audit Log", href: "/audit-log", icon: "history" },
@@ -164,6 +159,18 @@ export function buildNav(
       items.push({ label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" });
     }
     items.push({ label: "Messages", href: "/messages", icon: "chat" });
+  }
+
+  if (canManageFees(perms)) {
+    items.push({
+      label: "Bursary",
+      icon: "account_balance_wallet",
+      children: [
+        { label: "Fee Menu", href: "/fees", icon: "receipt_long" },
+        { label: "Payments", href: "/fees/payments", icon: "payments" },
+        { label: "Reminders", href: "/fees/reminders", icon: "campaign" },
+      ],
+    });
   }
 
   // Profile link for all school users
