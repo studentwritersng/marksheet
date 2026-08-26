@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { sendHuaweiPush } from "./huawei-push";
 
 /**
  * FCM HTTP v1 push sender (zero-dependency).
@@ -160,7 +159,7 @@ export async function deliverPushForNotification(
 
     const devices = await prisma.pushDevice.findMany({
       where: { userId: { in: userIds } },
-      select: { id: true, fcmToken: true, hmsToken: true },
+      select: { id: true, fcmToken: true },
     });
     if (devices.length === 0) return;
 
@@ -178,18 +177,7 @@ export async function deliverPushForNotification(
     await Promise.all(
       devices.map(async (device) => {
         let outcome: "ok" | "prune" | "error";
-        if (device.hmsToken) {
-          outcome = await sendHuaweiPush(
-            {
-              hmsToken: device.hmsToken,
-              title: payload.title ?? "New notification",
-              body: payload.body,
-              eventType: payload.eventType,
-              url: payload.url,
-            },
-            fetchImpl,
-          );
-        } else if (device.fcmToken && fcmConfig && accessToken) {
+        if (device.fcmToken && fcmConfig && accessToken) {
           outcome = await sendToDevice(fcmConfig, accessToken, device, payload, fetchImpl);
         } else {
           return;
