@@ -5,8 +5,8 @@ import {
   recordPaymentAction,
   deletePaymentAction,
   bulkRecordPaymentAction,
-  type ActionState,
 } from "./actions";
+import type { ActionState } from "../actions";
 import { formatNaira } from "@/lib/format";
 import type { StudentFeeSummary } from "@/lib/fees/bursary";
 

@@ -7,8 +7,6 @@ import { guardActiveLicense } from "@/lib/license";
 import { recordAudit } from "@/lib/audit";
 import { withContext, type ActionState } from "../actions";
 
-export type { ActionState };
-
 export async function recordPaymentAction(
   _prev: ActionState,
   fd: FormData,
