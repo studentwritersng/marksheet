@@ -23,6 +23,7 @@ function teacherPerms(): EffectivePermissions {
     isFeeStatusManager: false,
     isBursar: false,
     isReceptionist: false,
+    canManageHomework: false,
     assignments: [],
     subjectTeacherClassIds: new Set(),
     subjectTeacherSubjectIds: new Set(["subj_1"]),

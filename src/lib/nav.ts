@@ -85,6 +85,10 @@ export function buildNav(
       { label: "Addons", href: "/addons", icon: "extension" },
       { label: "Support Tickets", href: "/tickets", icon: "support" },
       { label: "Messages", href: "/messages", icon: "chat" },
+      { label: "Homework", icon: "assignment", children: [
+        { label: "All Homework", href: "/homework", icon: "assignment" },
+        { label: "New Homework", href: "/homework/new", icon: "add" },
+      ]},
     );
   } else if (perms.isExamOfficer) {
     items.push(
@@ -103,6 +107,7 @@ export function buildNav(
       { label: "My Exams", href: "/my-exams", icon: "quiz" },
       { label: "My Results", href: "/my-results", icon: "analytics" },
       { label: "My Timetable", href: "/my-timetable", icon: "calendar_view_week" },
+      { label: "My Homework", href: "/student/homework", icon: "assignment" },
       { label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" },
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
       { label: "Messages", href: "/messages", icon: "chat" },
@@ -119,6 +124,16 @@ export function buildNav(
       perms.classTeacherClassIds.size > 0
     ) {
       items.push({ label: "My Classes", href: "/my-classes", icon: "school" });
+    }
+    if (perms.subjectTeacherSubjectIds.size > 0 || perms.classTeacherClassIds.size > 0) {
+      items.push({
+        label: "Homework",
+        icon: "assignment",
+        children: [
+          { label: "All Homework", href: "/homework", icon: "assignment" },
+          { label: "New Homework", href: "/homework/new", icon: "add" },
+        ],
+      });
     }
     if (perms.subjectTeacherSubjectIds.size > 0) {
       items.push({

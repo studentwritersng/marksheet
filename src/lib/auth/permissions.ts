@@ -24,6 +24,7 @@ export interface EffectivePermissions {
   isFeeStatusManager: boolean;
   isBursar: boolean;
   isReceptionist: boolean;
+  canManageHomework: boolean;
   assignments: ResolvedAssignment[];
   // Distinct scope sets derived from assignments
   subjectTeacherClassIds: Set<string>;
@@ -49,6 +50,7 @@ export async function resolvePermissions(
     isFeeStatusManager: false,
     isBursar: false,
     isReceptionist: false,
+    canManageHomework: false,
     assignments: [],
     subjectTeacherClassIds: new Set(),
     subjectTeacherSubjectIds: new Set(),
@@ -156,11 +158,18 @@ export async function resolvePermissions(
     }
   }
 
+  result.canManageHomework = result.isSuperAdmin || result.isSchoolAdmin;
+
   return result;
 }
 
 /** School Admin OR Super Admin — full school-level management access. */
 export function canManageSchool(p: EffectivePermissions): boolean {
+  return p.isSuperAdmin || p.isSchoolAdmin;
+}
+
+/** Super Admin or School Admin — manage homework. */
+export function canManageHomework(p: EffectivePermissions): boolean {
   return p.isSuperAdmin || p.isSchoolAdmin;
 }
 
