@@ -7,7 +7,9 @@ import { Prisma } from "@prisma/client";
 import { validateQuestionCounts, autoGradeMcq, computeTotals, type McqOption } from "@/lib/homework/grading";
 import { recordAudit } from "@/lib/audit";
 import { guardActiveLicense } from "@/lib/license";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { requireHomeworkManager, requireStudentSelf } from "./auth";
+import { createNotification } from "@/lib/notifications/actions";
 
 export interface ActionState {
   error?: string;
@@ -263,4 +265,93 @@ export async function submitHomeworkAction(
 
   revalidatePath(`/student/homework/${homeworkId}`);
   return { success: "Homework submitted." };
+}
+
+export async function markHomeworkAction(
+  attemptId: string,
+  scores: { homeworkQuestionId: string; teacherScore: number; teacherComment?: string }[],
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+  const ctx = await requireHomeworkManager();
+  if (!ctx) return { error: "Not authorised" };
+  const { schoolId } = ctx;
+
+  const attempt = await prisma.homeworkAttempt.findUnique({
+    where: { id: attemptId },
+    include: {
+      homework: { include: { questions: true } },
+      student: true,
+    },
+  });
+  if (!attempt) return { error: "Attempt not found" };
+
+  const validIds = new Set(attempt.homework.questions.map((q) => q.id));
+  let essayScore = 0;
+  for (const entry of scores) {
+    if (!validIds.has(entry.homeworkQuestionId)) continue;
+    essayScore += entry.teacherScore;
+    await prisma.homeworkAnswer.updateMany({
+      where: { attemptId, homeworkQuestionId: entry.homeworkQuestionId },
+      data: {
+        teacherScore: entry.teacherScore,
+        teacherComment: entry.teacherComment ?? null,
+      },
+    });
+  }
+
+  const mcqScore = attempt.mcqScore ?? 0;
+  const totalMarks = attempt.homework.questions.reduce(
+    (sum, q) => sum + Number(q.marks),
+    0,
+  );
+  const { totalScore, percentage } = computeTotals(mcqScore, essayScore, totalMarks);
+
+  await prisma.homeworkAttempt.update({
+    where: { id: attemptId },
+    data: {
+      essayScore,
+      totalScore,
+      percentage,
+      status: "graded",
+      published: true,
+    },
+  });
+
+  const content = `${attempt.homework.title}: ${totalScore}/${totalMarks} (${Math.round(percentage)}%)`;
+  const guardians = await prisma.guardian.findMany({
+    where: { studentId: attempt.studentId },
+  });
+  for (const g of guardians) {
+    try {
+      if (g.parentUserId) {
+        await createNotification({
+          schoolId,
+          recipientType: "parent",
+          recipientId: g.parentUserId,
+          eventType: "homework_result",
+          title: "Homework result",
+          content,
+          channel: "in_app",
+        });
+      }
+      if (g.email) {
+        await createNotification({
+          schoolId,
+          recipientType: "parent",
+          recipientId: g.parentUserId ?? "",
+          recipientEmail: g.email,
+          eventType: "homework_result",
+          title: "Homework result",
+          content,
+          channel: "email",
+        });
+      }
+    } catch {
+      // best-effort: one failing guardian must not abort the whole action
+    }
+  }
+
+  revalidatePath("/homework");
+  return { success: "Homework marked." };
 }
