@@ -35,13 +35,7 @@ export async function POST(req: Request) {
   const fcmToken = typeof body.fcmToken === "string" ? body.fcmToken.trim() : "";
   const platform = typeof body.platform === "string" && body.platform ? body.platform.slice(0, 32) : "android";
 
-  console.log("[push:register] incoming", {
-    userId: user.userId,
-    schoolId: user.schoolId,
-    via: fcmToken ? "fcm" : "none",
-    tokenLen: fcmToken.length,
-    platform,
-  });
+  console.log("[push:register]", { userId: user.userId, platform });
 
   try {
     if (fcmToken) {
@@ -58,16 +52,8 @@ export async function POST(req: Request) {
     }
   } catch (e) {
     console.error("[push:register] upsert failed", e);
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "upsert failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "registration_failed" }, { status: 500 });
   }
-
-  console.log("[push:register] registered", {
-    userId: user.userId,
-    via: fcmToken ? "fcm" : "hms",
-  });
 
   return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface PushState {
   native: boolean;
@@ -41,7 +41,6 @@ function setState(patch: Partial<PushState>) {
       token: false,
     };
   window.__marksheetPushState = { ...prev, ...patch };
-  console.log("[push] state", window.__marksheetPushState);
 }
 
 function hasNativeEnv(): boolean {
@@ -131,17 +130,6 @@ export function CapacitorBridge() {
   // moves the device across accounts without a full app restart.
   const tokenRef = useRef<string | undefined>(undefined);
 
-  // Temporary on-device debug badge (only inside the native app, detected via
-  // the CapApk4 user-agent marker). Lets us read the live push state off the
-  // phone screen without a desktop browser. Remove once debugging is done.
-  const [inApp, setInApp] = useState(false);
-  const [badge, setBadge] = useState<PushState | null>(null);
-  useEffect(() => {
-    setInApp(/CapApk4/i.test(navigator.userAgent));
-    const t = setInterval(() => setBadge(window.__marksheetPushState ?? null), 1000);
-    return () => clearInterval(t);
-  }, []);
-
   // POST the cached token; the server reads the session and owns the binding
   // (upsert-by-token). Safe to call repeatedly.
   const registerToken = useCallback(() => {
@@ -155,12 +143,7 @@ export function CapacitorBridge() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fcmToken: tok, platform: "android" }),
         });
-        if (res.ok) {
-          setState({ error: undefined });
-        } else {
-          const txt = await res.text().catch(() => "");
-          setState({ error: "registerPost:" + res.status + " " + txt.slice(0, 240) });
-        }
+        setState({ error: res.ok ? undefined : "registerPost:" + res.status });
       } catch (e) {
         setState({ error: "registerPost:" + (e as Error)?.message });
       }
@@ -296,34 +279,6 @@ export function CapacitorBridge() {
       if (sessionTimer) clearInterval(sessionTimer);
     };
   }, []);
-
-  if (inApp) {
-    const b = badge;
-    const mark = (v?: boolean) => (v ? "✓" : "✗");
-    const err = b?.error ? ` ERR:${b.error}` : "";
-    return (
-      <div
-        style={{
-          position: "fixed",
-          bottom: 12,
-          right: 12,
-          zIndex: 99999,
-          background: "rgba(0,0,0,0.85)",
-          color: "#0f0",
-          padding: "6px 10px",
-          borderRadius: 8,
-          fontSize: 11,
-          fontFamily: "monospace",
-          lineHeight: 1.4,
-          pointerEvents: "none",
-        }}
-      >
-        PUSH N:{mark(b?.native)} P:{mark(b?.plugin)} T:{mark(b?.token)}
-        {b?.permission && b.permission !== "-" ? ` perm:${b.permission}` : ""}
-        {err}
-      </div>
-    );
-  }
 
   return null;
 }
