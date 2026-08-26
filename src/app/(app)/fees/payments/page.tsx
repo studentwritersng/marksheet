@@ -80,7 +80,7 @@ export default async function PaymentsPage(props: {
 
   const studentsWhere = {
     schoolId,
-    ...(classId ? { classId } : {}),
+    ...(classId ? { currentClassId: classId } : {}),
   };
 
   const students = await prisma.student.findMany({
