@@ -20,11 +20,16 @@ export async function getSchoolFeeGateConfig(schoolId: string): Promise<FeeGateC
 }
 
 export async function getStudentFeeStatus(studentId: string, termId: string): Promise<string> {
-  const feeStatus = await prisma.feeStatus.findUnique({
-    where: { studentId_termId: { studentId, termId } },
-    select: { status: true },
-  });
-  return feeStatus?.status ?? "not_cleared";
+  const { getStudentFeeSummary } = await import("./bursary");
+  const sum = await getStudentFeeSummary(studentId, termId);
+  if (sum.status === "no_structure") {
+    const legacy = await prisma.feeStatus.findUnique({
+      where: { studentId_termId: { studentId, termId } },
+      select: { status: true },
+    });
+    return legacy?.status ?? "not_cleared";
+  }
+  return sum.status; // cleared | partial | not_paid
 }
 
 /**
