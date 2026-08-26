@@ -115,6 +115,8 @@ model School {
   hubs                     Hub[]
   offlineBundles           OfflineBundle[]
 
+  homeworks           Homework[]
+
   feeItems            FeeItem[]
   studentPayments     StudentPayment[]
   feeReminderConfig   FeeReminderConfig?
@@ -175,6 +177,8 @@ model Term {
   feeItems       FeeItem[]
   studentPayments StudentPayment[]
 
+  homeworks           Homework[]
+
   @@unique([sessionId, name])
   @@index([sessionId])
   @@map("terms")
@@ -208,6 +212,8 @@ model Class {
   addonTimetableEntries AddonTimetableEntry[]
   taughtTopics          TaughtTopic[]
   attendanceRecords     AttendanceRecord[]
+
+  homeworks           Homework[]
 
   @@unique([sessionId, level, section, department])
   @@index([schoolId])
@@ -313,6 +319,8 @@ model Subject {
   addonTimetableEntries AddonTimetableEntry[]
   taughtTopics          TaughtTopic[]
 
+  homeworks           Homework[]
+
   @@unique([schoolId, name])
   @@index([schoolId])
   @@map("subjects")
@@ -404,6 +412,7 @@ model Student {
   taughtTopics      TaughtTopic[]
   attendanceRecords AttendanceRecord[]
   payments          StudentPayment[]
+  homeworkAttempts  HomeworkAttempt[]
 
   originTransfers      GroupStudentTransferRecord[] @relation("TransferOriginStudent")
   destinationTransfers GroupStudentTransferRecord[] @relation("TransferDestinationStudent")
@@ -2440,4 +2449,105 @@ model ConversionEventDefinition {
   eventName       String   @unique // e.g. demo_request_submitted
   ga4EventMapping String
   isActive        Boolean  @default(true)
+}
+
+enum HomeworkStatus {
+  draft
+  published
+  closed
+}
+
+enum HomeworkAttemptStatus {
+  in_progress
+  submitted
+  graded
+}
+
+model Homework {
+  id            String         @id @default(cuid())
+  schoolId      String
+  classId       String
+  subjectId     String
+  termId        String
+  title         String
+  instructions  String?
+  dueDate       DateTime?
+  status        HomeworkStatus @default(draft)
+  createdBy     String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  school    School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject   Subject          @relation(fields: [subjectId], references: [id])
+  term      Term             @relation(fields: [termId], references: [id], onDelete: Cascade)
+  questions HomeworkQuestion[]
+  attempts  HomeworkAttempt[]
+
+  @@index([schoolId])
+  @@index([classId, subjectId, termId])
+  @@map("homework")
+}
+
+model HomeworkQuestion {
+  id                String         @id @default(cuid())
+  homeworkId        String
+  type              QuestionType
+  order             Int
+  marks             Float          @default(1)
+  text              String
+  options           Json?          // MCQ: [{ text: String, isCorrect: Boolean }] x4
+  rubric            Json?          // Essay: grading guidance
+  sourceQuestionId  String?        // provenance when imported from Question bank
+
+  homework Homework         @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  answers  HomeworkAnswer[]
+
+  @@index([homeworkId])
+  @@map("homework_questions")
+}
+
+model HomeworkAttempt {
+  id          String              @id @default(cuid())
+  homeworkId  String
+  studentId   String
+  schoolId    String
+  classId     String
+  termId      String
+  status      HomeworkAttemptStatus @default(in_progress)
+  mcqScore    Float     @default(0)
+  essayScore  Float?
+  totalScore  Float?
+  percentage  Float?
+  published   Boolean   @default(false)
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  homework Homework        @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student  Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers  HomeworkAnswer[]
+
+  @@unique([homeworkId, studentId])
+  @@index([studentId])
+  @@index([classId])
+  @@map("homework_attempts")
+}
+
+model HomeworkAnswer {
+  id                 String        @id @default(cuid())
+  attemptId          String
+  homeworkQuestionId String
+  type               QuestionType
+  response           Json          // MCQ: { selectedIndex: Int | null }; Essay: { text: String }
+  autoCorrect        Boolean?
+  autoScore          Float         @default(0)
+  teacherScore       Float?
+  teacherComment     String?
+  gradedAt           DateTime?
+
+  attempt        HomeworkAttempt    @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  homeworkQuestion HomeworkQuestion @relation(fields: [homeworkQuestionId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@map("homework_answers")
 }
