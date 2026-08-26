@@ -1,12 +1,24 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
-  createPaymentAction,
+  recordPaymentAction,
+  deletePaymentAction,
+  bulkRecordPaymentAction,
   type ActionState,
 } from "./actions";
 import { formatNaira } from "@/lib/format";
 import type { StudentFeeSummary } from "@/lib/fees/bursary";
+
+export interface PaymentRecord {
+  id: string;
+  studentId: string;
+  amount: number;
+  method: string;
+  note: string | null;
+  paymentDate: string | null;
+  createdAt: string;
+}
 
 interface PaymentRow {
   id: string;
@@ -15,6 +27,8 @@ interface PaymentRow {
   className: string;
   summary: StudentFeeSummary;
 }
+
+const METHODS = ["cash", "bank", "transfer", "pos", "cheque", "ussd"];
 
 const init: ActionState = {};
 
@@ -56,11 +70,20 @@ export function PaymentsManager({
   activeTermId,
   activeTermName,
   rows,
+  history,
 }: {
   activeTermId: string;
   activeTermName: string;
   rows: PaymentRow[];
+  history: PaymentRecord[];
 }) {
+  const byStudent = new Map<string, PaymentRecord[]>();
+  for (const h of history) {
+    const arr = byStudent.get(h.studentId) ?? [];
+    arr.push(h);
+    byStudent.set(h.studentId, arr);
+  }
+
   return (
     <section>
       <h2 className="font-headline-sm text-headline-sm text-on-surface mb-3">
@@ -81,7 +104,7 @@ export function PaymentsManager({
                 <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Paid ₦</th>
                 <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Balance ₦</th>
                 <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Status</th>
-                <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Record payment</th>
+                <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -90,12 +113,15 @@ export function PaymentsManager({
                   key={row.id}
                   row={row}
                   activeTermId={activeTermId}
+                  records={byStudent.get(row.id) ?? []}
                 />
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <BulkRecordForm activeTermId={activeTermId} />
     </section>
   );
 }
@@ -103,14 +129,14 @@ export function PaymentsManager({
 function PaymentRowItem({
   row,
   activeTermId,
+  records,
 }: {
   row: PaymentRow;
   activeTermId: string;
+  records: PaymentRecord[];
 }) {
-  const [state, action, pending] = useActionState(
-    createPaymentAction,
-    init,
-  );
+  const [state, action, pending] = useActionState(recordPaymentAction, init);
+  const [open, setOpen] = useState(false);
 
   return (
     <tr className="align-top">
@@ -134,6 +160,15 @@ function PaymentRowItem({
       </td>
       <td className="px-3 py-2">{statusBadge(row.summary.status)}</td>
       <td className="px-3 py-2">
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="font-label-sm text-label-sm text-primary hover:text-primary-container"
+          >
+            History{records.length > 0 ? ` (${records.length})` : ""}
+          </button>
+        </div>
         <form action={action} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="studentId" value={row.id} />
           <input type="hidden" name="termId" value={activeTermId} />
@@ -150,6 +185,14 @@ function PaymentRowItem({
             />
           </div>
           <div className="flex flex-col gap-1">
+            <label className="font-label-sm text-label-sm text-on-surface">Method</label>
+            <select name="method" defaultValue="cash" className={inputCls}>
+              {METHODS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
             <label className="font-label-sm text-label-sm text-on-surface">Date</label>
             <input name="date" type="date" className={inputCls} />
           </div>
@@ -163,7 +206,143 @@ function PaymentRowItem({
         </form>
         {state.error && <p className="mt-1 text-xs text-red-600">{state.error}</p>}
         {state.success && <p className="mt-1 text-xs text-green-600">{state.success}</p>}
+
+        {open && (
+          <HistoryDialog
+            studentName={row.name}
+            records={records}
+            onClose={() => setOpen(false)}
+          />
+        )}
       </td>
     </tr>
+  );
+}
+
+function HistoryDialog({
+  studentName,
+  records,
+  onClose,
+}: {
+  studentName: string;
+  records: PaymentRecord[];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-headline-sm text-headline-sm text-on-surface">
+            Payment history · {studentName}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface"
+          >
+            Close
+          </button>
+        </div>
+        {records.length === 0 ? (
+          <p className="mt-3 font-body-sm text-body-sm text-on-surface-variant">
+            No payments recorded for this term.
+          </p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {records.map((r) => (
+              <HistoryRow key={r.id} record={r} />
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HistoryRow({ record }: { record: PaymentRecord }) {
+  const [state, action, pending] = useActionState(
+    deletePaymentAction.bind(null, record.id),
+    init,
+  );
+  const when = record.paymentDate ?? record.createdAt;
+  return (
+    <li className="rounded-lg border border-outline-variant bg-surface-container p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-label-md text-label-md text-on-surface">
+            {formatNaira(record.amount)} · {record.method}
+          </div>
+          <div className="font-label-sm text-label-sm text-on-surface-variant">
+            {new Date(when).toLocaleDateString("en-NG")}
+            {record.note ? ` · ${record.note}` : ""}
+          </div>
+        </div>
+        <form action={action}>
+          <button
+            type="submit"
+            disabled={pending}
+            className="font-label-sm text-label-sm text-red-600 hover:text-red-800 disabled:opacity-60"
+          >
+            {pending ? "Deleting…" : "Delete"}
+          </button>
+        </form>
+      </div>
+      {state.error && <p className="mt-1 text-xs text-red-600">{state.error}</p>}
+      {state.success && <p className="mt-1 text-xs text-green-600">{state.success}</p>}
+    </li>
+  );
+}
+
+function BulkRecordForm({ activeTermId }: { activeTermId: string }) {
+  const [state, action, pending] = useActionState(bulkRecordPaymentAction, init);
+  return (
+    <section className="mt-8 bg-surface-container-lowest border border-outline-variant rounded-xl p-5">
+      <h2 className="font-headline-sm text-headline-sm text-on-surface">
+        Bulk record payments
+      </h2>
+      <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
+        Record the same amount for several students at once. Provide student IDs as a
+        JSON array, e.g. {"[\"id1\",\"id2\"]"}.
+      </p>
+      <form action={action} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+        <input type="hidden" name="termId" value={activeTermId} />
+        <div className="flex flex-col gap-1 lg:col-span-2">
+          <label className="font-label-md text-label-md text-on-surface">Student IDs (JSON)</label>
+          <input
+            name="studentIds"
+            placeholder='["id1","id2"]'
+            className={`${inputCls} w-full`}
+            required
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="font-label-md text-label-md text-on-surface">Amount (₦)</label>
+          <input name="amount" type="number" min="0" step="any" placeholder="0" className={inputCls} required />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="font-label-md text-label-md text-on-surface">Method</label>
+          <select name="method" defaultValue="cash" className={inputCls}>
+            {METHODS.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1 lg:col-span-2">
+          <label className="font-label-md text-label-md text-on-surface">Note</label>
+          <input name="note" placeholder="Optional" className={`${inputCls} w-full`} />
+        </div>
+        <button type="submit" disabled={pending} className={btnCls}>
+          {pending ? "Recording…" : "Bulk record"}
+        </button>
+      </form>
+      {state.error && <p className="mt-3 text-sm text-red-600">{state.error}</p>}
+      {state.success && <p className="mt-3 text-sm text-green-600">{state.success}</p>}
+    </section>
   );
 }

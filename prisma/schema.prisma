@@ -1444,6 +1444,7 @@ model StudentPayment {
   termId     String
   amount     Decimal
   method     String   @default("cash")
+  paymentDate DateTime?
   note       String?
   recordedBy String?
   createdAt  DateTime @default(now())

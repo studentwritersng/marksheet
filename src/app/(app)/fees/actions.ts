@@ -22,7 +22,7 @@ async function requireBursar() {
   return { user, schoolId: user.schoolId };
 }
 
-async function withContext(): Promise<{ user: Awaited<ReturnType<typeof getCurrentUser>>; schoolId: string } | null> {
+export async function withContext(): Promise<{ user: Awaited<ReturnType<typeof getCurrentUser>>; schoolId: string } | null> {
   try {
     return await requireBursar();
   } catch {
