@@ -36,6 +36,14 @@ export async function POST(req: Request) {
   const hmsToken = typeof body.hmsToken === "string" ? body.hmsToken.trim() : "";
   const platform = typeof body.platform === "string" && body.platform ? body.platform.slice(0, 32) : "android";
 
+  console.log("[push:register] incoming", {
+    userId: user.userId,
+    schoolId: user.schoolId,
+    via: fcmToken ? "fcm" : hmsToken ? "hms" : "none",
+    tokenLen: (fcmToken || hmsToken).length,
+    platform,
+  });
+
   if (fcmToken) {
     if (fcmToken.length < MIN_TOKEN_LEN || fcmToken.length > MAX_TOKEN_LEN) {
       return NextResponse.json({ error: "Invalid fcmToken" }, { status: 400 });
@@ -57,6 +65,11 @@ export async function POST(req: Request) {
   } else {
     return NextResponse.json({ error: "Missing fcmToken or hmsToken" }, { status: 400 });
   }
+
+  console.log("[push:register] registered", {
+    userId: user.userId,
+    via: fcmToken ? "fcm" : "hms",
+  });
 
   return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 }

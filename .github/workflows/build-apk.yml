@@ -11,6 +11,11 @@ jobs:
     defaults:
       run:
         working-directory: mobile-app
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,18 +49,29 @@ jobs:
             test -f android/app/google-services.json && echo "Using committed google-services.json"
           fi
 
+      - name: Decode release keystore (if configured)
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release-keystore.jks
+            echo "BUILD_VARIANT=Release" >> "$GITHUB_ENV"
+            echo "release keystore restored"
+          else
+            echo "BUILD_VARIANT=Debug" >> "$GITHUB_ENV"
+            echo "No release keystore secret — building debug APK"
+          fi
+
       - name: Install dependencies
         run: npm ci || npm install
 
       - name: Sync Capacitor assets into the native project
         run: npx cap sync android
 
-      - name: Assemble debug APK
-        run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - name: Assemble APK
+        run: cd android && chmod +x gradlew && ./gradlew "assemble$BUILD_VARIANT"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: mobile-app/android/app/build/outputs/apk/debug/app-debug.apk
+          name: app-apk
+          path: mobile-app/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error

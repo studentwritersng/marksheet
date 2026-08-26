@@ -283,6 +283,84 @@ export default async function DashboardPage() {
 
   const initials = displayName.charAt(0).toUpperCase();
 
+  if (user.role === "parent") {
+    const guardians = await prisma.guardian.findMany({
+      where: { parentUserId: user.userId },
+      select: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            status: true,
+            currentClass: { select: { name: true } },
+          },
+        },
+      },
+    });
+    const wards = guardians
+      .map((g) => g.student)
+      .filter((s): s is NonNullable<typeof s> => Boolean(s));
+
+    return (
+      <section className="flex flex-col gap-stack-lg">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0">
+            {initials}
+          </div>
+          <div>
+            <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
+              {greeting()}, {displayName}
+            </h2>
+            <p className="font-body-md text-body-md text-on-surface-variant mt-1">
+              {school?.name ?? "Dashboard"} &middot; Parent Portal
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="My Children" value={wards.length} icon="group" gradient="from-sky-500 to-sky-700" />
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-outline-variant p-5">
+          <h3 className="font-label-md text-label-md text-on-surface mb-3">My Children</h3>
+          {wards.length === 0 ? (
+            <p className="font-body-sm text-body-sm text-on-surface-variant">No children linked to this account yet.</p>
+          ) : (
+            <ul className="divide-y divide-outline-variant">
+              {wards.map((w) => (
+                <li key={w.id} className="flex items-center justify-between py-3">
+                  <span className="font-body-md text-on-surface">
+                    {w.firstName} {w.lastName}
+                  </span>
+                  <span className="font-body-sm text-body-sm text-on-surface-variant">
+                    {w.currentClass?.name ?? "Unassigned"}
+                    {w.status === "active" ? "" : ` · ${w.status}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5">
+          <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-3">Quick Links</h3>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/announcements" className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary bg-primary-container/10 px-3 py-1.5 rounded-lg hover:bg-primary-container/20">
+              <span className="material-symbols-outlined text-[16px]">campaign</span> Announcements
+            </Link>
+            <Link href="/my-notifications" className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary bg-primary-container/10 px-3 py-1.5 rounded-lg hover:bg-primary-container/20">
+              <span className="material-symbols-outlined text-[16px]">notifications</span> My Notifications
+            </Link>
+            <Link href="/fee-status" className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary bg-primary-container/10 px-3 py-1.5 rounded-lg hover:bg-primary-container/20">
+              <span className="material-symbols-outlined text-[16px]">payments</span> Fee Status
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   // ── Teacher dashboard ────────────────────────────────────────────────
   if (!admin) {
     const myStaff = user.staffId

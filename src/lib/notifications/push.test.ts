@@ -139,8 +139,9 @@ describe("deliverPushForNotification", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("skips muted parents (notificationPreferences.pushActive === false)", async () => {
+  it("notifies parents for all events (preferences are ignored — no opt-out)", async () => {
     setFcmEnv();
+    happyDb();
     mockUserFindUnique.mockResolvedValue({ email: "p@x.com" });
     mockParentAccountFindFirst.mockResolvedValue({
       notificationPreferences: { smsActive: true, pushActive: false, enabledEvents: [] },
@@ -150,8 +151,7 @@ describe("deliverPushForNotification", () => {
       { recipientType: "parent", recipientId: "u1", eventType: "e", title: null, content: "hi" },
       fetchMock as unknown as typeof fetch,
     );
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(mockDevicesFindMany).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   it("prunes devices whose token Google reports as UNREGISTERED", async () => {

@@ -61,17 +61,6 @@ export async function resolvePushUserIds(recipientType: string, recipientId: str
   return [];
 }
 
-async function isParentPushMuted(userId: string): Promise<boolean> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-  if (!user?.email) return false;
-  const account = await prisma.parentAccount.findFirst({
-    where: { email: user.email },
-    select: { notificationPreferences: true },
-  });
-  const prefs = (account?.notificationPreferences ?? null) as { pushActive?: boolean } | null;
-  return prefs?.pushActive === false;
-}
-
 // ── OAuth2 access-token minting (RS256 JWT bearer) ─────────────────────────
 
 function b64url(value: Buffer | string): string {
@@ -169,8 +158,6 @@ export async function deliverPushForNotification(
 
     const userIds = await resolvePushUserIds(input.recipientType, input.recipientId);
 
-    if (input.recipientType === "parent" && (await isParentPushMuted(userIds[0]))) return;
-
     const devices = await prisma.pushDevice.findMany({
       where: { userId: { in: userIds } },
       select: { id: true, fcmToken: true, hmsToken: true },
@@ -195,7 +182,7 @@ export async function deliverPushForNotification(
           outcome = await sendHuaweiPush(
             {
               hmsToken: device.hmsToken,
-              title: payload.title,
+              title: payload.title ?? "New notification",
               body: payload.body,
               eventType: payload.eventType,
               url: payload.url,

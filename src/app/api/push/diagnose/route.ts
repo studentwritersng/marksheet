@@ -19,6 +19,8 @@ export async function GET() {
     prisma.pushDevice.count(),
   ]);
 
+  console.log("[push:diagnose]", { userId: user.userId, myDevices, totalDevices });
+
   return NextResponse.json({
     pushConfigured: isPushConfigured(),
     fcmProjectId: process.env.FCM_PROJECT_ID ?? null,

@@ -9,25 +9,19 @@ export default async function ParentSettingsPage() {
 
   const parentAccount = await prisma.parentAccount.findUnique({
     where: { email: user.email },
-    select: { id: true, notificationPreferences: true, phone: true },
+    select: { phone: true },
   });
-
-  const initialPrefs = parentAccount?.notificationPreferences as Record<string, unknown> | null ?? {};
 
   return (
     <section className="flex flex-col gap-stack-lg">
       <div>
-        <h1 className="font-headline-lg text-headline-lg text-on-surface">Notification Preferences</h1>
+        <h1 className="font-headline-lg text-headline-lg text-on-surface">Account</h1>
         <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-          Choose how you receive updates about your ward&apos;s activities
+          Your contact and notification details
         </p>
       </div>
 
-      <ParentSettingsClient
-        parentAccountId={parentAccount?.id ?? ""}
-        initialPrefs={initialPrefs}
-        phone={parentAccount?.phone ?? null}
-      />
+      <ParentSettingsClient phone={parentAccount?.phone ?? null} />
     </section>
   );
 }
