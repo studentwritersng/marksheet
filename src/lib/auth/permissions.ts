@@ -22,6 +22,7 @@ export interface EffectivePermissions {
   isSchoolAdmin: boolean;
   isExamOfficer: boolean;
   isFeeStatusManager: boolean;
+  isBursar: boolean;
   isReceptionist: boolean;
   assignments: ResolvedAssignment[];
   // Distinct scope sets derived from assignments
@@ -46,6 +47,7 @@ export async function resolvePermissions(
     isSchoolAdmin: false,
     isExamOfficer: false,
     isFeeStatusManager: false,
+    isBursar: false,
     isReceptionist: false,
     assignments: [],
     subjectTeacherClassIds: new Set(),
@@ -123,6 +125,9 @@ export async function resolvePermissions(
       case "fee_status_manager":
         result.isFeeStatusManager = true;
         break;
+      case "bursar":
+        result.isBursar = true;
+        break;
       case "subject_teacher":
         if (a.classId) {
           result.subjectTeacherClassIds.add(a.classId);
@@ -157,4 +162,9 @@ export async function resolvePermissions(
 /** School Admin OR Super Admin — full school-level management access. */
 export function canManageSchool(p: EffectivePermissions): boolean {
   return p.isSuperAdmin || p.isSchoolAdmin;
+}
+
+/** Super Admin, School Admin, Fee Status Manager, or Bursar — manage fees. */
+export function canManageFees(perms: EffectivePermissions): boolean {
+  return perms.isSuperAdmin || perms.isSchoolAdmin || perms.isFeeStatusManager || perms.isBursar;
 }

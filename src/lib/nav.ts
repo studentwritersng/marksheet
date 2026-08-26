@@ -1,4 +1,5 @@
 import type { EffectivePermissions } from "@/lib/auth/permissions";
+import { canManageFees } from "@/lib/auth/permissions";
 import type { SessionPayload } from "@/lib/auth/session";
 
 export interface NavItem {
@@ -74,6 +75,11 @@ export function buildNav(
         { label: "Billing & License", href: "/billing", icon: "account_balance_wallet" },
       ]},
       { label: "Fee Status", href: "/fee-status", icon: "account_balance_wallet" },
+      { label: "Bursary", icon: "account_balance_wallet", children: [
+        { label: "Fee Menu", href: "/fees", icon: "receipt_long" },
+        { label: "Payments", href: "/fees/payments", icon: "payments" },
+        { label: "Reminders", href: "/fees/reminders", icon: "campaign" },
+      ]},
       { label: "System", icon: "settings", children: [
         { label: "Announcements", href: "/announcements", icon: "campaign" },
         { label: "Audit Log", href: "/audit-log", icon: "history" },

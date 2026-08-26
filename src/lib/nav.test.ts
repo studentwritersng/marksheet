@@ -21,6 +21,7 @@ function teacherPerms(): EffectivePermissions {
     isSchoolAdmin: false,
     isExamOfficer: false,
     isFeeStatusManager: false,
+    isBursar: false,
     isReceptionist: false,
     assignments: [],
     subjectTeacherClassIds: new Set(),
