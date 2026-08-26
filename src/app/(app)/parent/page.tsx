@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { getStudentFeeSummary } from "@/lib/fees/bursary";
+import { formatNaira } from "@/lib/format";
+import { FeeStatusBadge } from "@/components/fee-status-badge";
 
 export default async function ParentDashboardPage() {
   const user = await getCurrentUser();
@@ -23,6 +26,22 @@ export default async function ParentDashboardPage() {
     },
   });
 
+  // Resolve the active term so we can compute a per-ward fee summary.
+  const currentSession = user.schoolId
+    ? await prisma.session.findFirst({
+        where: { schoolId: user.schoolId, isCurrent: true },
+        include: { terms: { orderBy: { name: "asc" } } },
+      })
+    : null;
+  const activeTerm =
+    currentSession?.terms.find((t) => t.isCurrent) ?? currentSession?.terms[0] ?? null;
+
+  const summaries = await Promise.all(
+    guardians.map((g) =>
+      activeTerm ? getStudentFeeSummary(g.student.id, activeTerm.id) : null,
+    ),
+  );
+
   if (guardians.length === 0) {
     return (
       <div className="flex flex-col gap-stack-lg">
@@ -42,9 +61,10 @@ export default async function ParentDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {guardians.map((g) => {
+        {guardians.map((g, i) => {
           const s = g.student;
           const latestResult = s.termResults[0];
+          const summary = summaries[i];
           return (
             <Link
               key={s.id}
@@ -78,6 +98,34 @@ export default async function ParentDashboardPage() {
               {!latestResult && (
                 <p className="font-body-sm text-body-sm text-on-surface-variant">No results yet.</p>
               )}
+
+              <div className="mt-4 border-t border-outline-variant pt-3">
+                {summary?.hasStructure ? (
+                  <div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <p className="font-label-sm text-label-sm text-on-surface-variant">Expected</p>
+                        <p className="font-label-md text-label-md text-on-surface">{formatNaira(summary.expected)}</p>
+                      </div>
+                      <div>
+                        <p className="font-label-sm text-label-sm text-on-surface-variant">Paid</p>
+                        <p className="font-label-md text-label-md text-on-surface">{formatNaira(summary.paid)}</p>
+                      </div>
+                      <div>
+                        <p className="font-label-sm text-label-sm text-on-surface-variant">Balance</p>
+                        <p className="font-label-md text-label-md text-on-surface">{formatNaira(summary.balance)}</p>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <FeeStatusBadge status={summary.status} />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="font-body-sm text-body-sm text-on-surface-variant italic">
+                    No fee structure set for this term.
+                  </p>
+                )}
+              </div>
             </Link>
           );
         })}

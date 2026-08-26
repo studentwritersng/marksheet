@@ -2,9 +2,12 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
+import { getStudentFeeSummary, getStudentFeeSummaryBatch, type StudentFeeSummary } from "@/lib/fees/bursary";
+import { formatNaira } from "@/lib/format";
 import { FeeStatusTable } from "./fee-status-table";
 import { TermSelector } from "./term-selector";
 import { ClassSelector } from "./class-selector";
+import { FeeStatusBadge } from "@/components/fee-status-badge";
 
 export default async function FeeStatusPage(props: {
   searchParams: Promise<{ termId?: string; classId?: string }>;
@@ -41,6 +44,11 @@ export default async function FeeStatusPage(props: {
       : [];
     const feeMap = new Map(feeStatuses.map((fs) => [fs.termId, fs]));
 
+    const summaries: Record<string, StudentFeeSummary> = {};
+    for (const termId of termIds) {
+      summaries[termId] = await getStudentFeeSummary(student.id, termId);
+    }
+
     return (
       <section className="flex flex-col gap-6 max-w-lg">
         <div>
@@ -68,10 +76,10 @@ export default async function FeeStatusPage(props: {
             <div className="divide-y divide-outline-variant">
               {currentSession.terms.map((term) => {
                 const fs = feeMap.get(term.id);
-                const status = fs?.status ?? "not_cleared";
+                const sum = summaries[term.id];
                 return (
-                  <div key={term.id} className="px-5 py-4 flex items-center justify-between">
-                    <div>
+                  <div key={term.id} className="px-5 py-4">
+                    <div className="flex items-center justify-between">
                       <p className="font-label-md text-label-md text-on-surface">
                         {term.name} Term
                         {term.isCurrent && (
@@ -80,16 +88,36 @@ export default async function FeeStatusPage(props: {
                           </span>
                         )}
                       </p>
-                      <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                        {currentSession.label}
-                      </p>
-                      {fs?.notes && (
-                        <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 italic">
-                          Note: {fs.notes}
-                        </p>
-                      )}
+                      {sum && <FeeStatusBadge status={sum.status} />}
                     </div>
-                    <StudentFeeBadge status={status} />
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                      {currentSession.label}
+                    </p>
+                    {fs?.notes && (
+                      <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 italic">
+                        Note: {fs.notes}
+                      </p>
+                    )}
+                    {sum?.hasStructure ? (
+                      <dl className="mt-3 grid grid-cols-3 gap-3">
+                        <div>
+                          <dt className="font-label-sm text-label-sm text-on-surface-variant">Expected</dt>
+                          <dd className="font-headline-sm text-headline-sm text-on-surface">{formatNaira(sum.expected)}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-label-sm text-label-sm text-on-surface-variant">Paid</dt>
+                          <dd className="font-headline-sm text-headline-sm text-on-surface">{formatNaira(sum.paid)}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-label-sm text-label-sm text-on-surface-variant">Balance</dt>
+                          <dd className="font-headline-sm text-headline-sm text-on-surface">{formatNaira(sum.balance)}</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p className="mt-2 font-body-sm text-body-sm text-on-surface-variant italic">
+                        No fee structure set for this class/term.
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -135,7 +163,7 @@ export default async function FeeStatusPage(props: {
     );
   }
 
-  const [students, feeStatuses] = await Promise.all([
+  const [students, feeStatuses, summaryMap] = await Promise.all([
     prisma.student.findMany({
       where: {
         schoolId: user.schoolId,
@@ -148,6 +176,7 @@ export default async function FeeStatusPage(props: {
     prisma.feeStatus.findMany({
       where: { termId: selectedTermId },
     }),
+    getStudentFeeSummaryBatch(user.schoolId, selectedTermId),
   ]);
 
   const feeStatusMap = new Map(feeStatuses.map((fs) => [fs.studentId, fs]));
@@ -185,6 +214,7 @@ export default async function FeeStatusPage(props: {
           selectedTermId={selectedTermId}
           students={students.map((s) => {
             const fs = feeStatusMap.get(s.id);
+            const sum = summaryMap.get(s.id);
             return {
               id: s.id,
               admissionNumber: s.admissionNumber,
@@ -193,38 +223,14 @@ export default async function FeeStatusPage(props: {
               className: s.currentClass?.name ?? "—",
               status: fs?.status ?? "not_cleared",
               notes: fs?.notes ?? "",
+              expected: sum?.expected ?? 0,
+              paid: sum?.paid ?? 0,
+              balance: sum?.balance ?? 0,
+              hasStructure: sum?.hasStructure ?? false,
             };
           })}
         />
       </div>
     </div>
-  );
-}
-
-// ── Purely presentational badge for the student view ─────────────────────────
-function StudentFeeBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string; icon: string }> = {
-    cleared: {
-      label: "Cleared",
-      cls: "bg-green-100 text-green-800 border border-green-200",
-      icon: "✓",
-    },
-    partial: {
-      label: "Partial",
-      cls: "bg-amber-100 text-amber-800 border border-amber-200",
-      icon: "◑",
-    },
-    not_cleared: {
-      label: "Not Cleared",
-      cls: "bg-red-100 text-red-800 border border-red-200",
-      icon: "✗",
-    },
-  };
-  const { label, cls, icon } = map[status] ?? map.not_cleared;
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-label-sm text-label-sm font-semibold ${cls}`}>
-      <span>{icon}</span>
-      {label}
-    </span>
   );
 }

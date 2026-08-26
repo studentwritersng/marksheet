@@ -2,6 +2,7 @@
 
 import { useState, useActionState, useTransition, Fragment } from "react";
 import { updateFeeStatusAction, bulkUpdateFeeStatusAction, type ActionState } from "./actions";
+import { formatNaira } from "@/lib/format";
 
 interface StudentRow {
   id: string;
@@ -11,6 +12,10 @@ interface StudentRow {
   className: string;
   status: string;
   notes: string;
+  expected: number;
+  paid: number;
+  balance: number;
+  hasStructure: boolean;
 }
 
 const init: ActionState = {};
@@ -102,9 +107,12 @@ export function FeeStatusTable({
               </th>
               <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Admission</th>
               <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Name</th>
-              <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Class</th>
-              <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Status</th>
-              <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Action</th>
+               <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Class</th>
+               <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Expected ₦</th>
+               <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Paid ₦</th>
+               <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Balance ₦</th>
+               <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Status</th>
+               <th className="px-3 py-2 font-label-md text-label-md text-on-surface">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -132,10 +140,19 @@ export function FeeStatusTable({
                   >
                     {s.firstName} {s.lastName}
                   </td>
-                  <td className="px-3 py-2 font-label-sm text-label-sm text-on-surface-variant">{s.className}</td>
-                  <td className="px-3 py-2">
-                    <FeeBadge status={s.status} />
-                  </td>
+                   <td className="px-3 py-2 font-label-sm text-label-sm text-on-surface-variant">{s.className}</td>
+                   <td className="px-3 py-2 font-label-sm text-label-sm text-on-surface">
+                     {s.hasStructure ? formatNaira(s.expected) : "—"}
+                   </td>
+                   <td className="px-3 py-2 font-label-sm text-label-sm text-on-surface">
+                     {s.hasStructure ? formatNaira(s.paid) : "—"}
+                   </td>
+                   <td className="px-3 py-2 font-label-sm text-label-sm text-on-surface">
+                     {s.hasStructure ? formatNaira(s.balance) : "—"}
+                   </td>
+                   <td className="px-3 py-2">
+                     <FeeBadge status={s.status} />
+                   </td>
                   <td className="px-3 py-2">
                     <form action={action} onClick={(e) => e.stopPropagation()}>
                       <input type="hidden" name="studentId" value={s.id} />
@@ -163,7 +180,7 @@ export function FeeStatusTable({
                 </tr>
                 {expanded === s.id && (
                   <tr className="bg-surface-container-low">
-                    <td colSpan={6} className="px-3 py-2">
+                     <td colSpan={9} className="px-3 py-2">
                       <form action={action}>
                         <input type="hidden" name="studentId" value={s.id} />
                         <input type="hidden" name="termId" value={selectedTermId} />
