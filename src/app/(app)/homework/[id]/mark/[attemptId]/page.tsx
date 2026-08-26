@@ -50,6 +50,13 @@ export default async function MarkAttemptPage({
       </p>
     );
   }
+  if (attempt.homework.schoolId !== manager.schoolId) {
+    return (
+      <p className="font-body-sm text-body-sm text-on-surface-variant">
+        Not authorised.
+      </p>
+    );
+  }
 
   const homework = {
     id: attempt.homework.id,
