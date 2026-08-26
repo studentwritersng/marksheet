@@ -120,6 +120,37 @@ export async function markAllReadAction(): Promise<{ count: number }> {
 }
 
 // ---------------------------------------------------------------------------
+// Delete a single notification (scoped to the current user)
+// ---------------------------------------------------------------------------
+
+export async function deleteNotificationAction(notificationId: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) return;
+  const nt = user.role === "parent" ? "parent" : user.role === "student" ? "student" : "staff";
+  const nid = user.role === "student" ? user.userId : user.role === "parent" ? user.userId : user.staffId ?? user.userId;
+  await prisma.notification.deleteMany({
+    where: { id: notificationId, recipientType: nt, recipientId: nid },
+  });
+  revalidatePath("/");
+}
+
+// ---------------------------------------------------------------------------
+// Delete all of the current user's notifications
+// ---------------------------------------------------------------------------
+
+export async function deleteAllMyNotificationsAction(): Promise<{ count: number }> {
+  const user = await getCurrentUser();
+  if (!user) return { count: 0 };
+  const nt = user.role === "parent" ? "parent" : user.role === "student" ? "student" : "staff";
+  const nid = user.role === "student" ? user.userId : user.role === "parent" ? user.userId : user.staffId ?? user.userId;
+  const result = await prisma.notification.deleteMany({
+    where: { recipientType: nt, recipientId: nid },
+  });
+  revalidatePath("/");
+  return { count: result.count };
+}
+
+// ---------------------------------------------------------------------------
 // Fetch recent notifications for the current user
 // ---------------------------------------------------------------------------
 

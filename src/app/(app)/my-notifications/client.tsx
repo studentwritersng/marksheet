@@ -5,6 +5,8 @@ import {
   getMyNotifications,
   markNotificationReadAction,
   markAllReadAction,
+  deleteNotificationAction,
+  deleteAllMyNotificationsAction,
   type NotificationVM,
 } from "@/lib/notifications/actions";
 
@@ -30,9 +32,16 @@ export function NotificationsInbox() {
     setUnread((u) => Math.max(0, u - 1));
   };
 
-  const markAll = async () => {
-    await markAllReadAction();
-    setItems((prev) => prev.map((x) => ({ ...x, isRead: true })));
+  const handleDelete = async (id: string) => {
+    const wasUnread = !items.find((x) => x.id === id)?.isRead;
+    await deleteNotificationAction(id);
+    setItems((prev) => prev.filter((x) => x.id !== id));
+    if (wasUnread) setUnread((u) => Math.max(0, u - 1));
+  };
+
+  const handleClearAll = async () => {
+    await deleteAllMyNotificationsAction();
+    setItems([]);
     setUnread(0);
   };
 
@@ -46,23 +55,29 @@ export function NotificationsInbox() {
 
   return (
     <div className="flex flex-col gap-3">
-      {unread > 0 && (
-        <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        {unread > 0 && (
           <button
-            onClick={markAll}
+            onClick={markAllReadAction}
             className="font-label-sm text-label-sm text-primary hover:underline"
           >
             Mark all read
           </button>
-        </div>
-      )}
+        )}
+        <button
+          onClick={handleClearAll}
+          className="font-label-sm text-label-sm text-error hover:underline"
+        >
+          Clear all
+        </button>
+      </div>
 
       <div className="flex flex-col gap-2">
         {items.map((n) => (
-          <button
+          <div
             key={n.id}
             onClick={() => markRead(n.id)}
-            className={`text-left w-full bg-surface-container-lowest border border-outline-variant rounded-xl p-4 transition-colors hover:bg-surface-container-low ${
+            className={`cursor-pointer w-full bg-surface-container-lowest border border-outline-variant rounded-xl p-4 transition-colors hover:bg-surface-container-low ${
               !n.isRead ? "border-primary/40 bg-primary-container/5" : ""
             }`}
           >
@@ -70,9 +85,21 @@ export function NotificationsInbox() {
               <span className="font-label-md text-label-md text-on-surface truncate">
                 {n.title ?? n.eventType}
               </span>
-              <span className="font-label-sm text-label-sm text-on-surface-variant/70 shrink-0">
-                {new Date(n.sentAt).toLocaleString()}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-label-sm text-label-sm text-on-surface-variant/70 shrink-0">
+                  {new Date(n.sentAt).toLocaleString()}
+                </span>
+                <button
+                  aria-label="Delete notification"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(n.id);
+                  }}
+                  className="text-on-surface-variant hover:text-error transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                </button>
+              </div>
             </div>
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 whitespace-pre-line break-words">
               {n.content}
@@ -82,7 +109,7 @@ export function NotificationsInbox() {
                 Mark as read
               </span>
             )}
-          </button>
+          </div>
         ))}
       </div>
     </div>
