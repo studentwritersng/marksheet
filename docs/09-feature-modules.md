@@ -138,10 +138,54 @@ Two modes:
 
 ## 14. Fee status
 
-`FeeStatus` per student×term (`cleared`/`not_cleared`/`partial`). `feeGateExams`/`feeGateResults` on `School` control whether unpaid students are blocked from exams/results. Gate logic in `src/lib/fees/gate.ts`.
+The per-student fee status (`cleared` / `partial` / `not_paid`) is **derived** from the fee structure (`FeeItem`s) and recorded payments (`StudentPayment`s) via `getStudentFeeSummary` in `src/lib/fees/bursary.ts` — it is no longer hand-set on the `FeeStatus` row. `feeGateExams`/`feeGateResults` on `School` (logic in `src/lib/fees/gate.ts`) control whether unpaid students are blocked from exams/results. Full fee management — structure, payments, reminders — is covered in §17.
 
 ## 15. Data imports/exports
 
 - `src/lib/csv/` — student + question import parsers + downloadable templates.
 - `src/lib/export/` — `csv.ts`, `doc.ts`, `pdf.ts`, `xlsx.ts` exporters (report cards, broadsheets, attendance).
 - Client-side libraries: `papaparse`, `xlsx`, `jspdf`, `html2canvas` (print to PDF), `file-saver`.
+
+## 16. Homework (Take-home Assignments)
+
+**Purpose:** Teachers set take-home assignments (MCQ + essay questions) for a class/subject/term; students attempt them; MCQs auto-grade and essays are teacher-marked; scores publish to the student and surface on the parent portal.
+
+**Files:**
+- `src/app/(app)/homework/actions.ts` — `createHomeworkAction`, `publishHomeworkAction` (draft → published), `submitHomeworkAction`, `markHomeworkAction`
+- `src/app/(app)/homework/auth.ts` — `requireHomeworkManager` (teacher) / `requireStudentSelf` (student) guards
+- `src/app/(app)/homework/*` — teacher pages (list, `new`, `[id]` detail, `[id]/mark` grading)
+- `src/lib/homework/grading.ts` — MCQ auto-grade + essay scoring
+- `src/app/(app)/student/homework/*` — student list + take flow (`[id]/take-client.tsx`)
+- `src/app/(app)/parent/ward/[studentId]/page.tsx` — shows each ward's homework status + score
+- `src/app/(app)/parent/results/page.tsx` — parent Academic Hub aggregates published homework across all wards
+
+**Models:** `Homework` (status `draft`/`published`, `classId`, `subjectId`, `termId`, `dueDate`), `HomeworkQuestion` (`mcq`/`essay`, `marks`), `HomeworkAttempt` (per student: `mcqScore`, `essayScore`, `totalScore`, `percentage`, `status`, `published`).
+
+**Flow:**
+1. Teacher builds homework (questions from the bank or ad-hoc) and publishes it → visible to students in the assigned class.
+2. Student opens `/student/homework`, attempts the paper; MCQs grade instantly, essays await teacher marking.
+3. Teacher marks essays at `/homework/[id]/mark`; the attempt's `totalScore`/`percentage` is set and `published` so the student/parent can see it.
+4. Parent portal surfaces homework status + score per ward, and the Academic Hub (`/parent/results`) lists published homework for all wards.
+
+> Gotcha: homework visibility is gated on `Homework.status === "published"`; unpublished drafts are invisible to students. Use `requireHomeworkManager` for teacher routes and `requireStudentSelf` for student routes.
+
+## 17. Bursary & Fee Management
+
+**Purpose:** Define per-term fee structures, record student payments, derive each student's fee status, and run automated fee reminders. Surfaced to fee managers via the "Bursary" nav menu (when `canManageFees`).
+
+**Files:**
+- `src/lib/fees/bursary.ts` — `getStudentFeeSummary`, `getStudentFeeSummaryBatch`, `deriveFeeStatus` (expected vs paid → `cleared`/`partial`/`not_paid`/`no_structure`)
+- `src/app/(app)/fees/page.tsx` + `fees-manager.tsx` — Fee Menu
+- `src/app/(app)/fees/payments/*` — record/view payments (`StudentPayment`)
+- `src/app/(app)/fees/reminders/*` — reminder config + send (`FeeReminderConfig`)
+- `src/lib/fees/gate.ts` — `feeGateExams` / `feeGateResults` (also used by §2/§14)
+
+**Models:** `FeeItem` (per `termId`+`level`, `amount`), `StudentPayment` (`amount`, `method`, `recordedBy`), `FeeStatus` (legacy per-student×term `cleared`/`not_cleared`/`partial` — now superseded by the derived status in `bursary.ts`), `FeeReminderConfig` (`weeklyEnabled`, `dayOfWeek`, `lastSentAt`).
+
+**Flow:**
+1. School sets `FeeItem`s per term and class level; expected fee = sum of items for the student's level.
+2. Bursar records `StudentPayment`s; `getStudentFeeSummary` derives `status` from expected vs paid (balance/overpaid computed).
+3. Fee status is **no longer hand-set** — it is fetched/derived from payments. The parent dashboard's fee-status quick link and `/fee-status` render this derived status.
+4. `FeeReminderConfig` drives weekly automated reminders; `/fees/reminders` configures the day and enables/disables them.
+
+> Gotcha: fee status visibility and exam/result gating still run through `src/lib/fees/gate.ts` (`feeGateExams`/`feeGateResults` on `School`). The derived status in `bursary.ts` is the single source of truth for `cleared`/`partial`/`not_paid`.
