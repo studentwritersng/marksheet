@@ -1545,6 +1545,21 @@ model Announcement {
   @@map("announcements")
 }
 
+model PlatformAd {
+  id          String   @id @default(cuid())
+  title       String
+  blobUrl     String
+  targetRoles String[] // subset of SessionPayload.role values
+  expiresAt   DateTime? // null = never expires
+  active      Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active, expiresAt])
+  @@map("platform_ads")
+}
+
 enum LicenseDurationType {
   monthly
   termly
