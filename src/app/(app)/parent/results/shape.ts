@@ -29,6 +29,7 @@ export interface HubTermResult {
 
 export interface HubHomework {
   id: string;
+  termId: string;
   title: string;
   subjectName: string;
   dueDate: string | null;
@@ -41,6 +42,7 @@ export interface HubHomework {
 
 export interface HubExam {
   id: string;
+  termId: string;
   subjectName: string;
   assessmentTypeLabel: string;
   examMark: number | null;

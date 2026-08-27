@@ -125,6 +125,7 @@ export async function getAcademicHub(user: SessionPayload): Promise<AcademicHubD
         const attempt = h.attempts.find((a) => a.studentId === s.id) ?? null;
         return {
           id: h.id,
+          termId: h.termId,
           title: h.title,
           subjectName: h.subject.name,
           dueDate: h.dueDate ? h.dueDate.toISOString() : null,
@@ -151,6 +152,7 @@ export async function getAcademicHub(user: SessionPayload): Promise<AcademicHubD
         const raw = (subj?.assessmentScores as Record<string, number> | null)?.[code] ?? null;
         return {
           id: e.id,
+          termId: e.termId,
           subjectName: e.subject.name,
           assessmentTypeLabel: label,
           examMark: typeof raw === "number" ? raw : null,
