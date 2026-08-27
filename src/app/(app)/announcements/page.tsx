@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolvePermissions, canManageSchool } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { AnnouncementsList } from "./announcements-list";
 import { AnnouncementBanner } from "@/components/announcement-banner";
 
@@ -38,7 +39,7 @@ export default async function AnnouncementsPage() {
                 <h3 className="font-label-md text-label-md text-on-surface font-semibold">{a.title}</h3>
                 {a.isSticky && <span className="rounded-full bg-primary-container text-on-primary-container px-2 py-0.5 text-[11px] font-medium">Sticky</span>}
               </div>
-              <div className="font-body-sm text-body-sm text-on-surface-variant [&_a]:text-primary [&_a]:underline" dangerouslySetInnerHTML={{ __html: a.content }} />
+              <div className="font-body-sm text-body-sm text-on-surface-variant [&_a]:text-primary [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(a.content) }} />
             </div>
           ))}
           {announcements.length === 0 && (

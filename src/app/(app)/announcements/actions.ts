@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/auth/guards";
 import { guardActiveLicense } from "@/lib/license";
 import { createNotification } from "@/lib/notifications/actions";
+import { sanitizeHtml } from "@/lib/sanitize";
 export interface ActionState {
   error?: string;
   success?: string;
@@ -16,7 +17,7 @@ export async function createAnnouncementAction(_prev: ActionState, formData: For
   try { await guardActiveLicense(ctx.schoolId); } catch (e: any) { return { error: e.message }; }
 
   const title = (formData.get("title") as string)?.trim();
-  const content = (formData.get("content") as string)?.trim();
+  const content = sanitizeHtml((formData.get("content") as string) ?? "");
   const rawRoles = formData.getAll("targetRoles[]") as string[];
   const isSticky = formData.get("isSticky") === "on";
   const publishMode = formData.get("publishMode") as string;

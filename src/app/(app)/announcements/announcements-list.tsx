@@ -3,6 +3,7 @@
 import { useState, useActionState } from "react";
 import { createAnnouncementAction, deleteAnnouncementAction } from "./actions";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { sanitizeHtml } from "@/lib/sanitize";
 import type { Announcement } from "@prisma/client";
 
 export function AnnouncementsList({ announcements: initial }: { announcements: Announcement[] }) {
@@ -46,7 +47,7 @@ export function AnnouncementsList({ announcements: initial }: { announcements: A
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>{st.text}</span>
                     {a.isSticky && <span className="rounded-full bg-primary-container text-on-primary-container px-2 py-0.5 text-[11px] font-medium">Sticky</span>}
                   </div>
-                  <div className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 [&_a]:text-primary [&_a]:underline" dangerouslySetInnerHTML={{ __html: a.content }} />
+                  <div className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 [&_a]:text-primary [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(a.content) }} />
                   <div className="flex items-center gap-3 mt-2 text-[11px] text-on-surface-variant">
                     <span>Targets: {(a.targetRoles as string[]).join(", ")}</span>
                     {a.publishedAt && <span>Published: {a.publishedAt.toLocaleDateString()}</span>}

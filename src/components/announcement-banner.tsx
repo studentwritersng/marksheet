@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { AnnouncementBannerClient } from "./announcement-banner-client";
 
 export async function AnnouncementBanner({
@@ -25,7 +26,7 @@ export async function AnnouncementBanner({
   const toBanner = (a: { id: string; title: string; content: string }) => ({
     id: a.id,
     title: a.title,
-    content: a.content,
+    content: sanitizeHtml(a.content),
   });
 
   const sticky = announcements.filter((a) => a.isSticky).map(toBanner);
