@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { checkSignupRateLimit } from "@/lib/auth/route-security";
 
 export interface SchoolRegistrationActionResult {
   error?: string;
@@ -34,6 +35,15 @@ export async function registerSchoolAction(
   const principalEmail = (formData.get("principalEmail") as string)?.trim();
   const principalPhone = (formData.get("principalPhone") as string)?.trim() || null;
   const referralCode = (formData.get("referralCode") as string)?.trim() || null;
+
+  // Honeypot — bots fill hidden fields; real users leave it blank.
+  if ((formData.get("company") as string)?.trim()) {
+    return { error: "Spam detected." };
+  }
+
+  // Rate-limit public sign-ups to blunt automated abuse.
+  const throttle = checkSignupRateLimit(principalEmail ?? "");
+  if (throttle) return { error: throttle };
 
   if (!schoolName) return { error: "School name is required." };
   if (!studentCountBand) return { error: "Please select the number of students." };

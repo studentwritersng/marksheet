@@ -223,6 +223,14 @@ export function SchoolRegistrationForm({
       action={action}
       className="rounded-3xl border border-mk-border bg-mk-card p-6 text-mk-card-fg shadow-mk-lift sm:p-8"
     >
+      {/* Honeypot — hidden from real users; bots that fill it get rejected. */}
+      <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
+        <label>
+          Company
+          <input type="text" name="company" tabIndex={-1} autoComplete="off" />
+        </label>
+      </div>
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="font-mk-display text-2xl font-bold">Apply to register</h2>

@@ -126,6 +126,47 @@ export function checkLoginRateLimit(email: string): string | null {
   return null;
 }
 
+/**
+ * Rate limiter for public school-registration / signup submissions. Keyed on
+ * the principal email plus a per-process ceiling to blunt automated abuse and
+ * spam registrations. Returns a friendly error when throttled, or null.
+ */
+export function checkSignupRateLimit(email: string): string | null {
+  const perEmailLimit = 5;
+  const perEmailWindowMs = 60 * 60 * 1000; // 5 signups / hour per email
+  const perProcessLimit = 30;
+  const perProcessWindowMs = 60 * 1000; // 30 signups / min per instance
+
+  const key = (email || "").trim().toLowerCase();
+  if (key && !checkRateLimit(`signup:email:${key}`, perEmailLimit, perEmailWindowMs)) {
+    return "Too many sign-up attempts for this email. Please try again later.";
+  }
+  if (!checkRateLimit("signup:process", perProcessLimit, perProcessWindowMs)) {
+    return "Too many sign-up attempts. Please try again shortly.";
+  }
+  return null;
+}
+
+/**
+ * Rate limiter for authenticated password-change submissions (per user + per
+ * process). Returns a friendly error when throttled, or null.
+ */
+export function checkPasswordChangeRateLimit(email: string): string | null {
+  const perUserLimit = 5;
+  const perUserWindowMs = 10 * 60 * 1000; // 5 changes / 10 min per user
+  const perProcessLimit = 30;
+  const perProcessWindowMs = 60 * 1000; // 30 / min per instance
+
+  const key = (email || "").trim().toLowerCase();
+  if (key && !checkRateLimit(`pwchange:user:${key}`, perUserLimit, perUserWindowMs)) {
+    return "Too many password-change attempts. Please wait 10 minutes.";
+  }
+  if (!checkRateLimit("pwchange:process", perProcessLimit, perProcessWindowMs)) {
+    return "Too many requests. Please try again shortly.";
+  }
+  return null;
+}
+
 /* ------------------------------------------------------------------ *
  * Standard error response helpers
  * ------------------------------------------------------------------ */

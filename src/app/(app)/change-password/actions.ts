@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { checkPasswordChangeRateLimit } from "@/lib/auth/route-security";
 import { validatePasswordStrength } from "@/lib/auth/password";
 import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/auth/session";
 
@@ -16,6 +17,10 @@ export async function changePasswordAction(
 ): Promise<ChangePasswordState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated." };
+
+  // Rate-limit password changes to blunt brute-force / abuse.
+  const throttle = checkPasswordChangeRateLimit(user.email);
+  if (throttle) return { error: throttle };
 
   const currentPassword = String(formData.get("currentPassword") ?? "");
   const newPassword = String(formData.get("newPassword") ?? "");
