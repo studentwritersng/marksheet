@@ -99,6 +99,7 @@ export function buildNav(
     items.push(
       { label: "Messages", href: "/messages", icon: "chat" },
       { label: "My Wards", href: "/parent", icon: "family_history" },
+      { label: "Results", href: "/parent/results", icon: "analytics" },
       { label: "Curriculum Tracker", href: "/curriculum-tracker", icon: "checklist" },
       { label: "Notification Prefs", href: "/parent/settings", icon: "notifications" },
     );
