@@ -101,12 +101,6 @@ function MinimalistLayout({ school, texts, children }: LayoutProps) {
           {texts.subheading && <p className="font-body-sm text-body-sm text-on-surface-variant">{texts.subheading}</p>}
         </div>
         {children}
-        <div className="mt-8 text-center">
-          <a className="inline-flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant transition-colors hover:text-primary" href="#">
-            <span className="material-symbols-outlined text-sm">help</span>
-            Need help signing in?
-          </a>
-        </div>
       </div>
     </main>
   );
