@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ authorizationUrl: data.authorization_url, reference });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Paystack initialization failed.";
-    return NextResponse.json({ error: message }, { status: 502 });
+    console.error("Paystack initialization error:", err);
+    return NextResponse.json({ error: "Payment initialization failed. Please try again." }, { status: 502 });
   }
 }

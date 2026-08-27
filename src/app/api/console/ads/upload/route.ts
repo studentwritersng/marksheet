@@ -68,11 +68,11 @@ export async function POST(req: NextRequest) {
     await mkdir(uploadDir, { recursive: true });
     await writeFile(path.join(uploadDir, filename), buffer);
     return NextResponse.json({ url: `/uploads/${filename}` });
-  } catch (err) {
-    console.error("Console ad upload error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Upload failed" },
-      { status: 500 },
-    );
-  }
+    } catch (err) {
+      console.error("Console ad upload error:", err);
+      return NextResponse.json(
+        { error: "Upload failed. Please try again." },
+        { status: 500 },
+      );
+    }
 }

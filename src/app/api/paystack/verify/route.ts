@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
     const redirectTo = ((intent.metadata as Record<string, unknown> | null)?.redirectTo as string) ?? "/";
     return NextResponse.json({ ok: data.status === "success", status: data.status, redirectTo });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Paystack verification failed.";
-    return NextResponse.json({ error: message }, { status: 502 });
+    console.error("Paystack verification error:", err);
+    return NextResponse.json({ error: "Payment verification failed. Please try again." }, { status: 502 });
   }
 }
