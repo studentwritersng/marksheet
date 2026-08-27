@@ -1,4 +1,3 @@
-import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/auth/session";
 import {
@@ -54,13 +53,14 @@ export async function getAcademicHub(user: SessionPayload): Promise<AcademicHubD
   });
 
   // 4. Published homework for each ward's class+term, with the ward's attempt.
+  const homeworkOr = wards
+    .filter((s) => s.currentClassId)
+    .map((s) => ({ classId: s.currentClassId as string, termId: { in: allTermIds } }));
   const homework = await prisma.homework.findMany({
     where: {
       schoolId: user.schoolId,
       status: "published",
-      OR: wards
-        .filter((s) => s.currentClassId)
-        .map((s) => ({ classId: s.currentClassId as string, termId: { in: allTermIds } })),
+      ...(homeworkOr.length > 0 ? { OR: homeworkOr } : {}),
     },
     include: {
       subject: { select: { name: true } },
@@ -69,19 +69,20 @@ export async function getAcademicHub(user: SessionPayload): Promise<AcademicHubD
   });
 
   // 5. Published exams for each ward's class+term.
+  const examsOr = wards.flatMap((s) =>
+    s.currentClassId
+      ? [
+          { classId: s.currentClassId as string },
+          { classes: { some: { classId: s.currentClassId as string } } },
+        ]
+      : [],
+  );
   const exams = await prisma.exam.findMany({
     where: {
       schoolId: user.schoolId,
       status: "published",
       termId: { in: allTermIds },
-      OR: wards.flatMap((s) =>
-        s.currentClassId
-          ? [
-              { classId: s.currentClassId as string },
-              { classes: { some: { classId: s.currentClassId as string } } },
-            ]
-          : [],
-      ),
+      ...(examsOr.length > 0 ? { OR: examsOr } : {}),
     },
     include: { subject: { select: { name: true } }, classes: true },
   });
