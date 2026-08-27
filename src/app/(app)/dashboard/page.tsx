@@ -7,6 +7,7 @@ import { isAddonActive } from "@/lib/addons/check";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { SchoolLicenseBanner } from "@/components/school-license-banner";
+import { PlatformAdPopup } from "@/components/platform-ad-popup";
 import { resolveDisplayName } from "@/lib/auth/display-name";
 import { TakeQuizCard } from "@/components/quiz/take-quiz-card";
 import { LeaderboardPeek } from "@/components/quiz/leaderboard-peek";
@@ -34,6 +35,7 @@ export default async function DashboardPage() {
     const initial = displayName.charAt(0).toUpperCase();
     return (
       <section className="flex flex-col gap-stack-lg">
+        <PlatformAdPopup role={user.role} />
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0">
             {initial}
@@ -150,6 +152,7 @@ export default async function DashboardPage() {
 
     return (
       <section className="flex flex-col gap-stack-lg">
+        <PlatformAdPopup role={user.role} />
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0 overflow-hidden">
             {myStudent?.passportPhoto ? <img src={myStudent.passportPhoto} alt="" className="w-full h-full object-cover" /> : initial}
@@ -304,6 +307,7 @@ export default async function DashboardPage() {
 
     return (
       <section className="flex flex-col gap-stack-lg">
+        <PlatformAdPopup role={user.role} />
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0">
             {initials}
@@ -452,6 +456,7 @@ export default async function DashboardPage() {
 
     return (
       <section className="flex flex-col gap-stack-lg">
+        <PlatformAdPopup role={user.role} />
         {/* Greeting */}
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0 overflow-hidden">
@@ -619,6 +624,7 @@ export default async function DashboardPage() {
   // ── Admin dashboard (unchanged from before) ──────────────────────
   return (
     <section className="flex flex-col gap-stack-lg">
+      <PlatformAdPopup role={user.role} />
       {/* Greeting */}
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-headline-sm text-headline-sm shrink-0">
