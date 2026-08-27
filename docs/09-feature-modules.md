@@ -189,3 +189,24 @@ The per-student fee status (`cleared` / `partial` / `not_paid`) is **derived** f
 4. `FeeReminderConfig` drives weekly automated reminders; `/fees/reminders` configures the day and enables/disables them.
 
 > Gotcha: fee status visibility and exam/result gating still run through `src/lib/fees/gate.ts` (`feeGateExams`/`feeGateResults` on `School`). The derived status in `bursary.ts` is the single source of truth for `cleared`/`partial`/`not_paid`.
+
+## 18. Mobile App & Push Notifications
+
+**Purpose:** A native Android app (built with Capacitor) plus a **free, unlimited, instant** push-notification channel (Firebase Cloud Messaging) that delivers events straight to parents', students' and staff's devices — eliminating the per-message cost of SMS and WhatsApp.
+
+**Mobile app (Capacitor):**
+- `mobile-app/` — the Android APK project (`capacitor.config.ts`, `android/`, `app.config.ts`). The web portal runs inside a WebView; `allowNavigation` whitelists the portal hosts so redirects stay in-app.
+- `src/components/CapacitorBridge.tsx` — client bridge: detects the native platform, requests notification permission, and registers the device's FCM token.
+- The `PushNotifications` plugin is configured in `capacitor.config.ts` (custom Android channel/sound `marksheet_notifications`).
+
+**Push (FCM — zero per-message cost):**
+- `src/lib/notifications/push.ts` — FCM HTTP v1 sender, zero-dependency (mints an RS256 JWT bearer token). Reads `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY` from env; when unset it is a silent no-op.
+- `PushDevice` model (`push_devices`) — `{ userId, fcmToken (unique), schoolId?, platform }`. One fan-out hits every device for a recipient; dead/expired tokens are auto-pruned.
+- Endpoints: `api/push/register`, `api/push/unregister`, `api/push/diagnose`.
+- `deliverPushForNotification(...)` fans a notification out to all of a recipient's devices and never throws (delivery failures are logged). In-app centre: `my-notifications`, `notification-bell.tsx`.
+
+**Paid channels (legacy — being replaced):**
+- `NotificationProviderConfig` (`notification_provider_configs`) — `whatsapp` / `sms` via Twilio / Africa's Talking / custom. `NotificationTemplate` + `NotificationQueue` + `NotificationLog` route these costly per-message sends.
+- Because push is free and instant, schools can default to push and avoid SMS/WhatsApp spend entirely; the paid providers remain available as a fallback.
+
+> Gotcha: push only reaches devices that have registered an `fcmToken` (installed the app / PWA and granted permission). Confirm the `FCM_*` env vars are set on the server, and that `allowNavigation` in `capacitor.config.ts` lists the deployed portal host.
