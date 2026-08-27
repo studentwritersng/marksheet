@@ -146,9 +146,6 @@ export async function POST(req: NextRequest) {
       const blob = await put(filename, storeBuffer, {
         access: "public",
         contentType: mime,
-        // PDFs (and any non-inline-safe type) should be downloaded, not
-        // rendered as a document that could execute embedded content.
-        contentDisposition: ext === ".pdf" ? "attachment" : "inline",
       });
       return NextResponse.json({ url: blob.url });
     }
