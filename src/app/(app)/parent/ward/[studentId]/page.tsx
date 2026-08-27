@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { AttendanceHistory } from "./attendance-history";
@@ -76,6 +77,12 @@ export default async function WardResultPage(props: {
                   <pre className="text-xs text-on-surface-variant mt-1">{JSON.stringify(tr.affectiveRatings, null, 1)}</pre>
                 </div>
               )}
+              <Link
+                href={`/results/${s.id}?termId=${tr.term.id}`}
+                className="mt-3 inline-block font-label-sm text-label-sm text-primary hover:underline"
+              >
+                View Report Card
+              </Link>
             </div>
           ))}
         </div>
@@ -109,8 +116,14 @@ export default async function WardResultPage(props: {
                   <td className="py-3 px-4 font-body-sm text-body-sm text-on-surface-variant">#{sr.subjectPosition ?? "—"}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+            <Link
+              href={`/results/${s.id}?termId=${results[0].term.id}`}
+              className="inline-block mt-3 font-label-sm text-label-sm text-primary hover:underline"
+            >
+              View Report Card
+            </Link>
         </div>
       ))}
 

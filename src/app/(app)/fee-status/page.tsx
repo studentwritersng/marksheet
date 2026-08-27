@@ -132,6 +132,94 @@ export default async function FeeStatusPage(props: {
     );
   }
 
+  // ── Parent view ───────────────────────────────────────────────────────────
+  if (user.role === "parent") {
+    const guardians = await prisma.guardian.findMany({
+      where: { parentUserId: user.userId, student: { schoolId: user.schoolId ?? undefined } },
+      include: {
+        student: {
+          include: { currentClass: { select: { name: true } } },
+        },
+      },
+    });
+
+    const currentSession = user.schoolId
+      ? await prisma.session.findFirst({
+          where: { schoolId: user.schoolId, isCurrent: true },
+          include: { terms: { orderBy: { name: "asc" } } },
+        })
+      : null;
+    const activeTerm =
+      currentSession?.terms.find((t) => t.isCurrent) ?? currentSession?.terms[0] ?? null;
+
+    const summaries = await Promise.all(
+      guardians.map((g) =>
+        activeTerm ? getStudentFeeSummary(g.student.id, activeTerm.id) : null,
+      ),
+    );
+
+    return (
+      <div>
+        <h1 className="font-headline-lg text-headline-lg text-on-surface">Fee Status</h1>
+        <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
+          Clearance status is derived automatically from recorded payments.
+        </p>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {guardians.map((g, i) => {
+            const s = g.student;
+            const summary = summaries[i];
+            return (
+              <div
+                key={s.id}
+                className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="font-headline-sm text-headline-sm text-on-surface">
+                    {s.firstName} {s.lastName}
+                  </h3>
+                  <span className="font-body-sm text-body-sm text-on-surface-variant">
+                    {s.currentClass?.name ?? "No class"} · {s.admissionNumber}
+                  </span>
+                </div>
+                {summary?.hasStructure ? (
+                  <div className="mt-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <p className="font-label-sm text-label-sm text-on-surface-variant">Expected</p>
+                        <p className="font-label-md text-label-md text-on-surface">
+                          {formatNaira(summary.expected)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-label-sm text-label-sm text-on-surface-variant">Paid</p>
+                        <p className="font-label-md text-label-md text-on-surface">
+                          {formatNaira(summary.paid)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-label-sm text-label-sm text-on-surface-variant">Balance</p>
+                        <p className="font-label-md text-label-md text-on-surface">
+                          {formatNaira(summary.balance)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <FeeStatusBadge status={summary.status} />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-3 font-body-sm text-body-sm text-on-surface-variant italic">
+                    No fee structure set for this term.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   // ── Admin / fee manager view ──────────────────────────────────────────────
   if (!isAdmin || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not authorised.</p>;
@@ -221,7 +309,7 @@ export default async function FeeStatusPage(props: {
               firstName: s.firstName,
               lastName: s.lastName,
               className: s.currentClass?.name ?? "—",
-              status: fs?.status ?? "not_cleared",
+              status: sum?.status ?? "not_cleared",
               notes: fs?.notes ?? "",
               expected: sum?.expected ?? 0,
               paid: sum?.paid ?? 0,
