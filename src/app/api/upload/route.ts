@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { sanitizeSvg } from "@/lib/sanitize";
 import {
   checkRateLimit,
   clientKey,
@@ -10,6 +11,36 @@ import {
 } from "@/lib/auth/route-security";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+
+/**
+ * Validates the file's actual bytes (magic numbers) against its extension —
+ * not just the client-supplied MIME header.
+ */
+export function bufferMatchesType(buffer: Buffer, ext: string): boolean {
+  switch (ext) {
+    case ".png":
+      return buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+    case ".jpg":
+    case ".jpeg":
+      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    case ".webp":
+      return (
+        buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+        buffer.length > 11 &&
+        buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
+      );
+    case ".gif":
+      return buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38;
+    case ".pdf":
+      return buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46;
+    case ".svg": {
+      const head = buffer.toString("utf8", 0, 1024).toLowerCase();
+      return head.includes("<svg") || head.startsWith("<?xml");
+    }
+    default:
+      return false;
+  }
+}
 
 // Allowlisted extensions + the MIME types we accept for each.
 const ALLOWED: Record<string, string[]> = {
@@ -77,6 +108,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 4b. Magic-byte validation — confirm the bytes actually match the type.
+    if (!bufferMatchesType(buffer, ext)) {
+      return NextResponse.json(
+        { error: "File contents do not match its type." },
+        { status: 415 },
+      );
+    }
+
+    // 4c. SVG: sanitize to strip embedded scripts / event handlers.
+    let storeBuffer = buffer;
+    if (ext === ".svg") {
+      const cleaned = sanitizeSvg(buffer.toString("utf8"));
+      if (!/<svg/i.test(cleaned)) {
+        return NextResponse.json({ error: "Invalid SVG content." }, { status: 415 });
+      }
+      storeBuffer = Buffer.from(cleaned, "utf8");
+    }
+
     // Reject path-traversal attempts. Other characters (spaces, etc.) are
     // sanitized into the final filename below, so they are allowed.
     if (
@@ -94,9 +143,12 @@ export async function POST(req: NextRequest) {
     // Production: Vercel Blob
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const { put } = await import("@vercel/blob");
-      const blob = await put(filename, buffer, {
+      const blob = await put(filename, storeBuffer, {
         access: "public",
         contentType: mime,
+        // PDFs (and any non-inline-safe type) should be downloaded, not
+        // rendered as a document that could execute embedded content.
+        contentDisposition: ext === ".pdf" ? "attachment" : "inline",
       });
       return NextResponse.json({ url: blob.url });
     }
@@ -104,7 +156,7 @@ export async function POST(req: NextRequest) {
     // Local: filesystem
     const uploadDir = path.join(process.cwd(), "public", "uploads");
     await mkdir(uploadDir, { recursive: true });
-    await writeFile(path.join(uploadDir, filename), buffer);
+    await writeFile(path.join(uploadDir, filename), storeBuffer);
     return NextResponse.json({ url: `/uploads/${filename}` });
   } catch (err) {
     console.error("Upload error:", err);
