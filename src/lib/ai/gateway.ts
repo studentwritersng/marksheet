@@ -94,8 +94,16 @@ interface StackProvider {
  * Active DB providers are returned sorted by priority (1 = default, tried first).
  * When no DB provider is configured (or the DB is unavailable) the env config
  * (AI_BASE_URL / AI_API_KEY / AI_DEFAULT_MODEL) is used as the single entry.
+ *
+ * Each provider's key is decrypted in isolation: a provider whose key cannot be
+ * decrypted (e.g. it was encrypted under a previous ENCRYPTION_KEY/AUTH_SECRET)
+ * is skipped so the next priority still gets its turn. Previously the decrypt
+ * happened inside a single try/catch around the whole list, so one bad key
+ * aborted the entire stack and silently reverted every call to the env model.
+ *
+ * Exported for tests.
  */
-async function loadProviderStack(): Promise<StackProvider[]> {
+export async function loadProviderStack(): Promise<StackProvider[]> {
   try {
     const { prisma } = await import("@/lib/prisma");
     const { decryptSecret } = await import("@/lib/secrets");
@@ -103,17 +111,46 @@ async function loadProviderStack(): Promise<StackProvider[]> {
       where: { isActive: true },
       orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
     });
-    const stack = providers
-      .filter((p) => p.baseUrl && p.apiKeyEncrypted && p.defaultModelName)
-      .map((p) => ({
+
+    const stack: StackProvider[] = [];
+    const skipped: string[] = [];
+
+    for (const p of providers) {
+      if (!p.baseUrl || !p.apiKeyEncrypted || !p.defaultModelName) {
+        skipped.push(`${p.label} (incomplete configuration)`);
+        continue;
+      }
+      let apiKey: string;
+      try {
+        apiKey = decryptSecret(p.apiKeyEncrypted);
+      } catch {
+        // Undecryptable key — skip this provider only, do not abort the stack.
+        skipped.push(`${p.label} (API key could not be decrypted — re-enter it in Console → AI Config)`);
+        continue;
+      }
+      stack.push({
         providerConfigId: p.id,
         baseUrl: p.baseUrl,
-        apiKey: decryptSecret(p.apiKeyEncrypted),
+        apiKey,
         defaultModel: p.defaultModelName,
-      }));
+      });
+    }
+
+    if (skipped.length > 0) {
+      console.error(
+        `[ai] Skipped ${skipped.length} configured AI provider(s): ${skipped.join("; ")}`,
+      );
+    }
+
     if (stack.length > 0) return stack;
-  } catch {
-    // DB unavailable — fall through to env
+
+    if (providers.length > 0) {
+      console.error(
+        "[ai] every configured AI provider was unusable — falling back to the environment provider (AI_DEFAULT_MODEL). Fix the providers in Console → AI Config.",
+      );
+    }
+  } catch (err) {
+    console.error("[ai] could not load AI providers from the database — falling back to the environment provider.", err);
   }
   const envCfg = loadConfig();
   if (envCfg.baseUrl && envCfg.apiKey) {
