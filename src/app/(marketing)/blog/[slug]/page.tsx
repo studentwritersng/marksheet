@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import { BlogReadTracker } from "./BlogReadTracker";
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://marksheet.ng";
+  process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://marksheet.top";
 
 // Social crawlers require absolute image URLs — resolve relative paths against the site origin.
 function toAbsoluteUrl(raw: string | null | undefined): string | null {
@@ -76,8 +76,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     ...(post.canonicalUrl
       ? { mainEntityOfPage: post.canonicalUrl, url: post.canonicalUrl }
       : {
-          mainEntityOfPage: `https://marksheet.ng/blog/${post.slug}`,
-          url: `https://marksheet.ng/blog/${post.slug}`,
+          mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
+          url: `${SITE_URL}/blog/${post.slug}`,
         }),
     ...(post.category ? { articleSection: post.category.name } : {}),
   };

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { SITE_URL } from "@/lib/site";
 
 export const metadata = {
   title: "Marksheet Blog",
@@ -20,7 +21,7 @@ export default async function BlogList() {
     itemListElement: posts.map((p, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      url: `https://marksheet.ng/blog/${p.slug}`,
+      url: `${SITE_URL}/blog/${p.slug}`,
       name: p.title,
     })),
   };

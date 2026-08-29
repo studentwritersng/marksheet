@@ -11,7 +11,7 @@ const SEARCH = [
   "Claude-User",
 ];
 
-// AI training crawlers: owner opts out by default.
+// AI training crawlers: owner opts in so answer engines can ingest public content.
 const TRAINING = [
   "GPTBot",
   "CCBot",
@@ -27,8 +27,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       // Search/retrieval engines may index public content.
       ...SEARCH.map((userAgent) => ({ userAgent, allow: "/" })),
-      // Training crawlers are disallowed from the whole site.
-      ...TRAINING.map((userAgent) => ({ userAgent, disallow: "/" })),
+      // Training crawlers may ingest public content (authenticated areas still blocked below).
+      ...TRAINING.map((userAgent) => ({ userAgent, allow: "/" })),
       // Default policy: allow public pages, block authenticated/app areas.
       {
         userAgent: "*",

@@ -104,6 +104,22 @@ body {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
+/* Console native <select> dropdowns: the open option popup is painted by the
+ * browser with a default white background, which made option text (inheriting
+ * the select's text-white) invisible. Force a dark surface + light text in dark
+ * mode, and a light surface + dark text in light mode, for both the control and
+ * its <option> list. */
+.console-root[data-theme="dark"] select,
+.console-root[data-theme="dark"] select option {
+  background-color: #0b0f19;
+  color: #f1f5f9;
+}
+.console-root[data-theme="light"] select,
+.console-root[data-theme="light"] select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

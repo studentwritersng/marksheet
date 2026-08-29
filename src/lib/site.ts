@@ -1,4 +1,4 @@
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marksheet.ng";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marksheet.top";
 
 /**
  * Login URL for credential emails: a school with a verified white-label domain

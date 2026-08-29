@@ -93,7 +93,8 @@ export function ConsoleThemeWrapper({
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       <div
-        className={`flex h-screen overflow-hidden font-sans transition-all duration-300 ${
+        data-theme={theme}
+        className={`console-root flex h-screen overflow-hidden font-sans transition-all duration-300 ${
           theme === "dark" ? "bg-[#070a13] text-slate-100" : "bg-[#f8fafc] text-slate-900"
         }`}
       >
