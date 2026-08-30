@@ -35,17 +35,19 @@ export function ProfileForm({ staff }: ProfileFormProps) {
         </div>
       </div>
 
-      <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-5">
-        <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Photos & Signatures</h3>
-        <p className="font-body-sm text-body-sm text-on-surface-variant">Your signature will appear on report cards for classes where you are the class teacher.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <ImageUploader currentUrl={imageUrl} onUploaded={(url) => setImageUrl(url)} label="Profile Photo" />
-            <input type="hidden" name="image" value={imageUrl} />
-          </div>
-          <div>
-            <ImageUploader currentUrl={sigUrl} onUploaded={(url) => setSigUrl(url)} label="Signature" />
-            <input type="hidden" name="signature" value={sigUrl} />
+      {staff.signature && (
+        <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-5">
+          <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Photos & Signatures</h3>
+          <p className="font-body-sm text-body-sm text-on-surface-variant">Your signature will appear on report cards for classes where you are the class teacher.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <ImageUploader currentUrl={imageUrl} onUploaded={(url) => setImageUrl(url)} label="Profile Photo" />
+              <input type="hidden" name="image" value={imageUrl} />
+            </div>
+            <div>
+              <ImageUploader currentUrl={sigUrl} onUploaded={(url) => setSigUrl(url)} label="Signature" />
+              <input type="hidden" name="signature" value={sigUrl} />
+            </div>
           </div>
         </div>
       </div>
