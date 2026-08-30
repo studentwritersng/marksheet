@@ -35,7 +35,7 @@ export default function BlogLayout({ children }: { children: React.ReactNode }) 
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-5 py-14 lg:py-20">{children}</main>
+      <main className="mx-auto max-w-5xl px-5 py-14 lg:py-20">{children}</main>
 
       <footer className="bg-mk-ink pb-10 text-mk-ink-fg">
         <div className="mx-auto grid max-w-6xl gap-6 border-t border-white/10 px-5 pt-10 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">

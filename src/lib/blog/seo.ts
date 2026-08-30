@@ -34,8 +34,8 @@ export function validateBlogSeo(p: BlogPostSeoInput): SeoWarning[] {
   if (!p.featuredImageAltText) warnings.push({ code: "MISSING_IMG_ALT", message: "Featured image alt text is missing.", severity: "warning" });
   if (p.internalLinkCount === 0) warnings.push({ code: "NO_INTERNAL_LINKS", message: "No internal links detected in body.", severity: "warning" });
   if (!isUrlSafeSlug(p.slug)) warnings.push({ code: "SLUG_UNSAFE", message: "Slug is not URL-safe.", severity: "warning" });
-  if (p.primaryKeyword) {
-    const kw = p.primaryKeyword.toLowerCase();
+  if (p.primaryKeywordText ?? p.primaryKeyword) {
+    const kw = (p.primaryKeywordText ?? p.primaryKeyword ?? "").toLowerCase();
     const h1 = (p.body.match(/^#\s+(.+)$/m)?.[1] ?? "").toLowerCase();
     const opening = firstParagraph(p.body).toLowerCase();
     const inTitle = p.title.toLowerCase().includes(kw);

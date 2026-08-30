@@ -5,6 +5,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { BlogReadTracker } from "./BlogReadTracker";
+import { BlogSidebar } from "../BlogSidebar";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://marksheet.top";
@@ -95,45 +96,49 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
       <BlogReadTracker slug={slug} />
 
-      <article className="mt-6">
-        <header className="border-b border-mk-border pb-8">
-          <h1 className="font-mk-display text-3xl font-bold leading-tight sm:text-4xl">
-            {post.title}
-          </h1>
-          {post.subtitle && (
-            <p className="mt-3 text-lg text-mk-muted-fg">{post.subtitle}</p>
+      <div className="mt-6 grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <article>
+          <header className="border-b border-mk-border pb-8">
+            <h1 className="font-mk-display text-3xl font-bold leading-tight sm:text-4xl">
+              {post.title}
+            </h1>
+            {post.subtitle && (
+              <p className="mt-3 text-lg text-mk-muted-fg">{post.subtitle}</p>
+            )}
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-mk-muted-fg">
+              {post.publishedAt && (
+                <span>
+                  {new Date(post.publishedAt).toLocaleDateString("en-NG", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+              )}
+              {post.author && <span>· {post.author}</span>}
+              {post.category && (
+                <span className="rounded-full bg-mk-secondary px-2.5 py-0.5 font-medium text-mk-secondary-fg">
+                  {post.category.name}
+                </span>
+              )}
+            </div>
+          </header>
+
+          {post.featuredImageUrl && (
+            <img
+              src={post.featuredImageUrl}
+              alt={post.featuredImageAltText ?? post.title}
+              className="my-8 w-full rounded-lg object-cover"
+            />
           )}
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-mk-muted-fg">
-            {post.publishedAt && (
-              <span>
-                {new Date(post.publishedAt).toLocaleDateString("en-NG", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </span>
-            )}
-            {post.author && <span>· {post.author}</span>}
-            {post.category && (
-              <span className="rounded-full bg-mk-secondary px-2.5 py-0.5 font-medium text-mk-secondary-fg">
-                {post.category.name}
-              </span>
-            )}
+
+          <div className="prose-mk mt-8 text-base leading-relaxed text-mk-fg">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.body}</ReactMarkdown>
           </div>
-        </header>
+        </article>
 
-        {post.featuredImageUrl && (
-          <img
-            src={post.featuredImageUrl}
-            alt={post.featuredImageAltText ?? post.title}
-            className="my-8 w-full rounded-lg object-cover"
-          />
-        )}
-
-        <div className="prose-mk mt-8 text-base leading-relaxed text-mk-fg">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.body}</ReactMarkdown>
-        </div>
-      </article>
+        <BlogSidebar currentSlug={slug} currentCategoryId={post.categoryId} />
+      </div>
     </>
   );
 }

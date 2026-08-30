@@ -2409,6 +2409,7 @@ model BlogPost {
   body                  String   @db.Text // markdown / rich text
   status                String   @default("draft") // draft | pending_review | published | archived
   primaryKeywordId      String?
+  primaryKeywordText     String? // free-text keyword when the author picks "Manual" instead of a bank keyword
   secondaryKeywordIds   Json? // string[]
   tags                  Json? // string[]
   categoryId            String?

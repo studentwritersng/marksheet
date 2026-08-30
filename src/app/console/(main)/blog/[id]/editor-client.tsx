@@ -33,6 +33,7 @@ interface PostVM {
   tags: string[];
   categoryId: string | null;
   primaryKeywordId: string | null;
+  primaryKeywordText?: string | null;
   featuredImageUrl: string | null;
   featuredImageAltText: string | null;
   canonicalUrl: string | null;
@@ -71,7 +72,10 @@ export function EditorClient({
   const [metaDescription, setMetaDescription] = useState(post?.metaDescription ?? "");
   const [tagsInput, setTagsInput] = useState((post?.tags ?? []).join(", "));
   const [categoryId, setCategoryId] = useState(post?.categoryId ?? "");
-  const [primaryKeywordId, setPrimaryKeywordId] = useState(post?.primaryKeywordId ?? "");
+  const [primaryKeywordId, setPrimaryKeywordId] = useState(
+    post?.primaryKeywordId ?? (post?.primaryKeywordText ? "manual" : ""),
+  );
+  const [manualKeyword, setManualKeyword] = useState(post?.primaryKeywordText ?? "");
   const [featuredImageUrl, setFeaturedImageUrl] = useState(post?.featuredImageUrl ?? "");
   const [featuredImageAltText, setFeaturedImageAltText] = useState(post?.featuredImageAltText ?? "");
   const [canonicalUrl, setCanonicalUrl] = useState(post?.canonicalUrl ?? "");
@@ -105,6 +109,7 @@ export function EditorClient({
         featuredImageAltText: featuredImageAltText || null,
         internalLinkCount,
         primaryKeyword: primaryKeywordText,
+        primaryKeywordText: primaryKeywordId === "manual" ? manualKeyword : null,
       }),
     [title, slug, metaTitle, metaDescription, excerpt, body, featuredImageAltText, internalLinkCount, primaryKeywordText],
   );
@@ -157,7 +162,8 @@ export function EditorClient({
       metaDescription: metaDescription || null,
       tags: parseTags(),
       categoryId: categoryId || null,
-      primaryKeywordId: primaryKeywordId || null,
+      primaryKeywordId: primaryKeywordId === "manual" ? null : primaryKeywordId || null,
+      primaryKeywordText: primaryKeywordId === "manual" ? manualKeyword || null : null,
       featuredImageUrl: featuredImageUrl || null,
       featuredImageAltText: featuredImageAltText || null,
       canonicalUrl: canonicalUrl || null,
@@ -179,7 +185,8 @@ export function EditorClient({
         },
         {
           categoryId: categoryId || null,
-          primaryKeywordId: primaryKeywordId || null,
+          primaryKeywordId: primaryKeywordId === "manual" ? null : primaryKeywordId || null,
+          primaryKeywordText: primaryKeywordId === "manual" ? manualKeyword || null : null,
           slug: slug || null,
         },
       );
@@ -335,8 +342,20 @@ export function EditorClient({
               {keywords.map((k) => (
                 <option key={k.id} value={k.id}>{k.keywordText}</option>
               ))}
+              <option value="manual">Manual (write your own)</option>
             </select>
           </label>
+          {primaryKeywordId === "manual" && (
+            <label className="block">
+              <span className="text-xs text-white/50">Manual keyword</span>
+              <input
+                value={manualKeyword}
+                onChange={(e) => setManualKeyword(e.target.value)}
+                placeholder="e.g. best school app in Lagos"
+                className={inputClass}
+              />
+            </label>
+          )}
           <label className="block md:col-span-2">
             <span className="text-xs text-white/50">Excerpt</span>
             <textarea value={excerpt} onChange={(e) => setExcerpt(e.target.value)} rows={2} className={inputClass} />

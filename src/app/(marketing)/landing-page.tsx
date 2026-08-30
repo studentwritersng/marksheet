@@ -25,6 +25,7 @@ const nav = [
   { label: "Platform", href: "#platform" },
   { label: "Verify", href: "#verify" },
   { label: "Pricing", href: "#pricing" },
+  { label: "Blog", href: "/blog" },
   { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
 ];

@@ -26,6 +26,7 @@ interface PostVM {
   tags: string[];
   categoryId: string | null;
   primaryKeywordId: string | null;
+  primaryKeywordText: string | null;
   featuredImageUrl: string | null;
   featuredImageAltText: string | null;
   canonicalUrl: string | null;
@@ -75,6 +76,7 @@ export default async function EditPostPage({
     tags: Array.isArray(post.tags) ? (post.tags as string[]) : [],
     categoryId: post.categoryId,
     primaryKeywordId: post.primaryKeywordId,
+    primaryKeywordText: post.primaryKeywordText ?? null,
     featuredImageUrl: post.featuredImageUrl,
     featuredImageAltText: post.featuredImageAltText,
     canonicalUrl: post.canonicalUrl,

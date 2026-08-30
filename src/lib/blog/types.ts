@@ -8,6 +8,7 @@ export interface BlogPostSeoInput {
   featuredImageAltText?: string | null;
   internalLinkCount: number;
   primaryKeyword?: string | null;
+  primaryKeywordText?: string | null;
 }
 
 export interface SeoWarning {

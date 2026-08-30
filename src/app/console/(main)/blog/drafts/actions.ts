@@ -24,6 +24,7 @@ export type GenerateDraftActionInput = BlogDraftInput & {
 export type CreateDraftPostMeta = {
   categoryId?: string | null;
   primaryKeywordId?: string | null;
+  primaryKeywordText?: string | null;
   slug?: string | null;
 };
 
@@ -103,6 +104,7 @@ export async function createDraftPostAction(
         body: draft.body,
         status: "draft",
         primaryKeywordId: meta.primaryKeywordId ?? null,
+        primaryKeywordText: meta.primaryKeywordText ?? null,
         categoryId: meta.categoryId ?? null,
         metaTitle: draft.metaTitle ?? null,
         metaDescription: draft.metaDescription ?? null,
@@ -139,6 +141,7 @@ export type UpdatePostInput = {
   tags?: string[] | null;
   categoryId?: string | null;
   primaryKeywordId?: string | null;
+  primaryKeywordText?: string | null;
   featuredImageUrl?: string | null;
   featuredImageAltText?: string | null;
   canonicalUrl?: string | null;
@@ -185,6 +188,7 @@ export async function updatePostAction(
         tags: data.tags ?? undefined,
         categoryId: data.categoryId ?? null,
         primaryKeywordId: data.primaryKeywordId ?? null,
+        primaryKeywordText: data.primaryKeywordText ?? null,
         featuredImageUrl: data.featuredImageUrl ?? null,
         featuredImageAltText: data.featuredImageAltText ?? null,
         canonicalUrl: data.canonicalUrl ?? null,
