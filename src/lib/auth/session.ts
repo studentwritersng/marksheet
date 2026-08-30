@@ -19,8 +19,8 @@ export interface SessionPayload {
 }
 
 export const SESSION_COOKIE = "marksheet_session";
-const MAX_AGE_SECONDS = 60 * 60 * 4; // 4 hours
-export const ABSOLUTE_MAX_AGE_SECONDS = 60 * 60 * 24; // absolute expiry 24h
+const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+export const ABSOLUTE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365; // 365 days
 
 function getSecret(): string {
   const secret = process.env.AUTH_SECRET;
