@@ -1,8 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { updateStudentProfileAction } from "./actions";
-import { ImageUploader } from "@/components/image-uploader";
 
 interface StudentProfileFormProps {
   student: {
@@ -11,14 +10,12 @@ interface StudentProfileFormProps {
     lastName: string;
     email: string | null;
     admissionNumber: string;
-    passportPhoto: string;
     currentClass: { name: string } | null;
   };
 }
 
 export function StudentProfileForm({ student }: StudentProfileFormProps) {
   const [state, action, pending] = useActionState(updateStudentProfileAction, {});
-  const [imageUrl, setImageUrl] = useState(student.passportPhoto);
 
   return (
     <form action={action} className="space-y-6">
@@ -51,12 +48,6 @@ export function StudentProfileForm({ student }: StudentProfileFormProps) {
             <input name="phone" defaultValue={student.email ?? ""} className="w-full border border-outline-variant rounded-lg p-3 font-body-md text-body-md bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary" />
           </div>
         </div>
-      </div>
-
-      <div className="bg-white border border-outline-variant rounded-xl p-6 space-y-5">
-        <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Profile Photo</h3>
-        <ImageUploader currentUrl={imageUrl} onUploaded={(url) => setImageUrl(url)} label="Passport Photo" />
-        <input type="hidden" name="image" value={imageUrl} />
       </div>
 
       {state.error && <p className="bg-red-50 text-red-700 font-body-sm text-body-sm px-4 py-3 rounded-lg border border-red-200">{state.error}</p>}
