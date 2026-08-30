@@ -6,28 +6,35 @@ import { SITE_URL } from "@/lib/site";
 // (a cached response omitted newer posts).
 export const dynamic = "force-dynamic";
 
+const STATIC_ROUTES: MetadataRoute.Sitemap = [
+  { url: `${SITE_URL}/`, lastModified: new Date() },
+  { url: `${SITE_URL}/blog`, lastModified: new Date() },
+  { url: `${SITE_URL}/legal/acceptable-use`, lastModified: new Date() },
+  { url: `${SITE_URL}/legal/cookies`, lastModified: new Date() },
+  { url: `${SITE_URL}/legal/privacy`, lastModified: new Date() },
+  { url: `${SITE_URL}/legal/refund`, lastModified: new Date() },
+  { url: `${SITE_URL}/legal/terms`, lastModified: new Date() },
+];
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = SITE_URL;
 
-  const posts = await prisma.blogPost.findMany({
-    where: { status: "published" },
-    select: { slug: true, updatedAt: true, publishedAt: true },
-  });
+  try {
+    const posts = await prisma.blogPost.findMany({
+      where: { status: "published" },
+      select: { slug: true, updatedAt: true, publishedAt: true },
+    });
 
-  const staticRoutes: MetadataRoute.Sitemap = [
-    { url: `${base}/`, lastModified: new Date() },
-    { url: `${base}/blog`, lastModified: new Date() },
-    { url: `${base}/legal/acceptable-use`, lastModified: new Date() },
-    { url: `${base}/legal/cookies`, lastModified: new Date() },
-    { url: `${base}/legal/privacy`, lastModified: new Date() },
-    { url: `${base}/legal/refund`, lastModified: new Date() },
-    { url: `${base}/legal/terms`, lastModified: new Date() },
-  ];
+    const blogRoutes: MetadataRoute.Sitemap = posts.map((p) => ({
+      url: `${base}/blog/${p.slug}`,
+      lastModified: p.updatedAt ?? p.publishedAt ?? new Date(),
+    }));
 
-  const blogRoutes: MetadataRoute.Sitemap = posts.map((p) => ({
-    url: `${base}/blog/${p.slug}`,
-    lastModified: p.updatedAt ?? p.publishedAt ?? new Date(),
-  }));
-
-  return [...staticRoutes, ...blogRoutes];
+    return [...STATIC_ROUTES, ...blogRoutes];
+  } catch {
+    // If the blog query fails, still return the static routes so Google
+    // receives valid XML instead of the HTML error page.
+    console.error("[sitemap] blogPost query failed — returning static routes only");
+    return STATIC_ROUTES;
+  }
 }
