@@ -21,10 +21,12 @@ export async function updateProfileAction(
   if (!fullName) return { error: "Full name is required." };
 
   const phone = String(formData.get("phone") ?? "").trim() || null;
+  const image = String(formData.get("image") ?? "").trim() || null;
+  const signature = String(formData.get("signature") ?? "").trim() || null;
 
   await prisma.staff.update({
     where: { id: user.staffId, schoolId: user.schoolId },
-    data: { fullName, phone },
+    data: { fullName, phone, image, signature },
   });
 
   await recordAudit({

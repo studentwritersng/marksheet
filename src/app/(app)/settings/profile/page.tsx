@@ -66,12 +66,14 @@ export default async function ProfilePage() {
   return (
     <div>
       <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">My Profile</h2>
-      <p className="font-body-md text-body-md text-on-surface-variant mt-1">Update your personal details.</p>
+      <p className="font-body-md text-body-md text-on-surface-variant mt-1">Update your personal details, profile photo, and signature. Your signature is used on report cards.</p>
       <div className="mt-6 max-w-2xl">
         <ProfileForm
           staff={{
             fullName: staff.fullName,
             phone: staff.phone ?? "",
+            image: staff.image ?? "",
+            signature: staff.signature ?? "",
           }}
         />
       </div>
