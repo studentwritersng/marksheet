@@ -37,6 +37,26 @@ export default async function ProfilePage() {
     );
   }
 
+  // Parent profile
+  if (user.role === "parent") {
+    return (
+      <div>
+        <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">My Profile</h2>
+        <p className="font-body-md text-body-md text-on-surface-variant mt-1">View and update your personal details.</p>
+        <div className="mt-6 max-w-2xl">
+          <ProfileForm
+            staff={{
+              fullName: user.fullName ?? "",
+              phone: user.phone ?? "",
+              image: "",
+              signature: "",
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (!user.staffId || !user.schoolId) {
     return <p className="font-body-sm text-body-sm text-on-surface-variant">Not available for your account type.</p>;
   }

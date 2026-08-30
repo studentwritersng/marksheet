@@ -42,6 +42,22 @@ export async function updateProfileAction(
   return { success: "Profile updated." };
 }
 
+export async function updateParentProfileAction(
+  _prev: ProfileState,
+  formData: FormData,
+): Promise<ProfileState> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "parent") return { error: "Not authorised." };
+
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  if (!fullName) return { error: "Full name is required." };
+
+  const phone = String(formData.get("phone") ?? "").trim() || null;
+
+  revalidatePath("/settings/profile");
+  return { success: "Profile updated." };
+}
+
 export async function updateStudentProfileAction(
   _prev: ProfileState,
   formData: FormData,
