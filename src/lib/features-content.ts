@@ -240,7 +240,7 @@ At the end of the term, exporting becomes effortless. The broadsheet is a clean 
     helps: `To be written — history stays, leadership can measure tickets per week and category instead of asking around a group. To be written in order 11.`,
   },
 
-  landing-public-flows: {
+  "landing-public-flows": {
     challenge: `To be written — 13 Landing & Public Flows deep dive (not requested yet). A landing page that makes big promises and a portal that must keep them often behave like two products, with stats that cannot be verified and a checker that is not linked to the real result.`,
     solution: `To be written — will cover root routing by host/auth, landing_stats with auto/manual modes, sales-led /register, demo requests, and public /verify for finalised codes. To be written in order 13.`,
     helps: `To be written — prospects see a tour ending in a conversation, not a cart; parents verify a code on the spot. To be written in order 13.`,
