@@ -1466,11 +1466,12 @@ model StudentPayment {
 }
 
 model FeeReminderConfig {
-  id            String    @id @default(cuid())
-  schoolId      String    @unique
-  weeklyEnabled Boolean   @default(false)
-  dayOfWeek     Int       @default(1)
-  lastSentAt    DateTime?
+  id              String    @id @default(cuid())
+  schoolId        String    @unique
+  weeklyEnabled   Boolean   @default(false)
+  dayOfWeek       Int       @default(1)
+  lastSentAt      DateTime?
+  messageTemplate String?   // templated fee reminder with {{variables}}
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   @@map("fee_reminder_configs")
 }

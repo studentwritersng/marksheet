@@ -9,6 +9,8 @@ import { recordAudit } from "@/lib/audit";
 import {
   getStudentFeeSummaryBatch,
   buildFeeReminderContent,
+  buildFeeReminderContentFromTemplate,
+  DEFAULT_FEE_REMINDER_TEMPLATE,
   type WardLine,
 } from "@/lib/fees/bursary";
 import { createNotification } from "@/lib/notifications/actions";
@@ -93,25 +95,40 @@ export async function sendRemindersForSchool(
   schoolId: string,
   termId: string,
   classId?: string,
+  overrideTemplate?: string | null,
 ): Promise<{ sentPush: number; sentEmail: number; failed: number }> {
   // Guard against an empty/missing school or term.
-  const school = await prisma.school.findUnique({
-    where: { id: schoolId },
-    select: { id: true },
-  });
+  const [school, term, config, session] = await Promise.all([
+    prisma.school.findUnique({ where: { id: schoolId }, select: { id: true, name: true } }),
+    prisma.term.findUnique({ where: { id: termId }, select: { id: true, name: true, session: { select: { label: true } } } }),
+    prisma.feeReminderConfig.findUnique({ where: { schoolId }, select: { messageTemplate: true } }),
+    prisma.term.findUnique({ where: { id: termId }, select: { sessionId: true } }),
+  ]);
   if (!school) return { sentPush: 0, sentEmail: 0, failed: 0 };
-  const term = await prisma.term.findUnique({
-    where: { id: termId },
-    select: { id: true },
-  });
   if (!term) return { sentPush: 0, sentEmail: 0, failed: 0 };
+  // Resolve session label for template
+  let sessionLabel = term.session?.label ?? "";
+  if (!sessionLabel && session?.sessionId) {
+    const s = await prisma.session.findUnique({ where: { id: session.sessionId }, select: { label: true } });
+    sessionLabel = s?.label ?? "";
+  }
+
+  const template = overrideTemplate ?? config?.messageTemplate ?? DEFAULT_FEE_REMINDER_TEMPLATE;
 
   const guardByParent = await groupOwingGuardians(schoolId, termId, classId);
   let sentPush = 0,
     sentEmail = 0,
     failed = 0;
   for (const g of guardByParent.values()) {
-    const content = buildFeeReminderContent(g.wards);
+    const content = template
+      ? buildFeeReminderContentFromTemplate(template, {
+          guardianName: g.name ?? "Guardian",
+          wards: g.wards,
+          schoolName: school.name ?? "",
+          termName: String(term.name).replace("_", " "),
+          sessionLabel,
+        })
+      : buildFeeReminderContent(g.wards);
     if (g.parentUserId) {
       await createNotification({
         schoolId,
@@ -160,9 +177,10 @@ export async function sendRemindersAction(
 
   const termId = String(fd.get("termId") ?? "");
   const classId = String(fd.get("classId") ?? "") || undefined;
+  const customMessage = fd.get("customMessage") ? String(fd.get("customMessage")) : null;
   if (!termId) return { error: "Active term is required." };
 
-  const res = await sendRemindersForSchool(ctx.schoolId, termId, classId);
+  const res = await sendRemindersForSchool(ctx.schoolId, termId, classId, customMessage);
   await recordAudit({
     schoolId: ctx.schoolId,
     actorId: ctx.user.userId,
@@ -197,10 +215,14 @@ export async function updateReminderConfigAction(
 
   const weeklyEnabled = fd.get("weeklyEnabled") === "on";
   const dayOfWeek = Number(fd.get("dayOfWeek") ?? 1);
+  const rawTemplate = fd.get("messageTemplate");
+  const messageTemplate = rawTemplate !== null && rawTemplate !== undefined ? String(rawTemplate).trim() : undefined;
+  // If template provided empty string, store null to fallback to default
+  const templateToStore = messageTemplate === "" ? null : messageTemplate;
   await prisma.feeReminderConfig.upsert({
     where: { schoolId: ctx.schoolId },
-    update: { weeklyEnabled, dayOfWeek },
-    create: { schoolId: ctx.schoolId, weeklyEnabled, dayOfWeek },
+    update: { weeklyEnabled, dayOfWeek, ...(messageTemplate !== undefined ? { messageTemplate: templateToStore } : {}) },
+    create: { schoolId: ctx.schoolId, weeklyEnabled, dayOfWeek, ...(templateToStore ? { messageTemplate: templateToStore } : {}) },
   });
   revalidatePath("/fees/reminders");
   return { success: "Reminder schedule updated." };

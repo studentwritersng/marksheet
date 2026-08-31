@@ -11,10 +11,102 @@ import {
   searchDirectory, countAudience, resolveAudienceUserIds, BULK_SEND_CAP,
   type AudienceSpec, type DirectoryQuery, type DirectoryEntry,
 } from "@/lib/messages/audience";
+import { renderTemplate } from "@/lib/messages/template";
 
 export interface ActionState {
   error?: string;
   success?: string;
+}
+
+// ── Template variable helpers (personalization) ─────────────────────────────
+async function globalMessageVars(schoolId: string): Promise<Record<string, string>> {
+  const [school, session, term] = await Promise.all([
+    prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } }),
+    prisma.session.findFirst({ where: { schoolId, isCurrent: true }, select: { label: true } }),
+    prisma.term.findFirst({ where: { session: { schoolId }, isCurrent: true }, select: { name: true } }),
+  ]);
+  const now = new Date();
+  return {
+    school_name: school?.name ?? "",
+    session: session?.label ?? "",
+    term: term ? String(term.name).replace("_", " ") : "",
+    date: now.toLocaleDateString("en-NG"),
+    time: now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" }),
+    datetime: `${now.toLocaleDateString("en-NG")} ${now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}`,
+  };
+}
+
+async function varsForRecipient(schoolId: string, recipientId: string, global: Record<string, string>): Promise<Record<string, string>> {
+  const user = await prisma.user.findUnique({
+    where: { id: recipientId },
+    select: { id: true, email: true, role: true, staff: { select: { fullName: true } } },
+  });
+  if (!user) return { ...global };
+
+  const base: Record<string, string> = { ...global };
+
+  // recipient_name always available
+  const staffName = (user as any).staff?.fullName as string | undefined;
+  base.recipient_name = staffName || user.email || "";
+
+  if (user.role === "staff") {
+    base.guardian_name = base.recipient_name;
+    // subject left empty unless caller filters; keep global term/session
+  } else if (user.role === "student") {
+    const student = await prisma.student.findUnique({
+      where: { userId: recipientId },
+      select: { firstName: true, lastName: true, admissionNumber: true, currentClass: { select: { name: true } }, guardians: { select: { fullName: true }, take: 1 } },
+    });
+    if (student) {
+      const full = `${student.firstName} ${student.lastName}`.trim();
+      base.student_name = full;
+      base.student_first_name = student.firstName;
+      base.admission_number = student.admissionNumber ?? "";
+      base.class = student.currentClass?.name ?? "";
+      base.guardian_name = student.guardians[0]?.fullName ?? "";
+      base.recipient_name = full;
+    }
+  } else if (user.role === "parent") {
+    const guardian = await prisma.guardian.findFirst({
+      where: { parentUserId: recipientId },
+      select: { fullName: true, student: { select: { firstName: true, lastName: true, admissionNumber: true, currentClass: { select: { name: true } } } } },
+    });
+    if (guardian) {
+      base.guardian_name = guardian.fullName ?? "";
+      base.parent_name = guardian.fullName ?? "";
+      base.recipient_name = guardian.fullName ?? base.recipient_name ?? "";
+      if (guardian.student) {
+        base.student_name = `${guardian.student.firstName} ${guardian.student.lastName}`.trim();
+        base.student_first_name = guardian.student.firstName;
+        base.admission_number = guardian.student.admissionNumber ?? "";
+        base.class = guardian.student.currentClass?.name ?? "";
+      }
+    }
+    // also try to enrich with first ward if parent has multiple
+    const allWards = await prisma.guardian.findMany({
+      where: { parentUserId: recipientId },
+      select: { student: { select: { firstName: true, lastName: true, currentClass: { select: { name: true } } } } },
+      take: 3,
+    });
+    if (allWards.length > 1) {
+      const first = allWards[0]?.student;
+      if (first) {
+        base.student_name = `${first.firstName} ${first.lastName}`.trim();
+        base.class = first.currentClass?.name ?? base.class ?? "";
+      }
+    }
+  }
+
+  // aliases handled in renderTemplate, but also duplicate for convenience
+  if (base.guardian_name) base.parent_name = base.guardian_name;
+  if (base.class) base.class_name = base.class;
+  return base;
+}
+
+function renderForRecipient(template: string, vars: Record<string, string>): string {
+  // if template contains no {{ -> return as-is (no overhead)
+  if (!template.includes("{{")) return template;
+  return renderTemplate(template, vars);
 }
 
 export interface MessageVM {
@@ -185,10 +277,21 @@ export async function createConversationAction(recipientId: string, subject: str
   const senderType = participantTypeForRole(user.role);
   const recipientType = participantTypeForRole(recipient.role);
 
+  // Render template variables per recipient (personalization)
+  const global = await globalMessageVars(user.schoolId);
+  // include subject in term handling
+  const recipientVars = await varsForRecipient(user.schoolId, recipient.id, global);
+  // allow subject variable too (e.g. recipient may have subject-specific name)
+  if (recipientVars.student_name && !recipientVars.subject) {
+    // try to resolve subject name if needed from recipient context — keep global subject blank
+  }
+  const personalizedBody = renderForRecipient(initialMessage.trim(), recipientVars);
+  const personalizedSubject = renderForRecipient(subject.trim(), recipientVars);
+
   const conversation = await prisma.conversation.create({
     data: {
       schoolId: user.schoolId,
-      subject: subject.trim() || null,
+      subject: personalizedSubject || null,
       participants: {
         create: [
           { userId: user.userId, userType: senderType, userLabel: user.email },
@@ -196,7 +299,7 @@ export async function createConversationAction(recipientId: string, subject: str
         ],
       },
       messages: {
-        create: { senderId: user.userId, content: initialMessage.trim() },
+        create: { senderId: user.userId, content: personalizedBody },
       },
     },
     include: { participants: true },
@@ -210,7 +313,7 @@ export async function createConversationAction(recipientId: string, subject: str
     channel: "in_app",
     eventType: "new_message",
     title: `New message from ${user.email}`,
-    content: initialMessage.trim().slice(0, 200),
+    content: personalizedBody.slice(0, 200),
   });
 
   await recordAudit({
@@ -362,6 +465,7 @@ export async function bulkSendAction(
 
   const senderType = participantTypeForRole(user.role);
   let sent = 0;
+  const global = await globalMessageVars(user.schoolId);
 
   for (let i = 0; i < userIds.length; i += 20) {
     await Promise.all(userIds.slice(i, i + 20).map(async (recipientId) => {
@@ -370,17 +474,21 @@ export async function bulkSendAction(
         select: { id: true, email: true, role: true, schoolId: true },
       });
       if (!recipient || recipient.schoolId !== user.schoolId) return;
+      const vars = await varsForRecipient(user.schoolId!, recipientId, global);
+      // If audience is parents/parents_by_fee and body uses fee vars like {{balance}}, we keep them empty rather than failing
+      const personalizedBody = renderForRecipient(body.trim(), vars);
+      const personalizedSubject = renderForRecipient(subject.trim(), vars);
       await prisma.conversation.create({
         data: {
           schoolId: user.schoolId!,
-          subject: subject.trim() || null,
+          subject: personalizedSubject || null,
           participants: {
             create: [
               { userId: user.userId, userType: senderType, userLabel: user.email },
               { userId: recipient.id, userType: participantTypeForRole(recipient.role), userLabel: recipient.email },
             ],
           },
-          messages: { create: { senderId: user.userId, content: body.trim() } },
+          messages: { create: { senderId: user.userId, content: personalizedBody } },
         },
       });
       await createNotification({
@@ -390,7 +498,7 @@ export async function bulkSendAction(
         channel: "in_app",
         eventType: "new_message",
         title: `New message from ${user.email}`,
-        content: body.trim().slice(0, 200),
+        content: personalizedBody.slice(0, 200),
       });
       sent += 1;
     }));

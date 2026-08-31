@@ -21,6 +21,7 @@ import {
 import { submitDemoRequestAction, type DemoRequestResult } from "./actions";
 
 const nav = [
+  { label: "Features", href: "/features" },
   { label: "The term", href: "#term" },
   { label: "Platform", href: "#platform" },
   { label: "Verify", href: "#verify" },
@@ -386,68 +387,149 @@ export function MarketingLandingPage({
         </div>
       </section>
 
-      {/* Bento platform grid */}
+      {/* Bento platform grid — now the Features hub teaser */}
       <section id="platform" className="mx-auto max-w-6xl px-5 py-20 lg:py-28">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div className="max-w-2xl">
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.28em] text-mk-primary">The platform</p>
+            <h2 className="mt-3 font-mk-display text-3xl font-bold leading-tight sm:text-4xl">
+              Everything the academic cycle touches — 18 modules, one tenant.
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-mk-muted-fg">
+              From syllabus to verified report card. Role-scoped for proprietors, principals, teachers, bursars and guardians — so every screen shows only what that person is meant to see.
+            </p>
+          </div>
+          <Link
+            href="/features"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-mk-ink px-6 py-3 text-sm font-bold text-mk-ink-fg transition-colors hover:bg-mk-primary"
+          >
+            See all features
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <div className="sm:col-span-2 lg:col-span-1 lg:row-span-2 flex flex-col justify-between rounded-3xl bg-mk-ink p-8 text-mk-ink-fg">
             <div>
               <p className="text-[0.7rem] font-bold uppercase tracking-[0.28em] text-mk-amber">
-                The platform
+                Featured
               </p>
-              <h2 className="mt-5 font-mk-display text-3xl font-bold leading-tight">
-                Everything the academic cycle touches
-              </h2>
+              <h3 className="mt-5 font-mk-display text-3xl font-bold leading-tight">
+                Start with the term you already run
+              </h3>
               <p className="mt-4 text-sm leading-relaxed text-mk-ink-fg/70">
-                One tenant per school. Role-scoped for proprietors, principals, teachers, bursars
-                and guardians.
+                Marksheet does not ask your staff to invent a new workflow. It follows weeks 1–12 as you teach them — and gives each week a record that can be audited.
               </p>
             </div>
-            <a
-              href="#demo"
-              className="mt-10 inline-flex w-fit items-center gap-2 rounded-full bg-mk-warm px-5 py-2.5 text-sm font-bold text-mk-ink"
-            >
-              See it live
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
+            <div className="mt-8 flex flex-col gap-3">
+              <Link
+                href="/features"
+                className="inline-flex w-fit items-center gap-2 rounded-full bg-mk-warm px-5 py-2.5 text-sm font-bold text-mk-ink"
+              >
+                Explore all 18 features
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+              <a
+                href="#demo"
+                className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-semibold text-mk-ink-fg backdrop-blur"
+              >
+                See it live
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+            </div>
           </div>
 
-          <article className="rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft">
+          <Link href="/features/exams" className="group rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft transition-colors hover:border-mk-primary/40">
             <span className="font-mk-display text-3xl font-bold text-mk-primary">01</span>
-            <h3 className="mt-4 font-mk-display text-xl font-bold">Syllabus & lesson notes</h3>
+            <h3 className="mt-4 font-mk-display text-xl font-bold group-hover:text-mk-primary">Exams & AI grading</h3>
             <p className="mt-2 text-sm leading-relaxed text-mk-muted-fg">
-              Upload syllabi, track coverage week by week, and draft consistent lesson notes against
-              NERDC-aligned topics.
+              Shared question bank, hall or online delivery, instant MCQ scoring and rubric-grounded essay assistance.
             </p>
-          </article>
+            <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-mk-primary">
+              Read about this feature <ArrowUpRight className="h-4 w-4" />
+            </span>
+          </Link>
 
-          <article className="rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft">
+          <Link href="/features/results-grading-report-cards" className="group rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft transition-colors hover:border-mk-primary/40">
             <span className="font-mk-display text-3xl font-bold text-mk-coral">02</span>
-            <h3 className="mt-4 font-mk-display text-xl font-bold">Exams & AI grading</h3>
+            <h3 className="mt-4 font-mk-display text-xl font-bold group-hover:text-mk-primary">Results & report cards</h3>
             <p className="mt-2 text-sm leading-relaxed text-mk-muted-fg">
-              Shared question bank, hall or online delivery, instant MCQ scoring and rubric-grounded
-              essay assistance.
+              Weighted CA + exam totals, ranking, broadsheets and report cards with a code any parent or employer can verify.
             </p>
-          </article>
+            <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-mk-primary">
+              Read about this feature <ArrowUpRight className="h-4 w-4" />
+            </span>
+          </Link>
 
-          <article className="overflow-hidden rounded-3xl border border-mk-border bg-mk-card shadow-mk-soft sm:col-span-2">
+          <Link href="/features/bursary-fee-management" className="group rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft transition-colors hover:border-mk-primary/40">
+            <span className="font-mk-display text-3xl font-bold text-mk-teal">03</span>
+            <h3 className="mt-4 font-mk-display text-xl font-bold group-hover:text-mk-primary">Bursary & fees</h3>
+            <p className="mt-2 text-sm leading-relaxed text-mk-muted-fg">
+              Fee items per level, payments per student, derived cleared/partial/not_paid and auto-reminders with {"{{variables}}"}.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-mk-primary">
+              Read about this feature <ArrowUpRight className="h-4 w-4" />
+            </span>
+          </Link>
+
+          <Link href="/features/messaging" className="group rounded-3xl border border-mk-border bg-mk-card p-7 shadow-mk-soft transition-colors hover:border-mk-primary/40">
+            <span className="font-mk-display text-3xl font-bold text-mk-primary">04</span>
+            <h3 className="mt-4 font-mk-display text-xl font-bold group-hover:text-mk-primary">Messaging at scale</h3>
+            <p className="mt-2 text-sm leading-relaxed text-mk-muted-fg">
+              Private 1:1 threads. Bulk to “all JSS2 parents” as 64 private conversations, each with {"{{student_name}}"}.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-mk-primary">
+              Read about this feature <ArrowUpRight className="h-4 w-4" />
+            </span>
+          </Link>
+
+          <Link href="/features/curriculum-syllabus-lesson-notes" className="group overflow-hidden rounded-3xl border border-mk-border bg-mk-card shadow-mk-soft transition-colors hover:border-mk-primary/40 sm:col-span-2 lg:col-span-2">
             <img
               src="/marketing/parent-student.jpg"
               alt="A parent and student checking a published result on a phone"
               loading="lazy"
               width={1200}
               height={912}
-              className="h-52 w-full object-cover sm:h-60"
+              className="h-48 w-full object-cover sm:h-52"
             />
             <div className="p-7">
-              <span className="font-mk-display text-3xl font-bold text-mk-teal">03</span>
-              <h3 className="mt-4 font-mk-display text-xl font-bold">Results parents can trust</h3>
-              <p className="mt-2 max-w-lg text-sm leading-relaxed text-mk-muted-fg">
-                Weighted term scores compute themselves, report cards publish in a click, and every
-                one of them carries a code that proves it came from your school.
+              <h3 className="font-mk-display text-xl font-bold">Syllabus, lesson notes & curriculum tracker</h3>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-mk-muted-fg">
+                NERDC-aligned topics, coverage you can prove (teacher marks, class captain verifies), and lesson notes that live where the syllabus lives — so an exam never asks what was not taught.
               </p>
+              <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-mk-primary">
+                Read about this feature <ArrowUpRight className="h-4 w-4" />
+              </span>
             </div>
-          </article>
+          </Link>
         </div>
+
+        {/* Secondary strip: 6 more teasers */}
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { href: "/features/timetable", n: "06", t: "Timetable", d: "Manual grid or collision-free generator from rooms & availability." },
+            { href: "/features/attendance", n: "07", t: "Attendance", d: "Daily or per-period, QR cards, flows into report cards." },
+            { href: "/features/question-bank", n: "08", t: "Question Bank", d: "Stimulus → group → question, draft → approved, CSV staged." },
+            { href: "/features/homework", n: "09", t: "Homework", d: "Take-home MCQs + essays, auto-grade, parent-visible." },
+            { href: "/features/mobile-app-push-notifications", n: "10", t: "Mobile & Push", d: "Android APK + free, unlimited FCM to the lock screen." },
+            { href: "/features/data-imports-exports", n: "11", t: "Imports & Exports", d: "Stage, validate, commit — then export CSV/DOC/PDF/XLSX." },
+          ].map((f) => (
+            <Link key={f.href} href={f.href} className="group flex items-center gap-4 rounded-2xl border border-mk-border bg-mk-card p-4 shadow-mk-soft transition-colors hover:border-mk-primary/40">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-mk-secondary font-mono text-xs text-mk-muted-fg">{f.n}</span>
+              <div className="min-w-0">
+                <span className="block font-mk-display text-sm font-bold group-hover:text-mk-primary">{f.t}</span>
+                <span className="block text-xs leading-relaxed text-mk-muted-fg">{f.d}</span>
+              </div>
+              <ArrowUpRight className="ml-auto h-4 w-4 shrink-0 text-mk-muted-fg group-hover:text-mk-primary" />
+            </Link>
+          ))}
+        </div>
+        <p className="mt-4 text-right">
+          <Link href="/features" className="inline-flex items-center gap-1.5 text-sm font-semibold text-mk-primary hover:underline">
+            See all 18 features
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </p>
       </section>
 
       {/* Verify strip: wired to the real public verification API */}

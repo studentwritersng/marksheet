@@ -33,7 +33,7 @@ export default async function QuestionsPage() {
         mcqOptions: true,
         essaySpec: true,
       },
-      orderBy: [{ topic: "asc" }, { createdAt: "desc" }],
+      orderBy: [{ topic: "asc" }, { createdAt: "asc" }],
     }),
     prisma.question.findMany({
       where: { schoolId: user.schoolId, classLevel: { not: null } },

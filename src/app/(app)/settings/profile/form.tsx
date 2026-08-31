@@ -50,8 +50,7 @@ export function ProfileForm({ staff }: ProfileFormProps) {
             </div>
           </div>
         </div>
-      </div>
-
+      )}
       {state.error && <p className="bg-red-50 text-red-700 font-body-sm text-body-sm px-4 py-3 rounded-lg border border-red-200">{state.error}</p>}
       {state.success && <p className="bg-green-50 text-green-700 font-body-sm text-body-sm px-4 py-3 rounded-lg border border-green-200">{state.success}</p>}
 

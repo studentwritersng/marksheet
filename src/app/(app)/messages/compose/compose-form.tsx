@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createConversationAction, searchDirectoryAction, countAudienceAction, bulkSendAction } from "../actions";
 import type { AudienceSpec, AudienceType, DirectoryEntry, FeeStatusValue } from "@/lib/messages/audience";
+import { MESSAGE_VARIABLES, FEE_REMINDER_VARIABLES } from "@/lib/messages/template";
 
 interface Props {
   recipients: { userId: string; label: string; type: string }[];
@@ -47,6 +48,39 @@ export function ComposeMessageForm({ recipients, useDirectory, classes }: Props)
   const [error, setError] = useState("");
   const [sentCount, setSentCount] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageRef = useRef<HTMLTextAreaElement>(null);
+
+  function insertVariable(key: string) {
+    const tag = `{{${key}}}`;
+    const el = messageRef.current;
+    if (!el) { setInitialMessage((prev) => prev + (prev && !prev.endsWith(" ") ? " " : "") + tag + " "); return; }
+    const start = el.selectionStart ?? initialMessage.length;
+    const end = el.selectionEnd ?? initialMessage.length;
+    const next = initialMessage.slice(0, start) + tag + initialMessage.slice(end);
+    setInitialMessage(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + tag.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
+  const individualVars = (() => {
+    if (!useDirectory) {
+      const set = new Set(["recipient_name","school_name","date","time","datetime","subject","term","session"]);
+      return MESSAGE_VARIABLES.filter((v) => set.has(v.key));
+    }
+    if (dirType === "teacher") return MESSAGE_VARIABLES.filter((v) => ["recipient_name","guardian_name","school_name","subject","date","time","datetime","term","session"].includes(v.key));
+    if (dirType === "student") return MESSAGE_VARIABLES.filter((v) => ["student_name","student_first_name","admission_number","class","guardian_name","recipient_name","school_name","date","time","datetime","term","session"].includes(v.key));
+    return MESSAGE_VARIABLES.filter((v) => ["guardian_name","parent_name","student_name","class","recipient_name","school_name","date","time","datetime","term","session"].includes(v.key));
+  })();
+
+  const bulkVars = (() => {
+    if (audienceType === "teachers") return MESSAGE_VARIABLES.filter((v) => ["recipient_name","school_name","subject","date","time","datetime"].includes(v.key));
+    if (audienceType === "students") return MESSAGE_VARIABLES.filter((v) => ["student_name","student_first_name","class","admission_number","guardian_name","recipient_name","school_name","date","time","datetime","term","session"].includes(v.key));
+    if (audienceType === "parents") return MESSAGE_VARIABLES.filter((v) => ["guardian_name","parent_name","student_name","class","recipient_name","school_name","date","time","datetime","term","session"].includes(v.key));
+    return FEE_REMINDER_VARIABLES;
+  })();
 
   useEffect(() => {
     if (!useDirectory || mode !== "individual") return;
@@ -228,10 +262,37 @@ export function ComposeMessageForm({ recipients, useDirectory, classes }: Props)
           placeholder="What is this about?" />
       </div>
       <div>
-        <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1">Message</label>
-        <textarea value={initialMessage} onChange={(e) => setInitialMessage(e.target.value)} required rows={5}
+        <div className="flex items-center justify-between mb-1">
+          <label className="font-label-sm text-label-sm text-on-surface-variant">Message</label>
+          <span className="font-label-sm text-label-sm text-on-surface-variant">Use {"{{variables}}"} — they are replaced per recipient</span>
+        </div>
+        <textarea ref={messageRef} value={initialMessage} onChange={(e) => setInitialMessage(e.target.value)} required rows={5}
           className="w-full border border-outline-variant rounded p-3 font-body-md text-body-md"
-          placeholder="Write your message..." />
+          placeholder="Write your message... Tip: insert variables like {{student_name}} {{class}} {{date}}" />
+        {/* Variable picker */}
+        <div className="mt-2">
+          <p className="font-label-sm text-label-sm text-on-surface-variant mb-1">
+            {mode === "bulk" ? "Variables for this audience — click to insert:" : "Variables — click to insert:"}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {(mode === "bulk" ? bulkVars : individualVars).map((v) => (
+              <button
+                key={v.key}
+                type="button"
+                onClick={() => insertVariable(v.key)}
+                title={`${v.description} — e.g. ${v.example}`}
+                className="rounded-full border border-outline-variant bg-surface-container-low px-2.5 py-1 font-label-sm text-label-sm text-on-surface hover:bg-primary-container hover:text-on-primary-container transition-colors"
+              >
+                {`{{${v.key}}}`}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 font-label-sm text-label-sm text-on-surface-variant">
+            {mode === "bulk" && audienceType === "parents_by_fee"
+              ? "Fee variables: {{ward_list}} expands to all wards with balances; {{total_balance}} is sum."
+              : "Variables available: student_name, class, admission_number, guardian_name, recipient_name, school_name, subject, term, session, date, time, datetime."}
+          </p>
+        </div>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
 

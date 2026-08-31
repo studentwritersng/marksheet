@@ -41,10 +41,13 @@ export default async function FeeRemindersPage() {
     );
   }
 
-  const config = await prisma.feeReminderConfig.findUnique({
-    where: { schoolId },
-    select: { weeklyEnabled: true, dayOfWeek: true },
-  });
+  const [config, school] = await Promise.all([
+    prisma.feeReminderConfig.findUnique({
+      where: { schoolId },
+      select: { weeklyEnabled: true, dayOfWeek: true, messageTemplate: true },
+    }),
+    prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } }),
+  ]);
 
   const classes = await prisma.class.findMany({
     where: { schoolId },
@@ -109,9 +112,13 @@ export default async function FeeRemindersPage() {
       <div className="mt-6">
         <RemindersManager
           activeTermId={activeTerm.id}
-          activeTermName={activeTerm.name}
+          activeTermName={String(activeTerm.name).replace("_", " ")}
+          activeTermNameRaw={String(activeTerm.name)}
+          sessionLabel={currentSession.label}
+          schoolName={school?.name ?? ""}
           weeklyEnabled={config?.weeklyEnabled ?? false}
           dayOfWeek={config?.dayOfWeek ?? 1}
+          messageTemplate={config?.messageTemplate ?? null}
           classes={classes}
           preview={Array.from(preview.values())}
         />
