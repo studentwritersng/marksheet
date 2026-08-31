@@ -1,8 +1,9 @@
 /**
  * Deep-dive human explanations for /features/[slug].
- * Written in a warm, conversational, jargon-free tone that any school proprietor,
- * principal, or teacher can instantly relate to. Focuses entirely on real school life,
- * staff room realities, and parent communication in Nigeria.
+ * Each feature's content is sourced from docs/features/*.md,
+ * mapped into challenge / solution / helps sections.
+ * Written in a warm, conversational tone any school proprietor,
+ * principal or teacher in Nigeria can relate to.
  */
 
 export interface FeatureDeepDive {
@@ -13,255 +14,441 @@ export interface FeatureDeepDive {
 
 export const FEATURE_DEEP_DIVES: Record<string, FeatureDeepDive> = {
   exams: {
-    challenge: `Ask any exam officer what the exam week feels like, and they will tell you about the late-night panic. You have teachers rushing to submit question papers on Friday afternoon for a Monday morning exam. The papers arrive typed in three different fonts, some with five multiple-choice options, others with four, and instructions like "answer all questions" printed on a paper that only has three sections. Then the photocopier jams at 10:00 PM, and the exam office is left sorting, stapling, and sealing questions into brown envelopes by candlelight because the generator fuel ran out.
+    challenge: `Marksheet gives schools a complete way to prepare and manage examinations, from creating the questions to releasing the final scores.
 
-By the time the papers land on the student desks, nobody can guarantee that the version on the paper is the version the Head of Department actually moderated. And if a student is sick and misses the Tuesday paper, setting a separate makeup exam means a teacher has to go back, search through old files on a flash drive, and hope they find the correct draft. 
+Teachers and examination officers can prepare exam papers, have them reviewed before release, give students access to the examination, and manage the marking process.
 
-Then comes the heavy burden of marking. A teacher sits with a red pen and 150 scripts, grading late into the night. They total the marks on a calculator, write them in a paper register, and then copy those totals into a computer spreadsheet. One finger slip—writing 14 instead of 41—and a student’s entire term total is ruined, with nobody realizing the mistake until the parents are screaming at the end-of-term PTA meeting.`,
+Before Marksheet, exam week meant late-night panic: papers arriving in three different fonts, a photocopier jamming at 10 pm, and teachers marking 150 scripts by hand — one slipped digit and a student's whole term total is ruined, with nobody noticing until the PTA meeting.`,
 
-    solution: `Marksheet turns the entire exam cycle into a clean, guided process. Instead of setting exams in scattered Word documents, teachers build papers directly from a shared Question Bank. Every question already belongs to its proper subject, class level, and syllabus topic. If it’s an essay question, it carries its own marking guide and rubrics right alongside it, so the model answer is never lost on a separate sheet of paper.
+    solution: `An examination is first prepared by the examination officer and then sent for review. Once approved and published, students in the selected classes can access it.
 
-The exam paper moves through a clear chain of review. A teacher drafts it, the Head of Department receives a notification to review and moderate it, and only when it is officially approved can it be scheduled. If the HOD rejects it, the paper goes back to the teacher with simple notes on what to fix.
+Multiple-choice questions are marked automatically, while essay answers receive AI-assisted marking suggestions that the teacher can review and confirm. This gives the school a structured examination process while keeping teachers involved in every important academic decision.
 
-When it’s time to take the exam, you have two options. You can print a beautifully typeset paper in one click, or deliver it on tablets and computers. If you choose the screen, you can turn on shuffling. This means the student on the left and the student on the right see the questions and options in a completely different order, making cheating almost impossible. 
+Teachers can build papers directly from the school's shared Question Bank, so every question already belongs to its proper subject, class level and syllabus topic. The paper moves through a clear chain: draft → review by the Head of Department → approved → scheduled.`,
 
-And if the school’s internet drops? Marksheet is built to keep going. The exam runs smoothly on the school’s local office network. Students submit their answers, multiple-choice questions are graded instantly by the system, and essay answers are queued up for the teacher. When the internet returns, everything syncs back to the cloud automatically, with secure timers ensuring no student gets extra minutes by turning their device off and on. 
+    helps: `Less manual work: Objective questions are marked automatically, cutting the time teachers spend calculating scores.
 
-For theory and essay questions, the system reads the student's typed response against the teacher's model answer and marking rubric. It suggests a fair score with simple reasons, and hands it to the subject teacher. The teacher has the final say—they can accept the suggestion or type their own score, keeping the human teacher in absolute control.`,
+Better control: Examinations can be reviewed and approved before students see them.
 
-    helps: `The most immediate change is staff room peace. Exam week stops being a race against a jammed printer and becomes a quiet, scheduled event. The question paper that lands on the desk is exactly the one the HOD approved, with consistent formatting, clear instructions, and the correct mark allocations already printed.
+More organised exams: Papers are connected to the right class, subject and term.
 
-Teachers get their evenings back. Multiple-choice questions are graded the second the student clicks submit. Essay questions arrive on the teacher's dashboard already organized with the student's answer side-by-side with the marking guide, reducing hours of manual red-pen grading into a focused review session.
+Flexible marking: Teachers remain in control of essay scores and can change an AI suggestion when necessary.
 
-For the school’s reputation, the transformation is massive. Parents no longer have to wait weeks to hear how their children performed. Results can be ready days after the last paper. And if a parent queries a score, the school doesn’t have to dig through dusty cupboards for a physical script. You simply open the student’s portal, show the exact option they chose, the essay they wrote, and the rubric points the teacher confirmed.`,
+Resits are easier to manage: A student's resit stays connected to the original examination.
+
+In simple terms: Marksheet helps the school manage the entire examination process — from preparing the paper to marking students and producing their scores.`,
   },
 
   "results-grading-report-cards": {
-    challenge: `Broadsheet week is the most stressful week of the school year. You have teachers huddled around a single laptop in the staff room, reading raw scores aloud while another types them into a massive, complicated spreadsheet. Everyone is praying that the formulas used to calculate the final scores—taking 30% from continuous assessment and 70% from the exam—were not broken when a row was dragged or deleted. 
+    challenge: `Marksheet brings together students' assessment and examination scores and turns them into organised academic results.
 
-Then comes the manual grading. A teacher has to look at every student's total and decide if 69.5% rounds up to an A or stays as a B, leading to inconsistent grading between classes. If two students tie on the same overall average, deciding who takes 3rd position and who takes 4th becomes a long debate in the principal's office because there is no written tie-breaker rule.
+The school can decide how different assessments contribute to the final result, calculate grades and positions, produce report cards and broadsheets, and provide a way for results to be verified.
 
-By the time the report cards are printed, they are often a messy mix of fonts, with the principal’s signature image stretched out of shape or placed crookedly on the page. And once those report cards leave the compound, the school is vulnerable. If a student duplicates a report card on a computer, changes an F9 to a C6, and presents it to a parent or a bank, the school has no quick way to prove the document is a forgery without digging through paper files from three terms ago.`,
+Broadsheet week used to be the most stressful week of the school year — teachers huddled around a single laptop, praying the formulas calculating 30% continuous assessment and 70% exam were not broken, and debating who takes 3rd position when two students tie because there was no written tie-breaker rule.`,
 
-    solution: `Marksheet automates the entire grading and ranking process, taking the math out of the teachers' hands. The school defines its continuous assessment weightings once—for example, 15% for test one, 15% for test two, and 70% for the exam. The school’s grading scale is locked into the central settings, ensuring that a score of 70% is treated as an A across every single class, with no exceptions.
+    solution: `The school first decides how its different assessments should contribute to the final score. Teachers enter the students' scores, and Marksheet uses the school's settings to calculate the final subject results, grades and positions.
 
-Teachers only enter raw, physical scores—the actual mark the student got on the test or the paper. From there, the system does the calculation. It automatically applies the weightings, looks up the correct grade band, determines the exact position of each student within the class, breaks ties using consistent rules, and rolls everything into a final term result. It even pulls the teacher’s comments and attendance summary into place.
+The results can then be compiled into a student's term report and a class broadsheet. Once a result has been finalised, the school can provide a verification code that can be used to confirm the result is genuine.
 
-The report cards are printed in a standard, professional layout using the school’s official logo, signature, and stamp, which are loaded directly from your settings. If the principal changes, you upload the new signature once, and every card printed from that second carries the new name.
+Schools can customise the appearance of their report cards with their own branding — logo, signature, stamp and preferred layout — so the reports look like official school documents rather than generic system-generated printouts.`,
 
-Most importantly, every published report card is given a unique, secure verification code. If a parent, an employer, or a university wants to check if a report card is genuine, they don’t need to call the school or send an email. They simply go to the public verification page on your website, type the code, and get an instant, secure confirmation of the student's name, class, session, and final grades.`,
+    helps: `Faster result processing: Calculations that normally require manual work are handled automatically.
 
-    helps: `The principal can finally relax during broadsheet week. What used to take days of double-checking formulas is finished the moment the last teacher enters their raw scores. The broadsheet balances perfectly on the first try, with no hidden calculation errors or missing rows.
+Fewer calculation errors: Scores, grades and positions are calculated consistently based on the school's settings.
 
-Teachers are spared the tedious work of calculating percentages, looking up grades, and ordering students from 1st to 40th position. They can focus their energy on writing meaningful, personalized comments for each child.
+Professional report cards: Schools produce branded report cards and broadsheets.
 
-Parents get report cards they can read and respect. The grades are consistent, the positions are clear, and the signature sits perfectly on the line. The school is protected from forgery forever; any attempt to alter a grade on a printed card is immediately exposed the moment the parent or a bank types the verification code into the portal. Your report card becomes a trusted, professional document that represents the true standard of your school.`,
+Easy verification: Final results can be checked using a verification code.
+
+Better control: Schools can manage when results are finalised or withheld.
+
+In simple terms: Marksheet takes students' scores and turns them into properly calculated, graded and printable school results that can also be verified as genuine.`,
   },
 
   "curriculum-syllabus": {
-    challenge: `Every school has an official syllabus, but it usually lives as a dusty, 400-page book in the principal's office or a massive PDF forwarded on WhatsApp that teachers rarely open. Instead, teachers write their own "schemes of work" in notebooks. Because there is no central tracking, the schemes begin to drift. A topic like "Equations" is taught in JSS2A in week 3, JSS2B in week 5, and JSS2C skips it entirely because the teacher was sick for a week and ran out of time.
+    challenge: `Every school has an official syllabus, but it usually lives as a dusty book in the principal's office or a massive PDF forwarded on WhatsApp that teachers rarely open. Instead, teachers write their own schemes of work in notebooks, and the schemes begin to drift.
 
-At the end of the term, the academic committee has to ask every teacher: "Have you covered the syllabus?" The answers are always vague. "We are on track," or "We are almost done." Nobody actually knows if the SSS3 Chemistry class is prepared for their WAEC exams until the mock results come out and show massive gaps in their knowledge. 
+A topic like "Equations" is taught in JSS2A in week 3, JSS2B in week 5, and JSS2C skips it entirely because the teacher was sick for a week and ran out of time. At the end of the term, the academic committee asks every teacher "Have you covered the syllabus?" and the answers are always vague — "We are on track," or "We are almost done." Nobody actually knows if the SSS3 Chemistry class is ready for WAEC until the mock results show massive gaps.`,
 
-When a parent complains that their child was tested on something they were never taught, the school has no objective record to check. You are left trying to mediate an argument between a defensive teacher and an angry parent, with no real evidence of what actually happened in the classroom.`,
+    solution: `Marksheet helps schools organise their curriculum, keep track of what has been taught and manage lesson notes in one place. The system supports curriculum content aligned with NERDC references while also allowing schools to manage their own curriculum information.
 
-    solution: `Marksheet pre-loads the standard NERDC national curriculum directly into your portal, turning the syllabus into a live guide instead of a forgotten document. The school uploads its termly scheme of work once per subject and class level. The system breaks this scheme down week by week, linking every topic to the official curriculum.
+The school can have its curriculum organised by subject and class level. Teachers can then follow the curriculum as they teach throughout the term. As lessons are completed, teachers can mark topics as taught, giving the school a clearer picture of how much of the curriculum has been covered and what remains.
 
-Teachers track their progress as they teach. When a teacher finishes a class, they go to their portal and mark the specific topic as "taught." But it doesn't end there. To ensure absolute honesty, the class captain—the student representative in the classroom—gets a notification on their portal to verify that the topic was indeed covered. 
+Syllabuses can also be uploaded and organised so that teachers have a structured reference for what they are expected to teach.`,
 
-This two-way check creates a live "Curriculum Coverage Map" for the principal. With one glance at a visual dashboard, the principal can see which classes are on track, which subjects are lagging behind, and exactly which topics have been verified by the students.`,
+    helps: `Better curriculum planning: Teachers have a clearer view of what they are expected to teach.
 
-    helps: `The academic principal no longer has to guess if the school is ready for exams. In week 5, you can see that SSS3 Physics has only covered two of their scheduled five topics, allowing you to arrange extra classes or support before the end of the term.
+Track teaching progress: School administrators can see whether topics are being covered during the term.
 
-New teachers get a clear roadmap the day they arrive. They don't have to guess what their predecessor taught; they open the portal and see the exact week, topic, and notes that were previously covered and verified.
+More organised lesson preparation: Lesson notes and syllabus information can be managed within the school system.
 
-For the proprietor, school inspections become completely stress-free. When the ministry inspector walks in and asks to see your curriculum compliance, you don't hunt for paper registers or loose lesson plans. You open the coverage map, show the exact NERDC topics taught week by week, and present a professional record of student-verified academic progress.`,
+Greater accountability: Class-captain verification provides an additional check on recorded teaching progress.
+
+AI-assisted preparation: Teachers can get assistance when preparing lesson notes.
+
+In simple terms: Marksheet helps the school know what should be taught, what has been taught, and keeps teachers' lesson preparation organised along the way.`,
   },
 
   "lesson-notes": {
-    challenge: `Writing lesson notes is the bane of a teacher's weekend. On Sunday evening, instead of resting, a teacher sits with three different textbooks, trying to handwrite or type lesson plans into Word files. Because there is no standard system, every teacher writes differently. One teacher writes detailed teaching steps, while another writes a brief summary with no clear learning objectives. 
+    challenge: `Writing lesson notes is the bane of a teacher's weekend. On Sunday evening, instead of resting, a teacher sits with three different textbooks trying to handwrite or type lesson plans into Word files. Because there is no standard system, every teacher writes differently — one writes detailed teaching steps while another writes a brief summary with no clear learning objectives.
 
-HODs are then handed a heavy pile of notebooks or a flood of WhatsApp files to review. They don't have the time to read through hundreds of pages of prose, so they sign them off with a quick glance and a stamp, offering no real academic guidance or moderation.
+HODs are handed a heavy pile of notebooks or a flood of WhatsApp files to review. They do not have the time to read through hundreds of pages of prose, so they sign them off with a quick glance and a stamp, offering no real academic guidance. When a teacher leaves mid-term, they take their files with them and the replacement teacher arrives on Monday guessing what the students already know.`,
 
-When a teacher leaves the school mid-term, they take their files and notebooks with them. The replacement teacher arrives on Monday morning and has to start from scratch, guessing what the students already know, while the students suffer through repeated lessons or massive gaps in their notes.`,
+    solution: `Marksheet provides a single, professional template for every lesson note. Every note must include clear behavioural objectives, reference materials, teaching aids, prior knowledge, step-by-step presentation and a matching evaluation. This structure is built into the portal, making notes easy for teachers to write and simple for HODs to review.
 
-    solution: `Marksheet provides a single, professional template for every lesson note in the school. Every note must include clear behavioral objectives, reference materials, teaching aids, prior knowledge, step-by-step presentation, and a matching evaluation. This structure is built into the portal, making notes easy for teachers to write and simple for HODs to review.
+Teachers can also get AI assistance when preparing lesson notes, helping them organise their teaching content more efficiently. As lessons are completed, teachers can mark topics as taught, and the class captain can verify that the topics recorded as taught were actually covered — creating an additional layer of accountability around curriculum coverage.`,
 
-To save time, teachers can use the built-in AI assistant. But this is not a generic tool that writes textbook paragraphs. The AI is specifically trained on Nigerian secondary school standards and is shaped by "class-level guidance." If you generate a note for JSS1, the AI uses simple, relatable words and local examples. If you generate one for SSS3, it uses advanced terminology and exam-focused scenarios.
+    helps: `More organised lesson preparation: Lesson notes and syllabus information can be managed within the school system.
 
-The note goes through a digital approval queue. The HOD receives the draft, reviews the structured sections, leaves specific comments, and approves it with a click. Only approved notes are marked as "published" and become available for the term.`,
+Greater accountability: Class-captain verification provides an additional check on recorded teaching progress.
 
-    helps: `Teachers get their Sundays back. Instead of rewriting the same basic notes every year, they can copy their approved notes from the previous session, make quick improvements based on the HOD's feedback, and submit them in minutes. 
+AI-assisted preparation: Teachers can get assistance when preparing lesson notes.
 
-HODs can actually moderate. They open a clean queue of standardized drafts on their dashboard, see at a glance if the evaluation questions match the learning objectives, and leave helpful guidance for the teacher.
+Teachers get their Sundays back: Instead of rewriting the same basic notes every year, they can copy approved notes from the previous session, make quick improvements based on HOD feedback, and submit them in minutes.
 
-The school's academic knowledge remains inside the school. If a teacher leaves, their approved, syllabus-linked lesson notes are safely stored in the portal. The new teacher opens their dashboard on day one, sees exactly what was taught last week, and continues with the exact same lesson structure—ensuring the students never lose a single day of learning.`,
+In simple terms: Marksheet helps the school keep teachers' lesson preparation organised and accountable throughout the term.`,
   },
 
   "students-staff-parents-promotion": {
-    challenge: `Managing school records on paper or loose spreadsheets is a recipe for duplicate names and lost history. A secretary registers a child as "Chiamaka Okafor" in JSS1, the bursar types "Chioma Okefor" on the fee receipt, and the class register says "Chy Okafor." By week 12, the system treats them as three different children, and the secretary has to spend hours sorting out the mess.
+    challenge: `Schools often have thousands of pieces of information about students, teachers and parents. Keeping these records organised makes it easier to connect the different parts of the school system.
 
-Teachers face a different problem. A teacher is never just one thing—they teach Math to JSS2, are the class teacher for JSS1A, and are the HOD for Science. A simple school app with a flat "teacher" or "admin" role can't handle this complexity, so schools resort to dangerous workarounds like sharing the main administrator password or giving everyone access to everything.
+A student's academic results, homework, attendance and parent access can all relate back to the correct student record. At the end of an academic session, schools need to move students into their next classes — and students who need to move between branches of the same school group need to be transferred too.
 
-Parents are often treated as an afterthought—just a phone number scribbled on the student's admission card. If a parent has three children in the school, their name is typed three times with three different phone numbers. When the school sends an emergency alert, the mother's phone rings for one child, the father's for the second, and the third child's alert goes to an old number that was never updated.
+Before Marksheet, managing school records on paper or loose spreadsheets was a recipe for duplicate names and lost history: a secretary registers a child as "Chiamaka Okafor" in JSS1, the bursar types "Chioma Okefor" on the fee receipt, and the class register says "Chy Okafor." By week 12, the system treats them as three different children.`,
 
-Promotion in September is the ultimate headache. Moving 300 children to their next classes by hand often results in spelling mistakes, lost historical report cards, and broken links between past performance and future progress.`,
+    solution: `Marksheet provides the school with one organised place to manage its students, staff and parents.
 
-    solution: `Marksheet treats every person in your school as a single, permanent identity with clear relationships.
+For students: The school can maintain records including admission information, class and current status. Schools can register students, import records in bulk, view individual information, transfer students when necessary, keep track of whether a student is active, withdrawn or graduated, identify class captains and vice class captains, and manage student movement between classes and sessions.
 
-Student registration happens once. Admission numbers are automatically generated based on the school's chosen format, ensuring they never duplicate or drift. Once a student is in the system, every other module—fees, exams, attendance, and reports—points back to that single student record.
+For staff: The school can maintain records for members of staff and their school responsibilities, including assignments and staff availability information useful for organising the school timetable.
 
-Teachers are assigned specific "assignments" rather than broad roles. The system looks at their active assignments for the current term and automatically determines what they can see and click. A JSS1 class teacher can mark attendance for JSS1, but they cannot edit the math scores for SSS3.
+For parents: Parents can be connected to the students they are responsible for, so a parent can access information about their child or children through the parent portal. A parent with more than one child can have those children connected to the same parent account.
 
-Parents are treated as families. A single "Parent Account" is created and linked to all of their children. When Mr. Okafor logs in, he doesn't need three different passwords; he sees Chiamaka, Emeka, and Ada on a single dashboard, with their separate fees, results, and attendance clearly laid out.
+For promotion: Marksheet provides a promotion process for moving students from one class or session to another while keeping a record of the promotion.`,
 
-September promotion is simplified into a guided transition. You load the promotion list, see a preview of who moves forward and who repeats, click confirm, and the children are moved to their new registers. The system automatically preserves their entire academic history behind them, keeping their JSS1 records safe even as they start JSS2.`,
+    helps: `One organised record: Keep important information about students, staff and parents within the school system.
 
-    helps: `The school office stops typing. Names are registered once on day one and remain perfectly spelled all the way to graduation. 
+Easier student management: Register, update and transfer students without relying entirely on separate spreadsheets.
 
-Teachers only see the student registers they are assigned to, preventing accidental edits and keeping school records clean and secure. 
+Better parent connection: Link parents and guardians to the students in their care.
 
-Parents feel valued and connected. They have a single portal to monitor all of their children's progress. Resumption notices and emergency alerts reach the primary guardian's phone instantly, eliminating the chaos of uncoordinated WhatsApp messages. 
+Simpler promotion: Move students into new classes when the academic session changes.
 
-When a former student returns three years after graduating to request a transcript, you don't need to search through cardboard boxes in the store. You type their name, open their permanent profile, and print their entire history in seconds.`,
+Supports growing schools: Student and staff records can be managed as the school grows.
+
+In simple terms: Marksheet helps the school keep its people organised — from students and teachers to parents — while making everyday student management and promotion easier.`,
   },
 
   "class-subjects": {
-    challenge: `Managing subject offerings in secondary schools is surprisingly tricky. JSS classes take general subjects, but SSS classes split into science, art, and commercial departments. If there is no clear system rule, chaos reigns. The results officer has to manually delete "Literature in English" from a Science student's report card, or a Commercial student gets an overall class position that is dragged down by a Chemistry class they never took.
+    challenge: `Not every student in a school necessarily takes exactly the same subjects. A school may have different departments or subject combinations, particularly at higher class levels.
 
-Timetables suffer from the same lack of structure. A coordinator accidentally schedules "Financial Accounting" for an Art class that doesn't offer it, and the clash is only discovered on Monday morning when two teachers walk into the same room and neither is wrong on their paper timetable.`,
+JSS classes take general subjects, but SSS classes split into science, art and commercial departments. If there is no clear system rule, chaos reigns — the results officer has to manually delete "Literature in English" from a Science student's report card, or a Commercial student gets an overall class position dragged down by a Chemistry class they never took.
 
-    solution: `Marksheet uses "Class-Subjects" to map exactly which subjects are offered by which classes. You define this map once: "SSS2 Science offers Physics, Chemistry, Biology, and Further Math," while "SSS2 Art offers Literature, Government, History, and Christian Religious Studies."
+Timetables suffer from the same lack of structure: a coordinator accidentally schedules "Financial Accounting" for an Art class that does not offer it, and the clash is only discovered on Monday morning when two teachers walk into the same room.`,
 
-Every other part of the system reads directly from this map. The exam module only allows teachers to set papers for subjects the class actually offers; the result engine knows exactly which subject scores to expect for each student; and the timetable wizard only schedules periods for subjects assigned to that specific class department.`,
+    solution: `Marksheet allows the school to define which subjects belong to each class and organise them according to the school's academic structure. This helps ensure that students are assessed in the right subjects and that academic records are connected to the correct class and department.
 
-    helps: `Report cards and broadsheets are clean and accurate on the first run. There are no stray subjects, no blank grade columns, and no incorrect class positions caused by department mismatches.
+The school determines which subjects are taught in each class. Once the subjects are assigned, Marksheet uses that structure when handling academic activities such as result processing. The system knows exactly which subjects should be considered for a particular class.`,
 
-Timetabling conflicts are resolved before the term starts. The system simply will not allow you to schedule a subject for a class that does not offer it, keeping your Monday mornings quiet and productive.
+    helps: `Clear academic structure: Know exactly which subjects belong to each class.
 
-If the school decides to offer a new subject or create a new department, the adjustment is made in a single table. It flows immediately to registers, timetables, and report cards with no manual spreadsheet adjustments required.`,
+Supports different departments: Schools can organise subjects according to their academic areas.
+
+More accurate results: Student results can be calculated using the subjects assigned to their class.
+
+Less confusion: Teachers and administrators have a consistent subject structure to work with.
+
+In simple terms: Class-Subjects & Subject Assignment tells Marksheet what each class is supposed to study, so the rest of the academic system can work with the correct subjects.`,
   },
 
-  "bursary-fee-management": {
-    challenge: `The bursary is often the noisiest office in the school, especially in the week before exams. You have parents crowding the window with bank transfer receipts, bursars searching through paper ledgers to see who has paid, and the principal asking for a list of debtors so they can write exam entrance slips. 
+  "timetable": {
+    challenge: `Marksheet helps schools organise their teaching timetable so that classes, subjects, teachers and rooms can be properly scheduled.
 
-The list that was compiled at 9:00 AM is already wrong by 10:00 AM because three parents made transfers and the receipts haven't reached the desk. An owing student is stopped at the exam gate even though their father made a payment on Tuesday, leading to an embarrassing scene and an angry parent.
+The school can create timetables manually or use the timetable generator to help produce a schedule automatically. Without a proper timetable, classes, teachers and rooms can end up in the wrong place at the wrong time — and nobody finds out until Monday morning.`,
 
-When the school sends fee reminders, it usually resorts to a generic broadcast on WhatsApp or SMS: "Dear parents, please pay all outstanding fees." This is highly ineffective. Parents who have fully paid feel annoyed; parents who owe a specific part-payment don't know if the school received their last deposit; and a parent with two children has no idea how much is outstanding for each child. The broadcast is treated as noise, and the fees remain unpaid.`,
+    solution: `The school can create a timetable for each class, assign subjects to specific days and periods, assign teachers to lessons, assign rooms where necessary, set up the school week and available periods, define when teachers are available, and set rules for how the timetable should be arranged.
 
-    solution: `Marksheet connects your fee structure directly to your student records, payments, and communication, making the bursary completely silent.
+When the timetable generator is available, the school can provide information such as subjects, teacher availability, rooms and school timetable rules. Marksheet then uses this information to produce a proposed timetable while trying to respect the school's requirements. The school can review the generated timetable before using it and lock timetable slots that should not be changed.`,
 
-First, you define your fee structure once per class level. For example, JSS2 fees consist of: Tuition (₦40,000), Books (₦10,000), and PTA Levy (₦2,000). The system automatically calculates the expected amount for every JSS2 student—you never have to type a student's total fees by hand.
+    helps: `Better organisation: Keep class and teacher schedules in one place.
 
-When a parent pays, the bursar records the payment (cash, transfer with reference, or POS). The system immediately calculates the balance: expected fees minus amount paid. The student's fee status is automatically derived—cleared, partial, or unpaid—and updates across the entire portal instantly.
+Reduce timetable conflicts: The generator can consider teacher availability, rooms and other school requirements.
 
-Reminders are personalized and highly specific. The system looks at your active student list, identifies who owes, groups them by family, and prepares a customized notification. Instead of a generic broadcast, Mr. Okafor receives a private, polite message: "Dear Mr. Okafor, Chiamaka Okafor (JSS1A) has an outstanding balance of ₦30,000 for Tuition. Please settle before Friday." If he has two children, both are listed with their individual balances and a clear total. You can send these reminders manually in one click or set them to go out automatically on a specific day of the week.`,
+Save time: Instead of manually arranging every lesson, the generator can create a timetable proposal.
 
-    helps: `The bursar’s desk becomes a calm, organized workspace. Recording a payment once immediately updates the parent's dashboard, the student’s exam gate, and the reminder list with no extra paperwork.
+Easy access: Teachers and students can view the timetable relevant to them.
 
-Exam week is quiet. If you choose to turn on the fee gate, the portal automatically determines who is cleared to write the exam based on their live balance. There are no paper slips to print, no manual lists to check, and no mistakes at the gate.
-
-Fee collection improves dramatically. Parents pay faster because they receive polite, accurate, and highly specific reminders showing exactly what they owe and what they have already paid. The proprietor has a live, real-time view of expected vs collected fees for the term, allowing for confident financial planning.`,
-  },
-
-  "school-settings-announcements": {
-    challenge: `The school knows what it wants to be called, what an A means, and when parents should hear from it—until those three things live in five different places and a notice meant for parents is accidentally sent to all staff as a company-wide announcement.
-
-The principal's signature image is the wrong size on the report cards, the school logo on the letterhead is stretched out of shape, and nobody remembers whether an A is 75% or 80% this term. When the proprietress changes the fee structure, the bursar updates the Excel sheet but the exam officer never sees the change, and students are blocked from the exam gate because of a mismatch nobody noticed until Monday morning.
-
-An important message about a two-week holiday break needs to reach only the parents of the boarding students—quietly, privately. Instead, it goes out on the school's public WhatsApp status where everyone sees it, or worse, gets buried in a long group chat thread.`,
-
-    solution: `Marksheet gives the school one single home for everything that defines the school's identity and rules. In the School Settings section, you upload the logo, signature, and stamp image once. You choose the school's grading scale—for example, whether 70% is an A or a B—and that choice flows everywhere automatically to report cards, broadsheets, and the public verification page.
-
-You also set the rules for when fees block access to exams or results. Change the rule once, and every gate across the portal updates immediately without anyone having to touch a separate spreadsheet.
-
-The Announcements section is built for real communication, not loud broadcasts. You choose exactly who should see the message—parents only, teachers only, boarding students, a specific class, or anyone with an outstanding fee balance. You can even "pin" an important notice so it sits at the top until it expires. Every announcement and every change you make to the school settings is quietly recorded in an audit log, so you can always see who changed what and when.`,
-
-    helps: `The school finally speaks with one voice. Parents and staff see the correct logo, the signature is placed properly on every document, and grades are defined consistently across the entire school.
-
-Changes happen in one place and flow everywhere at once. When the fee-gate rule changes, exam blocks and result releases adjust automatically—no more Monday morning surprises at the gate.
-
-Communications become private and trustworthy. A boarding parent receives a quiet, targeted notice about the holiday schedule, not a public broadcast. And if anyone ever asks "who changed the grading scale?", the audit trail gives a clear, dated answer with a single click.`,
-  },
-
-  "data-imports-exports": {
-    challenge: `Every new school session starts with the secretary sitting at a desk, re-typing student names into the system one by one from old handwritten admission registers. Names like "Oluwaseun" become "Oluwason," "Adebayo" becomes "Adebayo," and "Chukwuma" gets split across two cells because of a stray comma in the middle of the name.
-
-By the time the list is finished, there are forty students on paper but only thirty-eight unique names in the system. The bursar spends an entire afternoon chasing down the missing two, and the teacher who received the class roster has the wrong number of names on it.
-
-At the end of the term, the principal wants to see the broadsheet and the bursar wants a financial summary. The secretary exports a messy spreadsheet where names are duplicated, some students appear twice, and the total fees don't add up. Nobody trusts the numbers, so everyone re-checks everything by hand.`,
-
-    solution: `Marksheet makes data entry safe and simple. You download a clean, pre-formatted CSV template that already has the right column names and order. You fill it in on your computer—names, admission numbers, class assignments, and parent phone numbers—then upload it.
-
-Before anything touches your real student records, Marksheet reads every single row and gives you a clear "Staging Report." If row 14 says the student's class was not found, row 22 has a duplicate admission number, or row 31 has a phone number with the wrong number of digits, you see every single problem listed in one place with the exact row number and what went wrong. You fix only the mistakes on your computer, re-upload, and the system confirms that everything is clean. Only then does it commit—meaning your live register stays perfect.
-
-For getting data back out, Marksheet lets you export your students, results, fees, and report cards into clean files you can share or print—whether you need a spreadsheet, a Word document for the board, a PDF for the bank, or a plain text list.`,
-
-    helps: `The secretary's Sunday afternoons of re-typing names disappear. Admission numbers generate themselves from the school's own format, and the staging report catches every mistake before it reaches the live records.
-
-Week 1 starts cleanly. The bursar has the correct fee totals, the class teacher has the right student list, and the principal has a report that actually adds up—no chasing missing names, no duplicates, no arguments about whose spreadsheet is the real one.
-
-At the end of the term, exporting becomes effortless. The broadsheet is a clean file you can print or send to the bank in a format they already use, and the financial summary matches the fee records perfectly.`,
-  },
-
-  timetable: {
-    challenge: `To be written — 4 Timetable deep dive (not requested yet). The dream of a perfect schedule that fits every teacher, every room, and every subject without clashes is something every principal wishes for.`,
-    solution: `To be written — will cover manual grid entry, the auto-solver using staff availability, subject requirements, rooms, and school rules, plus lockable entries. To be written in order 4.`,
-    helps: `To be written — how a school goes from chaos to a clean, conflict-free timetable in minutes. To be written in order 4.`,
+In simple terms: Marksheet helps the school organise who teaches what, where and when — either manually or with assistance from an automatic timetable generator.`,
   },
 
   attendance: {
-    challenge: `To be written — 5 Attendance deep dive (not requested yet). A register marked in five books must become one percentage by Friday, with spelling variants and unclear denominators, while QR cards without a template just lengthen the gate queue.`,
-    solution: `To be written — will cover daily or per-period AttendanceRecord keyed to Student/Class/date, hand-mark or QR scan from IDCardTemplate, and bulk-marking with correct spelling. To be written in order 5.`,
-    helps: `To be written — gate scan replaces copying, and the report card percentage matches the gate because both read the same denominator. To be written in order 5.`,
+    challenge: `Marksheet gives schools a structured way to record student and staff attendance. Attendance can be taken manually or through QR-card scanning, depending on how the school chooses to operate.
+
+Without a proper system, attendance lives in five different books, the percentage by Friday is a guess, and QR cards without a template just lengthen the gate queue.`,
+
+    solution: `The school can record whether students are present or absent, take attendance for specific periods or on a daily basis, record staff attendance, use QR cards to make attendance recording faster, enter attendance for multiple students at once, view attendance in a spreadsheet-style format, print attendance records, export attendance information, and include attendance information in term results.
+
+Teachers or authorised staff can record attendance directly in the system, using either daily attendance or per-period attendance. Schools can also configure QR ID cards for students so that authorised staff can scan a student's QR card to record attendance instead of manually finding each student on the attendance list.`,
+
+    helps: `Better attendance records: Keep attendance information organised instead of relying entirely on paper registers.
+
+Faster recording: QR scanning can speed up the process.
+
+Flexible: Schools can use daily or lesson-by-lesson attendance.
+
+Easy reporting: Attendance records can be viewed, printed and exported.
+
+Connected to academic records: Attendance can form part of the student's term result.
+
+In simple terms: Marksheet makes it easier for schools to record, review and report student and staff attendance without depending entirely on paper registers.`,
   },
 
   "period-tracker": {
-    challenge: `To be written — 6 Period Tracker deep dive (not requested yet). "We covered the syllabus" ends as a debate, not a query, because the only evidence is a note written after the fact.`,
-    solution: `To be written — will cover TaughtTopic marked by teacher then verified by class captain, with a live tracker grid scoped by subject and class. To be written in order 6.`,
-    helps: `To be written — week 6 shows four unverified topics in one class vs none in another while there is still a term to catch up. To be written in order 6.`,
+    challenge: `A timetable can tell a school that a Mathematics lesson was scheduled. The Period Tracker goes a step further by helping the school know which topic was taught during that lesson.
+
+Instead of only knowing that a lesson took place, the school can keep track of what was actually taught. This gives school administrators a clearer picture of curriculum coverage during the term.`,
+
+    solution: `As a teacher progresses through the curriculum, they can record the topics they have taught. This creates a running record of the school's teaching progress.
+
+The system also allows the class captain to verify recorded topics. If a teacher records that a particular topic has been taught, the class captain can confirm that the topic was actually covered — creating an additional layer of accountability around curriculum coverage.`,
+
+    helps: `Track curriculum coverage: Know which topics have been taught and which still need attention.
+
+Improve accountability: Recorded teaching progress can be verified by the class captain.
+
+Keep teaching organised: Teachers have a structured way to record their progress.
+
+Identify gaps: The school can more easily see when parts of the curriculum have not yet been covered.
+
+In simple terms: The Period Tracker helps the school answer a simple but important question: "What has actually been taught so far?"`,
   },
 
   "question-bank": {
-    challenge: `To be written — 7 Question Bank deep dive (not requested yet). Last year's good paper is this year's bad Word file — misaligned options, answer key on another page, no moderation note, and no provenance for which lesson note a hard question came from.`,
-    solution: `To be written — will cover Stimulus → QuestionGroup → Question with McqOptions/EssayGradingSpec, draft→pending_review→approved→archived, and CSV staging with per-row error listing. To be written in order 7.`,
-    helps: `To be written — moderation becomes a queue of approved questions, and two arms get same-outcome papers with proven grounding. To be written in order 7.`,
+    challenge: `Instead of creating every examination paper from scratch, teachers and examination officers can build a collection of questions that can be reused when preparing assessments. Without a central place, questions are scattered across different documents and every paper starts from zero.`,
+
+    solution: `The Question Bank gives the school a central place to create, organise and manage examination questions. Teachers can create and store questions, organise them into groups, create multiple-choice and essay questions, add answer options, provide marking information for essay questions, import multiple-choice questions in bulk, review questions before they are approved, and keep older questions archived rather than losing them.
+
+Questions can be organised into groups and connected to supporting material where necessary. Schools can also import many multiple-choice questions at once instead of entering them individually. A question can move from preparation to review, then approval. Questions that are no longer needed can be archived.`,
+
+    helps: `Save preparation time: Build a question library that can be used when creating future examinations.
+
+Keep questions organised: Questions are stored in a structured collection instead of being scattered across different documents.
+
+Support different assessment types: Both multiple-choice and essay questions are supported.
+
+Bulk import: Existing multiple-choice questions can be brought into the system in large numbers.
+
+Better quality control: Questions can be reviewed before they are approved for use.
+
+In simple terms: The Question Bank is the school's reusable library of examination questions, making it easier to prepare quality assessments without starting from zero every time.`,
   },
 
   messaging: {
-    challenge: `To be written — 10 Messaging deep dive (not requested yet). Broadcasts reach everyone and no one, with no thread to point at when a parent says "nobody told us."`,
-    solution: `To be written — will cover Conversation → ConversationParticipant → Message, audience picker, live count, and {{variable}} rendering per recipient. To be written in order 10.`,
-    helps: `To be written — 64 parents get 64 private threads each addressed by name, not a broadcast 300 reply-all to. To be written in order 10.`,
+    challenge: `School communication can become difficult to manage when conversations are spread across different platforms. Keeping messages within the school portal makes it easier to connect communication with the rest of the school's activities.
+
+Instead of relying on separate messaging platforms, important school conversations can take place within the same system where academic and administrative information is already managed.`,
+
+    solution: `Marksheet provides a built-in messaging system that allows members of the school community to communicate through the school portal. Users can access their messaging inbox to see their conversations, start new conversations, and continue them in one place.
+
+When starting a new conversation, the system helps users find the appropriate recipient. Conversations can involve relevant members of the school community — staff, parents or students — according to the access available to each user. Users can keep track of messages that have been read or are still unread.`,
+
+    helps: `Centralised communication: Keep school-related conversations within the school system.
+
+Easier communication: Users can find the people they need to contact and start a conversation.
+
+Organised inbox: Messages and conversations are kept together instead of being scattered across different channels.
+
+Better continuity: Users can return to previous conversations when they need to review what was discussed.
+
+In simple terms: Marksheet gives the school its own communication space, keeping important conversations closer to the academic and administrative information they relate to.`,
   },
 
   "support-tickets": {
-    challenge: `To be written — 11 Support Tickets deep dive (not requested yet). Every request as a voice note means nothing has priority and nothing has a thread.`,
-    solution: `To be written — will cover Ticket with status/priority/category, creator/assignee, and TicketMessages, scoped by school. To be written in order 11.`,
-    helps: `To be written — history stays, leadership can measure tickets per week and category instead of asking around a group. To be written in order 11.`,
+    challenge: `When a problem is reported informally, it can be difficult to remember who is handling it or whether it has been resolved. Instead of important requests getting lost in ordinary messages or verbal conversations, they can be recorded and managed as support requests.`,
+
+    solution: `The Support Ticket system gives users a structured way to report problems, ask for help and follow up on issues that need attention. A user creates a ticket and provides information about the issue. The request can be assigned to the appropriate person for handling.
+
+Support requests can have different priorities and categories, making it easier for the school or platform support team to organise the work that needs to be done. Responses remain connected to the original request, so the conversation and the issue stay together.
+
+School users can manage their support requests from the school's support area, and platform administrators can also manage support requests from their own area when an issue requires assistance from the platform team.`,
+
+    helps: `Problems are less likely to be forgotten: Each request has its own record.
+
+Clear responsibility: Requests can be assigned to someone responsible for handling them.
+
+Better organisation: Issues can be categorised and prioritised.
+
+Conversation stays with the problem: Responses remain connected to the original request.
+
+Better follow-up: The school can keep track of outstanding issues instead of relying on memory.
+
+In simple terms: Support Tickets turn "I have a problem" into a trackable request that can be assigned, handled and followed through to resolution.`,
   },
 
-  "landing-public-flows": {
-    challenge: `To be written — 13 Landing & Public Flows deep dive (not requested yet). A landing page that makes big promises and a portal that must keep them often behave like two products, with stats that cannot be verified and a checker that is not linked to the real result.`,
-    solution: `To be written — will cover root routing by host/auth, landing_stats with auto/manual modes, sales-led /register, demo requests, and public /verify for finalised codes. To be written in order 13.`,
-    helps: `To be written — prospects see a tour ending in a conversation, not a cart; parents verify a code on the spot. To be written in order 13.`,
+  "school-settings-announcements": {
+    challenge: `Every school has its own identity, academic practices and communication needs. Rather than forcing every school to operate in exactly the same way, Marksheet provides settings that allow the school to configure important parts of its experience.
+
+Before Marksheet, the principal's signature image was the wrong size on the report cards, the school logo on the letterhead was stretched out of shape, and nobody remembered whether an A was 75% or 80% this term. When the proprietress changed the fee structure, the bursar updated the Excel sheet but the exam officer never saw the change — and students were blocked from the exam gate because of a mismatch nobody noticed until Monday morning.`,
+
+    solution: `Marksheet gives each school the ability to manage important settings, customise its identity and communicate announcements to the people who need to see them. The school can control things such as its branding, grading system and certain result or examination settings from one place.
+
+For branding: The school can customise elements used in its school documents, including its logo, signature, stamp and other report-card settings, so official school documents maintain the school's own identity.
+
+For grading: Schools can manage the grading system used when student results are calculated, so the academic results follow the school's grading structure.
+
+For announcements: Schools can publish announcements through the portal to communicate important information. Announcements can be directed towards particular groups or roles, can be made prominent when necessary, and can have a publication and expiry period.
+
+For accountability: Marksheet keeps an audit trail of relevant activities within the system, providing a record that can be reviewed when necessary.`,
+
+    helps: `Make it your school's portal: Use the school's own branding and report-card presentation.
+
+Control grading: Set the grading approach used by the school.
+
+Communicate effectively: Publish announcements to the appropriate people.
+
+Reduce unnecessary messages: Target announcements according to user roles.
+
+Maintain accountability: Keep a record of important activities within the system.
+
+In simple terms: School Settings & Announcements gives the school control over how its portal looks, how important academic settings work and how information is communicated to its community.`,
+  },
+
+  landing-public-flows: {
+    challenge: `Marksheet's public-facing features provide the entry points that visitors, prospective schools and members of the public use before or outside the main school portal. These include the public landing page, school registration, demo requests and result verification.
+
+Without a proper public face, prospective schools cannot learn about Marksheet, begin registration, request a demonstration or verify a student's result — all from outside the main portal.`,
+
+    solution: `Visitors can learn about Marksheet from the public landing page, see important platform statistics displayed on the homepage, begin the process of registering a school, submit a demonstration request, and verify a student's final result using a verification code — all without needing to enter the main school portal.
+
+Schools interested in using Marksheet can begin their registration through the public registration process, which provides the information needed to start onboarding and supports the available payment and referral options. The landing page can display important numbers about the platform — the number of schools, students and verifications — which can be managed by the platform and can either come from live platform information or be manually provided.`,
+
+    helps: `Easy introduction: Prospective schools can learn about the platform before signing in.
+
+Simpler onboarding: Schools have a clear starting point for registration.
+
+Lead generation: Interested schools can request a demonstration.
+
+Result verification: Finalised results can be checked publicly using their verification code.
+
+Professional presentation: The public-facing pages provide a dedicated space for the platform and its services.
+
+In simple terms: The Landing Page & Public Flows handle everything that happens around the school portal — from discovering and registering for Marksheet to requesting a demo and verifying official results.`,
   },
 
   "fee-status": {
-    challenge: `To be written — 14 Fee Status deep dive (not requested yet). Cleared vs not_cleared as a ticked box, not a number, makes every exam entry and result release a negotiation.`,
-    solution: `To be written — will cover FeeItem per level, StudentPayment, derived status, and gate.ts enforcement. To be written in order 14.`,
-    helps: `To be written — recording a payment once updates every gate and badge. To be written in order 14.`,
+    challenge: `Marksheet helps schools see whether a student's fees have been paid in full, partially paid or are still outstanding. The fee position is based on the school's fee structure and the payments that have actually been recorded.
+
+Before Marksheet, cleared vs not_cleared was a ticked box, not a number — and every exam entry and result release became a negotiation at the gate.`,
+
+    solution: `The school defines the fees expected for each class level and term. When the bursar or authorised staff record a student's payments, Marksheet compares the amount expected with the amount that has been paid and determines the student's current position.
+
+A student's fee position can show Cleared (the expected fees have been paid), Partial (some payment has been made but there is still a balance), Not Paid (the expected fees have not been paid), or No Structure (a fee structure has not been set up for the student's level). The system can also calculate the remaining balance and identify when payments exceed the expected amount.
+
+Schools can choose whether outstanding fees should affect access to examinations or results. Where the school's fee settings require it, a student with an outstanding fee position may have access to certain academic information restricted until the relevant requirement has been met.`,
+
+    helps: `Always based on payment records: The fee position reflects recorded payments rather than relying on manually updated labels.
+
+Clearer financial picture: Staff can quickly see which students have cleared their fees and which still have balances.
+
+Less manual work: The system calculates the student's status from the school's records.
+
+Better parent communication: Parents can see their child's available fee information.
+
+Supports school policies: Schools can use their fee settings to control access to examinations or results.
+
+In simple terms: Fee Status gives the school and parents a clear picture of where a student's school fees stand, based on what is actually expected and what has been paid.`,
+  },
+
+  "data-imports-exports": {
+    challenge: `Schools often already have years of information stored in spreadsheets and documents. Having import tools makes it easier to move relevant information into the platform instead of requiring everything to be entered manually. Export tools also make sure the school's information is not trapped inside the system.
+
+Every new school session used to start with the secretary re-typing student names one by one from old handwritten registers — "Oluwaseun" becoming "Oluwason," names split across cells because of a stray comma.`,
+
+    solution: `The system supports importing information such as student records, examination questions and multiple-choice questions in bulk. Schools can use provided templates to organise information before importing it.
+
+Important school information can be exported in formats suitable for different purposes, including CSV, Word documents, PDF and Excel. Depending on the feature, exported information can include report cards, class broadsheets, attendance records and other supported school records.
+
+A school with an existing student spreadsheet can use the supported student-import process to bring those records into the system. Similarly, examination questions can be imported in bulk. When information needs to be taken out of Marksheet, the school can export supported records into a format convenient for printing, sharing, storing or further use.`,
+
+    helps: `Save time: Import many records instead of entering them one by one.
+
+Easier transition: Existing student and question information can be brought into the platform.
+
+Flexible reporting: Export supported information in formats commonly used by schools.
+
+Easy printing and sharing: Create PDF, Word or spreadsheet versions of supported records.
+
+Better record keeping: Keep copies of important school information outside the portal when needed.
+
+In simple terms: Data Imports & Exports make it easier to bring existing school information into Marksheet and take important records out whenever the school needs to print, share or keep them elsewhere.`,
   },
 
   homework: {
-    challenge: `To be written — 16 Homework deep dive (not requested yet). Photocopied homework, taken by some, marked when time allows, scored in a notebook parents never see, and re-set from memory with a new mistake in option C.`,
-    solution: `To be written — will cover Homework draft→published, HomeworkQuestions from bank or ad-hoc, student attempt with instant MCQ grading and teacher essay marking, and parent ward visibility. To be written in order 16.`,
-    helps: `To be written — teachers reuse bank questions; students take the same paper without being in school; parents see status and score per ward. To be written in order 16.`,
+    challenge: `Homework is an important part of learning, but it can become difficult to track when assignments are given through different channels. Marksheet keeps the assignment, submission and result connected to the student's school record.
+
+Photocopied homework, taken by some, marked when time allows, scored in a notebook parents never see, and re-set from memory with a new mistake in option C — that was the old way.`,
+
+    solution: `Teachers can create homework for a class, set it for a particular subject and term, add multiple-choice and essay questions, use questions from the school's question bank or create questions specifically for the homework, set a due date, publish homework when it is ready, review students' submissions, automatically mark multiple-choice questions, mark essay questions manually, and publish completed scores for students and parents to see.
+
+The teacher first prepares the homework and decides which class, subject and term it belongs to. The homework can remain private while it is being prepared. When the teacher is ready, it is published and becomes available to the students it was assigned to. Students can then open the assignment, answer the questions and submit their work.`,
+
+    helps: `Keep homework organised: Assignments are connected to the right class, subject and term.
+
+Save marking time: Multiple-choice questions can be marked automatically.
+
+Support different types of work: Teachers can combine objective questions with essays.
+
+Better visibility for parents: Parents can see their child's homework status and published scores.
+
+One connected process: Create, publish, submit, mark and share homework from the same system.
+
+In simple terms: Marksheet turns homework from something that can easily get lost in notebooks, messages or loose papers into a structured part of the school's academic system.`,
+  },
+
+  "bursary-fee-management": {
+    challenge: `The Bursary & Fee Management module gives the school a central place to define what students are expected to pay, record payments and keep track of outstanding balances. It also helps the school send regular fee reminders and, where the school chooses, control access to examinations or results based on fee requirements.
+
+Before Marksheet, the bursary was the noisiest office in the school — parents crowding the window with bank transfer receipts, the list compiled at 9 am already wrong by 10 am because three parents made transfers and the receipts hadn't reached the desk.`,
+
+    solution: `The school first defines the fees expected for each term and class level, including the different charges that make up the total amount a student is expected to pay. When a payment is received, the bursar or authorised staff member records it in Marksheet. The system then compares the expected amount with the amount paid and determines the student's current position — Cleared, Partial or Not Paid — and can also calculate the remaining balance and recognise when payments exceed the expected amount.
+
+Schools can configure regular reminders for outstanding fees, choosing the day on which reminders should run and enabling or disabling the reminder system according to their needs. The school can also decide whether outstanding fees should affect access to examinations or results, and Marksheet can apply the school's fee policy when determining whether a student should be allowed access to those academic services.`,
+
+    helps: `Centralised fee management: Keep fee structures and payment records in one place.
+
+Clear financial picture: Quickly understand how much has been paid and what remains outstanding.
+
+Less manual calculation: The student's fee position is determined from the expected fees and recorded payments.
+
+Automated reminders: Regular fee reminders can help the school follow up on outstanding payments.
+
+Better parent visibility: Parents can see the available fee information for their children.
+
+Supports school policy: Schools can decide whether fee requirements should affect access to examinations or results.
+
+In simple terms: Bursary & Fee Management helps the school know what each student should pay, what has actually been paid, what is still owed and how to follow up — all from one place.`,
   },
 
   "mobile-app-push-notifications": {
-    challenge: `To be written — 18 Mobile & Push deep dive (not requested yet). SMS/WhatsApp per-message cost, muted groups and failed queues, plus a portal that cannot link the notification to the parent's existing conversation.`,
-    solution: `To be written — will cover the mobile portal, push notifications, and direct linking to conversations. To be written in order 18.`,
-    helps: `To be written — lock screen says the result is out and the tap opens the portal with the verification code. To be written in order 18.`,
+    challenge: `Parents, students and school staff can use the Marksheet mobile app to receive important school notifications directly on their phones. Instead of depending mainly on SMS or WhatsApp messages, the school can send notifications through the app at no per-message cost.
+
+When something important happens in the school portal, the relevant person can receive an instant notification on their phone. Tapping it takes the user into the relevant part of the school portal.`,
+
+    solution: `When something important happens in the school portal, the relevant person can receive an instant notification on their phone. For example: a student's result has been released, a new school announcement has been posted, homework or an academic update is available, the school has sent an important message, or other important updates are available in the portal.
+
+The notification appears directly on the phone's notification area. Tapping it takes the user into the relevant part of the school portal — so parents, students and staff are all connected without the school having to pay for every notification.`,
+
+    helps: `Faster communication: Important updates can reach users immediately.
+
+Lower communication costs: App notifications do not carry the same per-message cost as SMS.
+
+Better engagement: Parents and students can be reminded about important activities instead of having to constantly check the portal.
+
+One place for communication: The notification leads users back to the school's portal, where they can see the full information.
+
+Works for different users: Parents, students and staff can each receive notifications relevant to them.
+
+In simple terms: Marksheet turns the school portal into a more direct communication channel between the school and its users — helping important information reach the right person quickly, without the school having to pay for every notification.`,
   },
 };
 
