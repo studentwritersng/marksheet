@@ -31,6 +31,7 @@ interface GroupVM {
   id: string;
   name: string;
   feeGroupStage: string | null;
+  useSingleLicense: boolean;
   createdAt: string;
   memberships: GroupMembershipVM[];
   proprietors: ProprietorVM[];
@@ -77,6 +78,15 @@ function CreateGroupForm({ addons }: { addons: AddonOption[] }) {
           When set, all member schools will use this tier's pricing for licenses and addons.
         </p>
       </div>
+      <div className="flex items-start gap-2 rounded-lg bg-white/5 border border-white/10 p-3">
+        <input type="checkbox" name="useSingleLicense" value="1" id="create-useSingleLicense" className="mt-0.5 accent-emerald-500" />
+        <label htmlFor="create-useSingleLicense" className="cursor-pointer">
+          <span className="text-xs text-white font-medium">Use single license</span>
+          <p className="text-[10px] text-white/40 mt-0.5">
+            All member schools share one license and one addon subscription. Per-school count multiplication and progressive discounts are skipped — the group is billed as a single entity.
+          </p>
+        </label>
+      </div>
       <button type="submit" disabled={pending} className="bg-emerald-700 hover:bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60">
         {pending ? "..." : "Create Group"}
       </button>
@@ -116,6 +126,12 @@ function GroupPanel({ g, availableSchools, addons }: { g: GroupVM; availableScho
             <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-900/30 text-indigo-300 text-[10px] uppercase tracking-wider font-semibold">
               <span className="material-symbols-outlined text-[12px]">payments</span>
               Pricing tier: {STAGE_LABELS[g.feeGroupStage]}
+            </div>
+          )}
+          {g.useSingleLicense && (
+            <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-900/30 text-emerald-300 text-[10px] uppercase tracking-wider font-semibold">
+              <span className="material-symbols-outlined text-[12px]">link</span>
+              Single license
             </div>
           )}
         </div>
@@ -306,6 +322,22 @@ function EditGroupForm({ g }: { g: GroupVM }) {
           <option value="standard">Standard</option>
           <option value="premium">Premium</option>
         </select>
+      </div>
+      <div className="flex items-start gap-2 rounded bg-white/5 border border-white/10 p-2">
+        <input
+          type="checkbox"
+          name="useSingleLicense"
+          value="1"
+          id={`edit-useSingleLicense-${g.id}`}
+          defaultChecked={g.useSingleLicense}
+          className="mt-0.5 accent-emerald-500"
+        />
+        <label htmlFor={`edit-useSingleLicense-${g.id}`} className="cursor-pointer">
+          <span className="text-[10px] text-white font-medium">Use single license</span>
+          <p className="text-[9px] text-white/40 mt-0.5">
+            All member schools share one license and addon subscription. Per-school count multiplication is skipped.
+          </p>
+        </label>
       </div>
       <button type="submit" disabled={pending} className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded disabled:opacity-60">
         {pending ? "..." : "Save"}

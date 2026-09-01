@@ -11,6 +11,7 @@ export interface GroupBillingData {
   groupId: string;
   groupName: string;
   feeGroupStage: string | null;
+  useSingleLicense: boolean;
   stage: string;
   schoolCount: number;
   methods: { id: string; type: string; label: string }[];
@@ -45,7 +46,7 @@ export async function getGroupBillingData(): Promise<GroupBillingData> {
   const [group, memberships, addons, subs] = await Promise.all([
     prisma.schoolGroup.findUniqueOrThrow({
       where: { id: groupId },
-      select: { id: true, name: true, feeGroupStage: true },
+      select: { id: true, name: true, feeGroupStage: true, useSingleLicense: true },
     }),
     prisma.groupMembership.findMany({
       where: { groupId },
@@ -76,6 +77,7 @@ export async function getGroupBillingData(): Promise<GroupBillingData> {
     groupId: group.id,
     groupName: group.name,
     feeGroupStage: group.feeGroupStage,
+    useSingleLicense: group.useSingleLicense,
     stage,
     schoolCount,
     methods: (await prisma.paymentMethod.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } })).map((m) => ({ id: m.id, type: m.type, label: m.label })),
@@ -87,10 +89,11 @@ export async function getGroupBillingData(): Promise<GroupBillingData> {
             : a.premiumPrice;
       const basePrice = stagePrice !== null ? Number(stagePrice) : (a.price !== null ? Number(a.price) : null);
 
-      // Progressive pricing always applies at group level
+      // When useSingleLicense is true the group is treated as a single entity —
+      // no per-school multiplication, no progressive discount.
       let displayPrice = basePrice;
       let priceBreakdown: { basePrice: number; schoolCount: number; discount: number; subtotal: number; total: number } | null = null;
-      if (basePrice !== null && schoolCount > 0) {
+      if (basePrice !== null && !group.useSingleLicense && schoolCount > 0) {
         priceBreakdown = calculateGroupPrice(basePrice, schoolCount);
         displayPrice = priceBreakdown.total;
       }
@@ -162,14 +165,15 @@ export async function purchaseGroupAddonAction(
           : stage === "standard" ? addon.standardPrice
             : addon.premiumPrice;
       const basePrice = stagePrice != null ? Number(stagePrice) : (addon.price != null ? Number(addon.price) : null);
+      const group = await prisma.schoolGroup.findUnique({ where: { id: groupId }, select: { useSingleLicense: true } });
       let amount = basePrice;
-      if (basePrice != null && schoolCount > 0) {
+      if (basePrice != null && schoolCount > 0 && !group?.useSingleLicense) {
         amount = calculateGroupPrice(basePrice, schoolCount).total;
       }
       if (!amount || amount <= 0) return { error: "This addon has no price set." };
       const email = user.email || "";
       if (!email) return { error: "No contact email on file to start payment." };
-      try {
+    try {
         const charge = await createPaystackCharge({
           email,
           amount,

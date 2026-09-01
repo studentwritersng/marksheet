@@ -2018,6 +2018,9 @@ model SchoolGroup {
   // The fee group (basic/standard/premium) all member schools will use for license pricing.
   // When set, it overrides each member school's individual stage for license computation.
   feeGroupStage LicenseStageName?
+  // When true, all member schools share a single license and addon subscription —
+  // the progressive per-school count multiplication is skipped entirely.
+  useSingleLicense Boolean @default(false)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   createdBy     String? // Platform Owner user id

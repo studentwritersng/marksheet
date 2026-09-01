@@ -23,11 +23,13 @@ export async function createGroupAction(_prev: GroupsActionResult, formData: For
   const feeGroupStageRaw = formData.get("feeGroupStage") as string;
   if (!name) return { error: "Group name is required." };
   const feeGroupStage = (feeGroupStageRaw === "basic" || feeGroupStageRaw === "standard" || feeGroupStageRaw === "premium") ? feeGroupStageRaw : null;
+  const useSingleLicense = formData.get("useSingleLicense") === "1";
   try {
     await prisma.schoolGroup.create({
       data: {
         name,
         feeGroupStage,
+        useSingleLicense,
       },
     });
   } catch (e: any) {
@@ -47,10 +49,11 @@ export async function updateGroupAction(_prev: GroupsActionResult, formData: For
   const feeGroupStageRaw = formData.get("feeGroupStage") as string;
   if (!groupId || !name) return { error: "Name is required." };
   const feeGroupStage = (feeGroupStageRaw === "basic" || feeGroupStageRaw === "standard" || feeGroupStageRaw === "premium") ? feeGroupStageRaw : null;
+  const useSingleLicense = formData.get("useSingleLicense") === "1";
   try {
     await prisma.schoolGroup.update({
       where: { id: groupId },
-      data: { name, feeGroupStage },
+      data: { name, feeGroupStage, useSingleLicense },
     });
   } catch (e: any) {
     if (e?.code === "P2002") return { error: "A group with this name already exists." };

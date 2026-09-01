@@ -40,6 +40,7 @@ export default async function ConsoleGroupsPage() {
         id: g.id,
         name: g.name,
         feeGroupStage: g.feeGroupStage,
+        useSingleLicense: g.useSingleLicense,
         createdAt: g.createdAt.toISOString(),
         memberships: g.memberships.map((m) => ({
           id: m.id,

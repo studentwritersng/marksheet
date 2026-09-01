@@ -704,14 +704,14 @@ export function MarketingLandingPage({
               {[
                 {
                   plan: "Monthly",
-                  price: "₦25,000",
+                  price: "₦35,000",
                   unit: "per school, per month",
                   note: "Rolling. Good for a school trying a first term.",
                   dark: false,
                 },
                 {
                   plan: "Termly",
-                  price: "₦70,000",
+                  price: "₦100,000",
                   unit: "per school, per term",
                   note: "Best value. Covers a full term including result publication.",
                   dark: true,

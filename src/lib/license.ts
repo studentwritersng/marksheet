@@ -12,6 +12,11 @@ export interface LicenseCheckResult {
  * Enforces: active → full access; grace_period → full access with warnings;
  * expired/suspended/no-license → mutation blocked.
  *
+ * When the school belongs to a group with useSingleLicense = true, a single
+ * active GroupAddonSubscription for the "Main License" addon covers all member
+ * schools. The per-school SchoolLicense check is still attempted first; the
+ * group fallback only applies when no individual license is found.
+ *
  * This function queries the database every time — it must:
  * "All license enforcement must be checked server-side against the database on
  * every relevant request — never rely on a client-stored value."
@@ -28,8 +33,35 @@ export async function requireActiveLicense(
     select: { status: true, endDate: true },
   });
 
-  // No license at all → block
+  // No individual license — check if this school is covered by a group single license
   if (!license) {
+    const membership = await prisma.groupMembership.findUnique({
+      where: { schoolId },
+      include: { group: { select: { useSingleLicense: true } } },
+    });
+    if (membership?.group.useSingleLicense) {
+      // Any active GroupAddonSubscription on this group counts as the shared license
+      const groupLicense = await prisma.groupAddonSubscription.findFirst({
+        where: {
+          groupId: membership.groupId,
+          status: "active",
+          addon: { isActive: true },
+        },
+        select: { endDate: true },
+      });
+      if (groupLicense) {
+        const daysRemaining = groupLicense.endDate
+          ? Math.ceil((groupLicense.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        return {
+          valid: true,
+          status: "active",
+          daysRemaining,
+          message: "",
+        };
+      }
+    }
+
     return {
       valid: false,
       status: null,
