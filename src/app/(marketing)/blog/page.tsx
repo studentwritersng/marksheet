@@ -78,33 +78,44 @@ export default async function BlogList({
           ) : (
             <ul className="grid gap-6 sm:grid-cols-2">
               {posts.map((p) => (
-                <li key={p.id} className="flex flex-col rounded-2xl border border-mk-border bg-mk-card p-5">
-                  <Link
-                    href={`/blog/${p.slug}`}
-                    className="font-mk-display text-lg font-semibold leading-snug hover:text-mk-primary sm:text-xl"
-                  >
-                    {p.title}
-                  </Link>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {p.category && (
-                      <span className="rounded-full bg-mk-secondary px-2.5 py-0.5 text-xs font-medium text-mk-secondary-fg">
-                        {p.category.name}
-                      </span>
-                    )}
-                    {p.publishedAt && (
-                      <span className="text-xs text-mk-muted-fg">
-                        {new Date(p.publishedAt).toLocaleDateString("en-NG", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                        {p.author ? ` · ${p.author}` : ""}
-                      </span>
+                <li key={p.id} className="flex flex-col overflow-hidden rounded-2xl border border-mk-border bg-mk-card">
+                  {p.featuredImageUrl && (
+                    <Link href={`/blog/${p.slug}`} className="block aspect-video w-full overflow-hidden">
+                      <img
+                        src={p.featuredImageUrl}
+                        alt={p.featuredImageAltText ?? p.title}
+                        className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                      />
+                    </Link>
+                  )}
+                  <div className="flex flex-col p-5">
+                    <Link
+                      href={`/blog/${p.slug}`}
+                      className="font-mk-display text-lg font-semibold leading-snug hover:text-mk-primary sm:text-xl"
+                    >
+                      {p.title}
+                    </Link>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {p.category && (
+                        <span className="rounded-full bg-mk-secondary px-2.5 py-0.5 text-xs font-medium text-mk-secondary-fg">
+                          {p.category.name}
+                        </span>
+                      )}
+                      {p.publishedAt && (
+                        <span className="text-xs text-mk-muted-fg">
+                          {new Date(p.publishedAt).toLocaleDateString("en-NG", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                          {p.author ? ` · ${p.author}` : ""}
+                        </span>
+                      )}
+                    </div>
+                    {p.excerpt && (
+                      <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-mk-muted-fg">{p.excerpt}</p>
                     )}
                   </div>
-                  {p.excerpt && (
-                    <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-mk-muted-fg">{p.excerpt}</p>
-                  )}
                 </li>
               ))}
             </ul>

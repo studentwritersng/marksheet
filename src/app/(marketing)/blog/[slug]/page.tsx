@@ -125,11 +125,13 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </header>
 
           {post.featuredImageUrl && (
-            <img
-              src={post.featuredImageUrl}
-              alt={post.featuredImageAltText ?? post.title}
-              className="my-8 w-full rounded-lg object-cover"
-            />
+            <div className="my-8 w-full overflow-hidden rounded-lg">
+              <img
+                src={post.featuredImageUrl}
+                alt={post.featuredImageAltText ?? post.title}
+                className="block h-auto max-w-full rounded-lg object-cover"
+              />
+            </div>
           )}
 
           <div className="prose-mk mt-8 text-base leading-relaxed text-mk-fg">
