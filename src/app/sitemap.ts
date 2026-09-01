@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/site";
+import { FEATURE_SLUGS } from "@/lib/features";
 
 // Render per-request so the sitemap always lists the current published posts
 // (a cached response omitted newer posts).
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 const STATIC_ROUTES: MetadataRoute.Sitemap = [
   { url: `${SITE_URL}/`, lastModified: new Date() },
+  { url: `${SITE_URL}/features`, lastModified: new Date() },
   { url: `${SITE_URL}/blog`, lastModified: new Date() },
   { url: `${SITE_URL}/legal/acceptable-use`, lastModified: new Date() },
   { url: `${SITE_URL}/legal/cookies`, lastModified: new Date() },
@@ -30,7 +32,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: p.updatedAt ?? p.publishedAt ?? new Date(),
     }));
 
-    return [...STATIC_ROUTES, ...blogRoutes];
+    const featureRoutes: MetadataRoute.Sitemap = FEATURE_SLUGS.map((slug) => ({
+      url: `${base}/features/${slug}`,
+      lastModified: new Date(),
+    }));
+
+    return [...STATIC_ROUTES, ...blogRoutes, ...featureRoutes];
   } catch {
     // If the blog query fails, still return the static routes so Google
     // receives valid XML instead of the HTML error page.

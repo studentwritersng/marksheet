@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { FEATURES } from "@/lib/features";
+import { SITE_URL } from "@/lib/site";
 
 export const metadata = {
   title: "All Features — Marksheet",
   description:
     "18 modules that run the Nigerian secondary school term end to end — from syllabus and lesson notes through exams, results, fees, messaging and push. Browse every feature and read the deep dive.",
+  alternates: {
+    canonical: `${SITE_URL}/features`,
+  },
 };
 
 export default function FeaturesIndex() {

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowUpRight, ChevronLeft } from "lucide-react";
 import { FEATURES, getFeature } from "@/lib/features";
 import { getFeatureDeepDive } from "@/lib/features-content";
+import { SITE_URL } from "@/lib/site";
 
 export function generateStaticParams() {
   return FEATURES.map((f) => ({ slug: f.slug }));
@@ -16,6 +17,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${f.shortTitle} — Marksheet Feature`,
     description: f.excerpt,
+    alternates: {
+      canonical: `${SITE_URL}/features/${f.slug}`,
+    },
     openGraph: {
       title: f.title,
       description: f.excerpt,
