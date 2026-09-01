@@ -69,8 +69,7 @@ export default async function FeatureDetailPage({ params }: { params: Promise<{ 
       </Link>
 
       {/* Hero */}
-      <div className="mt-6 overflow-hidden rounded-3xl border border-mk-border bg-mk-card shadow-mk-soft">
-        <img src={feature.image} alt={feature.imageAlt} className="h-64 w-full object-cover sm:h-72" />
+      <div className="mt-6 rounded-3xl border border-mk-border bg-mk-card shadow-mk-soft">
         <div className="p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-mk-secondary px-2.5 py-0.5 text-xs font-medium text-mk-secondary-fg">{feature.category}</span>

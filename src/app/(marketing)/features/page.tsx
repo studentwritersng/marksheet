@@ -39,7 +39,7 @@ export default function FeaturesIndex() {
         </p>
       </div>
 
-      {/* Grid — “just like the blog page”: excerpt + image + Read about this feature */}
+      {/* Grid — one card per feature: category, title, excerpt, Read about this feature */}
       <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((f) => (
           <Link
@@ -47,18 +47,17 @@ export default function FeaturesIndex() {
             href={`/features/${f.slug}`}
             className="group flex flex-col overflow-hidden rounded-3xl border border-mk-border bg-mk-card shadow-mk-soft transition-colors hover:border-mk-primary/40"
           >
-            <img src={f.image} alt={f.imageAlt} loading="lazy" className="h-44 w-full object-cover" />
-            <div className="flex min-w-0 flex-1 flex-col p-6">
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-mk-secondary px-2.5 py-0.5 text-xs font-medium text-mk-secondary-fg">
-                  {f.category}
-                </span>
-                <span className="text-xs text-mk-muted-fg">{f.module}</span>
-              </div>
-              <h2 className="mt-3 font-mk-display text-xl font-bold leading-snug transition-colors group-hover:text-mk-primary">
-                {f.shortTitle}
-              </h2>
-              <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-mk-muted-fg">{f.excerpt}</p>
+             <div className="flex min-w-0 flex-1 flex-col p-6">
+               <div className="flex items-center gap-2">
+                 <span className="rounded-full bg-mk-secondary px-2.5 py-0.5 text-xs font-medium text-mk-secondary-fg">
+                   {f.category}
+                 </span>
+                 <span className="text-xs text-mk-muted-fg">{f.module}</span>
+               </div>
+               <h2 className="mt-3 font-mk-display text-xl font-bold leading-snug transition-colors group-hover:text-mk-primary">
+                 {f.shortTitle}
+               </h2>
+               <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-mk-muted-fg">{f.excerpt}</p>
               <span className="mt-auto inline-flex items-center gap-1.5 pt-4 text-sm font-semibold text-mk-primary">
                 Read about this feature
                 <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
