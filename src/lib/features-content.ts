@@ -313,7 +313,7 @@ Maintain accountability: Keep a record of important activities within the system
 In simple terms: School Settings & Announcements gives the school control over how its portal looks, how important academic settings work and how information is communicated to its community.`,
   },
 
-  landing-public-flows: {
+  "landing-public-flows": {
     challenge: `Marksheet's public-facing features provide the entry points that visitors, prospective schools and members of the public use before or outside the main school portal. These include the public landing page, school registration, demo requests and result verification.
 
 Without a proper public face, prospective schools cannot learn about Marksheet, begin registration, request a demonstration or verify a student's result — all from outside the main portal.`,
