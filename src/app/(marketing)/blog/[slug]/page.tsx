@@ -97,7 +97,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <BlogReadTracker slug={slug} />
 
       <div className="mt-6 grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <article>
+        <article className="min-w-0">
           <header className="border-b border-mk-border pb-8">
             <h1 className="font-mk-display text-3xl font-bold leading-tight sm:text-4xl">
               {post.title}
@@ -129,7 +129,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               <img
                 src={post.featuredImageUrl}
                 alt={post.featuredImageAltText ?? post.title}
-                className="block h-auto max-w-full rounded-lg object-cover"
+                className="block h-auto w-full rounded-lg object-cover"
               />
             </div>
           )}
