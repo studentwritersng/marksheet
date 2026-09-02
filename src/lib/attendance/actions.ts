@@ -386,6 +386,8 @@ export interface StudentQrCard {
   className: string;
   passportPhoto: string | null;
   qrDataUrl: string;
+  schoolName: string;
+  schoolLogo: string | null;
 }
 
 export async function getStudentQrCards(
@@ -396,28 +398,36 @@ export async function getStudentQrCards(
   if (!user) throw new Error("Not authenticated.");
   await assertSchoolScope(schoolId);
 
-  const where: Prisma.StudentWhereInput = { schoolId, status: "active" };
-  if (opts.studentId) {
-    where.id = opts.studentId;
-  } else if (opts.classId) {
-    where.currentClassId = opts.classId;
-  }
-
-  const students = await prisma.student.findMany({
-    where,
-    orderBy: [{ currentClass: { level: "asc" } }, { lastName: "asc" }, { firstName: "asc" }],
-    include: {
-      currentClass: { select: { name: true } },
-    },
-  });
+  // Fetch school branding alongside students.
+  const [school, students] = await Promise.all([
+    prisma.school.findUnique({
+      where: { id: schoolId },
+      select: { name: true, logo: true },
+    }),
+    (async () => {
+      const where: Prisma.StudentWhereInput = { schoolId, status: "active" };
+      if (opts.studentId) {
+        where.id = opts.studentId;
+      } else if (opts.classId) {
+        where.currentClassId = opts.classId;
+      }
+      return prisma.student.findMany({
+        where,
+        orderBy: [{ currentClass: { level: "asc" } }, { lastName: "asc" }, { firstName: "asc" }],
+        include: { currentClass: { select: { name: true } } },
+      });
+    })(),
+  ]);
 
   const cards: StudentQrCard[] = await Promise.all(
     students.map(async (s) => {
-      // SVG (vector) — stays sharp at any print/zoom size, unlike a raster PNG.
+      // Error-correction level "H" (≈30% data recovery) + larger quiet zone
+      // ensures the QR is readable even when printed small or slightly damaged.
       const svg = await QRCode.toString(s.admissionNumber, {
         type: "svg",
         margin: 2,
-        errorCorrectionLevel: "M",
+        errorCorrectionLevel: "H",
+        width: 512, // logical pixel hint — SVG scales perfectly regardless
       });
       const qrDataUrl = `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
       return {
@@ -427,6 +437,8 @@ export async function getStudentQrCards(
         className: s.currentClass?.name ?? "—",
         passportPhoto: s.passportPhoto,
         qrDataUrl,
+        schoolName: school?.name ?? "",
+        schoolLogo: school?.logo ?? null,
       };
     }),
   );
