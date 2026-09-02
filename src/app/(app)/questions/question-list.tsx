@@ -8,6 +8,7 @@ import {
   type ActionState,
 } from "./actions";
 import { exportToDOC } from "@/lib/export/doc";
+import { MathRenderer } from "@/components/math-renderer";
 
 interface QuestionVM {
   id: string;
@@ -324,7 +325,7 @@ export function QuestionList({
                           >
                             <div className="flex-1 min-w-0">
                               <p className="font-body-sm text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap">
-                                {q.text.slice(0, 500)}
+                                <MathRenderer text={q.text.slice(0, 500)} />
                                 {q.text.length > 500 ? "…" : ""}
                               </p>
                               <p className="mt-1 font-label-sm text-label-sm text-on-surface-variant">
@@ -381,7 +382,7 @@ export function QuestionList({
                           {qExpanded && !editingQuestionId && (
                             <div className="border-t border-outline-variant bg-surface-container-low px-4 py-3">
                               <div id={`question-print-${q.id}`} className="space-y-3">
-                                <p className="font-body-md text-body-md text-on-surface whitespace-pre-wrap mb-1">{q.text}</p>
+                                <p className="font-body-md text-body-md text-on-surface whitespace-pre-wrap mb-1"><MathRenderer text={q.text} /></p>
                                 {q.mcqOptions.length > 0 && (
                                   <div className="space-y-1">
                                     <p className="font-label-sm text-label-sm text-on-surface mb-1">Options:</p>
@@ -403,7 +404,7 @@ export function QuestionList({
                                   <div>
                                     <p className="mb-1 font-label-sm text-label-sm text-on-surface">Model answer:</p>
                                     <p className="rounded bg-surface-container-lowest px-2 py-1 font-label-sm text-label-sm text-on-surface whitespace-pre-wrap">
-                                      {q.modelAnswer}
+                                      <MathRenderer text={q.modelAnswer} />
                                     </p>
                                   </div>
                                  )}

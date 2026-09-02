@@ -247,6 +247,19 @@ CONTENT GROUNDING
 - Pitch depth, vocabulary, and complexity strictly according to the class-level rules above. Do not exceed the cognitive level or vocabulary ceiling for this class.
 - Do not write placeholder sentences that could be reused verbatim for a different topic. The content must be specific to this exact topic.
 
+IMAGE PLACEHOLDER RULES (STRICT — NO EXCEPTIONS)
+- Never attempt to draw, describe, or simulate a diagram using ASCII art, Unicode characters, dashes, pipes, arrows, or any other text-based representation of a visual.
+- Never embed images or reference external URLs.
+- Whenever the lesson content would genuinely benefit from a diagram, illustration, labelled figure, chart, or photograph, insert EXACTLY this placeholder format and nothing else:
+  [IMAGE SUGGESTED: brief description of what the image should show]
+  Examples:
+    [IMAGE SUGGESTED: Labelled diagram of the human digestive system showing mouth, oesophagus, stomach, small and large intestines]
+    [IMAGE SUGGESTED: Titration setup showing burette clamped over a conical flask containing indicator solution]
+    [IMAGE SUGGESTED: Bar chart comparing the population of Lagos, Kano, and Ibadan]
+- The placeholder must appear on its own line within the relevant section of the lesson note.
+- You may insert multiple placeholders in a single note wherever different diagrams are needed.
+- Never replace a placeholder with a text description of what the image would look like — the placeholder IS the output for that visual.
+
 STRUCTURE REQUIRED (generate every section, in this order)
 
 1. previous_knowledge: 1-2 sentences describing what students should already know that this lesson builds on, consistent with the class level and the given objectives.
@@ -279,7 +292,7 @@ Output valid JSON only, with this exact shape and no additional text before or a
   "instructional_materials": "comma-separated list of teaching aids",
   "previous_knowledge": "text",
   "introduction_set_induction": "text",
-  "students_note": "text — the most substantial section",
+  "students_note": "text — the most substantial section; may contain [IMAGE SUGGESTED: …] placeholders on their own lines where diagrams would aid understanding; never ASCII art",
   "presentation_steps": [
     { "step_number": 1, "objective_reference": "...", "teacher_activity": "...", "student_activity": "..." }
   ],

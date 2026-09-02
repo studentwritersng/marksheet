@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { after } from "next/server";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { pruneStaleRateLimitBuckets } from "@/lib/ai/prune-buckets";
 import { CapacitorBridge } from "@/components/CapacitorBridge";
 

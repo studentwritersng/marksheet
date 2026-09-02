@@ -1,14 +1,22 @@
 /**
  * Export content as a Microsoft Word document (.doc).
  * Uses HTML with Word-compatible mso markup — Word opens this natively.
- * Pre-processes the HTML to ensure newlines become proper paragraph breaks.
+ * Pre-processes the HTML to ensure newlines become proper paragraph breaks
+ * and converts any LaTeX math expressions to native Word MathML objects.
  */
+import { convertLatexInHtml } from "./latex-to-mathml";
+
 export function exportToDOC(htmlContent: string, filename: string, title?: string) {
-  const processed = preProcessDocContent(htmlContent);
+  // 1. Convert LaTeX delimiters → MathML so Word renders proper math objects.
+  const mathConverted = convertLatexInHtml(htmlContent);
+
+  // 2. General DOM clean-up (newlines → paragraph/line breaks).
+  const processed = preProcessDocContent(mathConverted);
 
   const styledHtml = `\
 <html xmlns:o="urn:schemas-microsoft-com:office:office"
       xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
       xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8">
 <style>
@@ -24,6 +32,16 @@ export function exportToDOC(htmlContent: string, filename: string, title?: strin
   br { display: block; margin: 2pt 0; }
   ul, ol { margin: 6pt 0; padding-left: 24pt; }
   li { margin: 2pt 0; }
+  /* Image placeholder styling for Word */
+  [data-image-placeholder], span[data-image-placeholder] {
+    display: block;
+    border: 2pt dashed #d97706;
+    padding: 6pt 10pt;
+    margin: 8pt 0;
+    background: #fffbeb;
+    color: #92400e;
+    font-style: italic;
+  }
   @page { size: A4; margin: 1.5cm; }
 </style>
 </head><body>

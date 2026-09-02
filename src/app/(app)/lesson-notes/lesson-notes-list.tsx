@@ -1,10 +1,165 @@
 "use client";
 
+import React from "react";
 import { useState, useTransition } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { publishNoteAction, updateLessonNoteAction, deleteLessonNoteAction } from "./actions";
 import { ExportButtons } from "@/components/export-buttons";
+import { MathRenderer } from "@/components/math-renderer";
+
+// ─── Word-export serialiser ───────────────────────────────────────────────────
+// Converts raw note field strings into simple Word-friendly HTML.
+// This is set as data-doc-content on the card div so that exportToDOC
+// receives raw text (with LaTeX delimiters intact) rather than KaTeX-rendered
+// DOM HTML. The LaTeX → MathML conversion then runs inside exportToDOC.
+
+function buildDocHtml(n: NoteVM): string {
+  const sections: { title: string; text: string }[] = [
+    { title: "Previous Knowledge", text: n.previousKnowledge ?? "" },
+    { title: "Introduction / Set Induction", text: n.introduction ?? "" },
+    { title: "Content / Students' Note", text: n.content ?? "" },
+    { title: "Evaluation", text: n.evaluation ?? "" },
+    { title: "Summary / Conclusion", text: n.summary ?? "" },
+    { title: "Assignment / Homework", text: n.assignment ?? "" },
+  ].filter((s) => s.text.trim().length > 0);
+
+  const objs =
+    n.behaviouralObjectives && n.behaviouralObjectives.length > 0
+      ? `<h4>Behavioural Objectives</h4><ol>${n.behaviouralObjectives.map((o) => `<li>${escHtml(o)}</li>`).join("")}</ol>`
+      : "";
+
+  const body = sections
+    .map(
+      (s) =>
+        `<h4>${escHtml(s.title)}</h4>\n${markdownToWordHtml(s.text)}`,
+    )
+    .join("\n");
+
+  return `<h2>${escHtml(n.topic)}</h2>
+<p><strong>Subject:</strong> ${escHtml(n.subject)} &nbsp;|&nbsp; <strong>Class:</strong> ${escHtml(n.class)} &nbsp;|&nbsp; <strong>Term:</strong> ${escHtml(n.term)}</p>
+${objs}
+${body}`;
+}
+
+/** Minimal HTML escaping for plain text going into a Word HTML blob. */
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Very lightweight markdown→HTML for Word export.
+ * We only need to handle the constructs the AI actually produces:
+ *   - **bold**, *italic*
+ *   - Bullet/numbered lists
+ *   - Headings (#, ##, ###)
+ *   - Tables (basic)
+ *   - Blank-line paragraph breaks
+ * LaTeX delimiters ($…$ and $$…$$) are left untouched here —
+ * convertLatexInHtml() in doc.ts handles them.
+ * [IMAGE SUGGESTED: …] placeholders are converted to a styled paragraph.
+ */
+function markdownToWordHtml(md: string): string {
+  const lines = md.split("\n");
+  const out: string[] = [];
+  let inUl = false;
+  let inOl = false;
+  let inTable = false;
+
+  const flushList = () => {
+    if (inUl) { out.push("</ul>"); inUl = false; }
+    if (inOl) { out.push("</ol>"); inOl = false; }
+  };
+  const flushTable = () => {
+    if (inTable) { out.push("</tbody></table>"); inTable = false; }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trimEnd();
+
+    // Image placeholder
+    const imgMatch = line.match(/^\[IMAGE SUGGESTED:\s*(.+?)\]$/i);
+    if (imgMatch) {
+      flushList(); flushTable();
+      out.push(
+        `<p style="border:2pt dashed #d97706;padding:6pt 10pt;background:#fffbeb;color:#92400e;font-style:italic;">` +
+        `&#128444; Image needed: ${escHtml(imgMatch[1])}</p>`,
+      );
+      continue;
+    }
+
+    // Headings
+    const hMatch = line.match(/^(#{1,4})\s+(.+)/);
+    if (hMatch) {
+      flushList(); flushTable();
+      const level = Math.min(hMatch[1].length + 2, 6); // shift h1→h3, h2→h4 etc. for sub-sections
+      out.push(`<h${level}>${inlineMarkdown(hMatch[2])}</h${level}>`);
+      continue;
+    }
+
+    // Table row (starts and ends with |)
+    if (/^\|.+\|$/.test(line)) {
+      // Skip separator rows like |---|---|
+      if (/^\|[\s\-:|]+\|$/.test(line)) continue;
+      flushList();
+      if (!inTable) {
+        out.push('<table><tbody>');
+        inTable = true;
+      }
+      const cells = line.replace(/^\||\|$/g, "").split("|").map((c) => `<td>${inlineMarkdown(c.trim())}</td>`);
+      out.push(`<tr>${cells.join("")}</tr>`);
+      continue;
+    } else if (inTable) {
+      flushTable();
+    }
+
+    // Unordered list
+    const ulMatch = line.match(/^[\-\*\+]\s+(.+)/);
+    if (ulMatch) {
+      flushTable();
+      if (!inUl) { if (inOl) { out.push("</ol>"); inOl = false; } out.push("<ul>"); inUl = true; }
+      out.push(`<li>${inlineMarkdown(ulMatch[1])}</li>`);
+      continue;
+    }
+
+    // Ordered list
+    const olMatch = line.match(/^\d+\.\s+(.+)/);
+    if (olMatch) {
+      flushTable();
+      if (!inOl) { if (inUl) { out.push("</ul>"); inUl = false; } out.push("<ol>"); inOl = true; }
+      out.push(`<li>${inlineMarkdown(olMatch[1])}</li>`);
+      continue;
+    }
+
+    // Non-list / non-table line: flush any open list
+    flushList(); flushTable();
+
+    if (line.trim() === "") {
+      // blank line → paragraph break (Word interprets adjacent <p> tags)
+      out.push("<br>");
+    } else {
+      out.push(`<p>${inlineMarkdown(line)}</p>`);
+    }
+  }
+
+  flushList(); flushTable();
+  return out.join("\n");
+}
+
+/** Handle inline markdown: bold, italic, inline code, links. LaTeX left intact. */
+function inlineMarkdown(text: string): string {
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/_(.+?)_/g, "<em>$1</em>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"); // strip links, keep text
+}
+
 
 interface NoteVM {
   id: string;
@@ -235,7 +390,12 @@ function NoteCard({
       {/* Expanded content */}
       {isExpanded && (
         <div className="border-t border-outline-variant">
-          <div id={contentId} className="px-4 py-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div
+            id={contentId}
+            className="px-4 py-4 space-y-4"
+            data-doc-content={buildDocHtml(n)}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between gap-2">
               <p className="font-label-sm text-label-sm text-on-surface-variant">
                 Created: {new Date(n.createdAt).toLocaleDateString()}
@@ -268,7 +428,9 @@ function NoteCard({
                 {n.behaviouralObjectives && n.behaviouralObjectives.length > 0 && (
                   <Section title="Behavioural Objectives">
                     <ul className="list-disc pl-5 space-y-1">
-                      {n.behaviouralObjectives.map((obj, i) => <li key={i}>{obj}</li>)}
+                      {n.behaviouralObjectives.map((obj, i) => (
+                        <li key={i}><MathRenderer text={obj} /></li>
+                      ))}
                     </ul>
                   </Section>
                 )}
@@ -344,31 +506,83 @@ function Textarea({ label, value, onChange }: { label: string; value: string; on
 
 function MdSection({ text }: { text: string }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      components={mdComponents}
+    >
       {text}
     </ReactMarkdown>
   );
 }
 
 const mdComponents = {
-  p: ({ children }: any) => <p className="mb-2 leading-relaxed">{children}</p>,
-  strong: ({ children }: any) => <strong className="font-semibold text-on-surface">{children}</strong>,
+  p: ({ children }: any) => (
+    <p className="mb-2 leading-relaxed">
+      {renderChildrenWithMath(children)}
+    </p>
+  ),
+  strong: ({ children }: any) => (
+    <strong className="font-semibold text-on-surface">
+      {renderChildrenWithMath(children)}
+    </strong>
+  ),
   ul: ({ children }: any) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
   ol: ({ children }: any) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
-  li: ({ children }: any) => <li className="text-on-surface text-sm leading-relaxed">{children}</li>,
+  li: ({ children }: any) => (
+    <li className="text-on-surface text-sm leading-relaxed">
+      {renderChildrenWithMath(children)}
+    </li>
+  ),
   table: ({ children }: any) => (
-    <div className="overflow-x-auto my-3 border border-outline-variant rounded-lg"><table className="w-full border-collapse text-sm">{children}</table></div>
+    <div className="overflow-x-auto my-3 border border-outline-variant rounded-lg">
+      <table className="w-full border-collapse text-sm">{children}</table>
+    </div>
   ),
   thead: ({ children }: any) => <thead className="bg-surface-container-low">{children}</thead>,
   tbody: ({ children }: any) => <tbody className="divide-y divide-outline-variant">{children}</tbody>,
   tr: ({ children }: any) => <tr className="hover:bg-surface-container-low/50 transition-colors">{children}</tr>,
   th: ({ children }: any) => (
-    <th className="border border-outline-variant px-3 py-2 text-left font-semibold text-on-surface text-xs uppercase tracking-wide whitespace-nowrap bg-surface-container-low">{children}</th>
+    <th className="border border-outline-variant px-3 py-2 text-left font-semibold text-on-surface text-xs uppercase tracking-wide whitespace-nowrap bg-surface-container-low">
+      {renderChildrenWithMath(children)}
+    </th>
   ),
   td: ({ children }: any) => (
-    <td className="border border-outline-variant px-3 py-2 text-on-surface text-sm align-top">{children}</td>
+    <td className="border border-outline-variant px-3 py-2 text-on-surface text-sm align-top">
+      {renderChildrenWithMath(children)}
+    </td>
   ),
 } as const;
+
+/**
+ * Walk React children: if a child is a plain string that contains LaTeX or
+ * image-placeholder markers, pass it through MathRenderer; otherwise keep it
+ * as-is. This handles the case where remark-math hasn't parsed the node (e.g.
+ * inside table cells or bold runs) and falls back gracefully to raw text.
+ */
+function renderChildrenWithMath(children: React.ReactNode): React.ReactNode {
+  if (typeof children === "string") {
+    const hasMath = /\$/.test(children);
+    const hasPlaceholder = /\[IMAGE SUGGESTED:/i.test(children);
+    if (hasMath || hasPlaceholder) {
+      return <MathRenderer text={children} />;
+    }
+    return children;
+  }
+  if (Array.isArray(children)) {
+    return children.map((child, i) => {
+      if (typeof child === "string") {
+        const hasMath = /\$/.test(child);
+        const hasPlaceholder = /\[IMAGE SUGGESTED:/i.test(child);
+        if (hasMath || hasPlaceholder) {
+          return <MathRenderer key={i} text={child} />;
+        }
+      }
+      return child;
+    });
+  }
+  return children;
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

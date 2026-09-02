@@ -3,6 +3,7 @@
 import { useExamTaking } from "./use-exam-taking";
 import { parseSubQuestions } from "./exam-taking-core";
 import type { AttemptData, ExamQuestion, ExamTakingAdapters, SavedAnswer } from "./types";
+import { MathRenderer } from "@/components/math-renderer";
 
 export interface ExamTakingViewProps {
   examId: string;
@@ -170,7 +171,7 @@ export function ExamTakingView({
                 {q.stimulus.type === "passage" ? "Read the passage below:" : "Stimulus"}
               </p>
               <div className="font-body-md text-body-md text-on-surface whitespace-pre-wrap">
-                {q.stimulus.content}
+                <MathRenderer text={q.stimulus.content} />
               </div>
             </div>
           )}
@@ -183,7 +184,7 @@ export function ExamTakingView({
               <span className="font-label-sm text-label-sm text-on-surface-variant shrink-0">{q.marks} mark{q.marks > 1 ? "s" : ""}</span>
             </div>
             <p className="font-body-md text-body-md text-on-surface font-medium mt-3 mb-4 whitespace-pre-wrap">
-              {q.text}
+              <MathRenderer text={q.text} />
             </p>
 
             {q.type === "mcq" && (
