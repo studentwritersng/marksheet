@@ -170,7 +170,7 @@ export function QrCardsClient({ schoolId, classes }: Props) {
 
       {/* ── Card grid ── */}
       {cards.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 print:grid-cols-4 print:gap-4">
+        <div className="cards-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 print:gap-0">
           {cards.map((card) => (
             <IdCard key={card.studentId} card={card} />
           ))}
@@ -187,7 +187,7 @@ export function QrCardsClient({ schoolId, classes }: Props) {
 
       <style jsx global>{`
         /* ── Screen card sizing ── */
-        .id-card { width: 100%; aspect-ratio: 54 / 86; }   /* CR80 / standard ID ratio */
+        .id-card { width: 100%; aspect-ratio: 54 / 86; }
 
         /* ── Print layout ── */
         @media print {
@@ -195,18 +195,49 @@ export function QrCardsClient({ schoolId, classes }: Props) {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           nav, header, footer, aside, button, select, input, label,
           .no-print { display: none !important; }
+
+          /*
+           * A4 portrait, 10 mm margins all round.
+           * Printable area: 190 mm wide × 277 mm tall.
+           * 3 × 3 grid → each cell ≈ 60 mm wide × 88 mm tall (gap eats the rest).
+           */
           @page { size: A4 portrait; margin: 10mm; }
 
-          /* 4 cards across, auto rows */
-          .print\\:grid-cols-4 { grid-template-columns: repeat(4, 1fr) !important; }
+          /* 3-column grid, 3 rows per page */
+          .cards-grid {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 5mm !important;
+            width: 100% !important;
+          }
 
-          /* Each card is a fixed CR80 size (85.6mm × 54mm landscape → we do portrait 54×86) */
           .id-card {
-            width: 54mm;
-            height: 86mm;
+            width: 100% !important;
+            /* ~88 mm tall fits 3 rows with 5 mm gaps in 277 mm printable height */
+            height: 88mm !important;
             break-inside: avoid;
             page-break-inside: avoid;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
           }
+
+          /* Header: fixed 14 mm */
+          .id-card .card-header  { height: 14mm !important; min-height: 14mm !important; flex-shrink: 0 !important; }
+          /* Photo (optional): fixed 13 mm when visible */
+          .id-card .card-photo   { height: 13mm !important; min-height: 13mm !important; flex-shrink: 0 !important; }
+          /* Info strip: fixed 12 mm */
+          .id-card .card-info    { height: 12mm !important; min-height: 12mm !important; flex-shrink: 0 !important; }
+          /* Footer: fixed 7 mm */
+          .id-card .card-footer  { height: 7mm  !important; min-height: 7mm  !important; flex-shrink: 0 !important; }
+          /* QR: takes whatever remains — capped so it never bleeds into footer */
+          .id-card .card-qr      {
+            flex: 1 1 0 !important;
+            min-height: 0 !important;
+            max-height: 42mm !important;   /* ~48% of 88mm card */
+            overflow: hidden !important;
+          }
+          .id-card .card-qr img  { max-height: 100% !important; width: auto !important; }
         }
       `}</style>
     </div>
@@ -245,7 +276,7 @@ function IdCard({ card }: { card: StudentQrCard }) {
     >
       {/* ── School header bar ── */}
       <div
-        className="flex items-center gap-2 px-2 py-2"
+        className="card-header flex items-center gap-2 px-2 py-2"
         style={{ background: "#002046", minHeight: "15%" }}
       >
         {card.schoolLogo ? (
@@ -273,7 +304,7 @@ function IdCard({ card }: { card: StudentQrCard }) {
 
       {/* ── Optional passport photo ── */}
       {card.passportPhoto && (
-        <div className="flex justify-center pt-2 px-2">
+        <div className="card-photo flex justify-center pt-2 px-2">
           <img
             src={card.passportPhoto}
             alt={card.fullName}
@@ -284,7 +315,7 @@ function IdCard({ card }: { card: StudentQrCard }) {
 
       {/* ── Student info ── */}
       <div
-        className="px-2 pt-1.5 pb-0 text-center"
+        className="card-info px-2 pt-1.5 pb-0 text-center"
         style={{ background: "#f0f4ff" }}
       >
         <p
@@ -310,7 +341,7 @@ function IdCard({ card }: { card: StudentQrCard }) {
 
       {/* ── QR code — takes ~50% of card height ── */}
       <div
-        className="flex items-center justify-center px-2 py-1 flex-1"
+        className="card-qr flex items-center justify-center px-2 py-1 flex-1"
         style={{ background: "#f0f4ff" }}
       >
         <img
@@ -328,7 +359,7 @@ function IdCard({ card }: { card: StudentQrCard }) {
 
       {/* ── Footer label ── */}
       <div
-        className="text-center py-1"
+        className="card-footer text-center py-1"
         style={{ background: "#002046" }}
       >
         <p
